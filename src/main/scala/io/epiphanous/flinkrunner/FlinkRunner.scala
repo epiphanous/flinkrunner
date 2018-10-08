@@ -2,26 +2,13 @@ package io.epiphanous.flinkrunner
 
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.flink.{FlinkArgDef, FlinkJob, FlinkJobObject}
-
-import scala.collection.mutable
+import io.epiphanous.flinkrunner.model.FlinkEvent
 
 /**
   * Flink Job Invoker
   */
-object FlinkRunner extends LazyLogging {
-
-  /**
-    * Holds a (mutable) list of Flink Jobs the runner knows about.
-    */
-  val jobs: mutable.Map[String, (FlinkJob, FlinkJobObject)] = mutable.Map(
-    )
-
-  var systemName: String = "NO_NAME"
-
-  def addJob(name: String, job: (FlinkJob, FlinkJobObject)): Unit =
-    jobs += name -> job
-
-  def setSystemName(name: String) = systemName = name
+class FlinkRunner[E <: FlinkEvent](systemName: String, jobs: Map[String, (FlinkJob[E], FlinkJobObject)])
+    extends LazyLogging {
 
   /**
     * An intermediate method to process main args, with optional callback to
@@ -30,9 +17,12 @@ object FlinkRunner extends LazyLogging {
     * @param args     Array[String] arguments at program invocation
     * @param callback a function from an iterator to unit
     */
-  def process(args: Array[String], callback: PartialFunction[Iterator[Any], Unit] = {
-    case _ => ()
-  }): Unit = {
+  def process(
+      args: Array[String],
+      callback: PartialFunction[Iterator[E], Unit] = {
+        case _ => ()
+      }
+    ): Unit = {
     def badJobName(j: String) = j.equalsIgnoreCase("help") || j.startsWith("-")
 
     args.headOption match {
@@ -54,11 +44,13 @@ object FlinkRunner extends LazyLogging {
     * @param callback a function from an iterator to unit that receives results
     *                 from running flink job
     */
-  def process1(jobName: String,
-               args: Array[String],
-               callback: PartialFunction[Iterator[Any], Unit] = {
-                 case _ => ()
-               }): Unit = {
+  def process1(
+      jobName: String,
+      args: Array[String],
+      callback: PartialFunction[Iterator[E], Unit] = {
+        case _ => ()
+      }
+    ): Unit = {
     val wantsHelp = args.headOption match {
       case Some(str) if str.equalsIgnoreCase("help") => true
       case _                                         => false
@@ -101,7 +93,7 @@ object FlinkRunner extends LazyLogging {
           .mkString("  - ", "\n  - ", "\n")
         val usage =
           s"""
-             |Usage: flinkrunner $jobName [job parameters]
+             |Usage: $systemName $jobName [job parameters]
              |${obj.jobDescription}
              |Job Parameters:
              |
@@ -122,9 +114,9 @@ object FlinkRunner extends LazyLogging {
     val jobList = jobs.keys.toList.sorted.mkString("  - ", "\n  - ", "\n")
     val usage =
       s"""
-         |Usage: flinkrunner <jobName> [job parameters]
+         |Usage: $systemName <jobName> [job parameters]
          |
-         |  Jobs (try "flinkrunner <jobName> help" for details)
+         |  Jobs (try "$systemName <jobName> help" for details)
          |  -------------------------------------------------
          |$jobList
       """.stripMargin

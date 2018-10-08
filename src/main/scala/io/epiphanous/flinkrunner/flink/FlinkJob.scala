@@ -1,17 +1,20 @@
 package io.epiphanous.flinkrunner.flink
 
-import io.epiphanous.flinkrunner.util.StreamUtils._
 import com.typesafe.scalalogging.LazyLogging
+import io.epiphanous.flinkrunner.model.FlinkEvent
+import io.epiphanous.flinkrunner.util.StreamUtils._
+import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.datastream.DataStreamUtils
 import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
 
 import scala.collection.JavaConverters._
 
-abstract class FlinkJob(val sources: Map[String, Seq[Array[Byte]]] = Map.empty) extends LazyLogging {
+abstract class FlinkJob[OUT <: FlinkEvent: TypeInformation](val sources: Map[String, Seq[Array[Byte]]] = Map.empty)
+    extends LazyLogging {
 
-  def flow(implicit args: Args, env: SEE): DataStream[_]
+  def flow(implicit args: Args, env: SEE): DataStream[OUT]
 
-  def run(jobName: String, args: Array[String], extraArgs: Set[FlinkArgDef]): Either[Iterator[Any], Unit] = {
+  def run(jobName: String, args: Array[String], extraArgs: Set[FlinkArgDef]): Either[Iterator[OUT], Unit] = {
 
     logger.info(s"\nSTARTING FLINK JOB: $jobName ${args.mkString(" ")}\n")
 

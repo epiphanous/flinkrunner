@@ -3,6 +3,7 @@ package io.epiphanous.flinkrunner.flink
 //import com.fasterxml.jackson.databind.node.ObjectNode
 import io.epiphanous.flinkrunner.model.FlinkEvent
 import io.epiphanous.flinkrunner.util.StreamUtils._
+import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.scala.DataStream
 
 /**
@@ -15,8 +16,9 @@ import org.apache.flink.streaming.api.scala.DataStream
   * @tparam OUT A data type of transformed/output DataStream
   * @param sources for testing, data topic names mapped to sequences of byte arrays
   */
-abstract class SimpleFlinkJob[IN <: FlinkEvent, OUT <: FlinkEvent](sources: Map[String, Seq[Array[Byte]]] = Map.empty)
-    extends FlinkJob(sources) {
+abstract class SimpleFlinkJob[IN <: FlinkEvent: TypeInformation, OUT <: FlinkEvent: TypeInformation](
+    sources: Map[String, Seq[Array[Byte]]] = Map.empty)
+    extends FlinkJob[OUT](sources) {
 
   /**
     * Returns source data stream to pass into [[transform()]]. This must be overridden by subclasses.
@@ -65,9 +67,8 @@ abstract class SimpleFlinkJob[IN <: FlinkEvent, OUT <: FlinkEvent](sources: Map[
     * @param args implicit flink job args
     * @param env implicit flink execution environment
     */
-  def maybeSink(out: DataStream[OUT])(implicit args: Args, env: SEE): Unit = {
+  def maybeSink(out: DataStream[OUT])(implicit args: Args, env: SEE): Unit =
     if (!args.mockEdges) sink(out)
-  }
 
   /**
     * A pipeline for transforming a single stream. Passes the output of [[source()]]
@@ -77,8 +78,7 @@ abstract class SimpleFlinkJob[IN <: FlinkEvent, OUT <: FlinkEvent](sources: Map[
     *
     * @return data output stream
     */
-  override def flow(implicit args: Args, env: SEE): DataStream[OUT] = {
+  override def flow(implicit args: Args, env: SEE): DataStream[OUT] =
     source |> transform |# maybeSink
-  }
 
 }

@@ -9,7 +9,6 @@ import io.epiphanous.flinkrunner.flink.{Args, FlinkJobArgs, SEE}
 import io.epiphanous.flinkrunner.model.FlinkEvent
 import org.apache.flink.api.common.serialization.{DeserializationSchema, SerializationSchema}
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.api.scala._
 import org.apache.flink.contrib.streaming.state.{PredefinedOptions, RocksDBStateBackend}
 import org.apache.flink.runtime.state.filesystem.FsStateBackend
 import org.apache.flink.streaming.api.TimeCharacteristic
@@ -19,8 +18,6 @@ import org.apache.flink.streaming.api.functions.timestamps.AscendingTimestampExt
 import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
 import org.apache.flink.streaming.connectors.kafka.{FlinkKafkaConsumer010, FlinkKafkaProducer010}
 import org.apache.flink.streaming.util.serialization.KeyedSerializationSchema
-
-import scala.util.Try
 
 object StreamUtils extends LazyLogging {
 
@@ -119,7 +116,9 @@ object StreamUtils extends LazyLogging {
     */
   def boundedLatenessEventTime[E <: FlinkEvent: TypeInformation](
 //      getTimestamp: E => Long,
-      lateness: Option[Long] = None)(implicit args: Args): BoundedLatenessGenerator[E] = {
+      lateness: Option[Long] = None
+    )(implicit args: Args
+    ): BoundedLatenessGenerator[E] = {
     val allowedLateness = lateness.getOrElse(args.getLong("max.lateness"))
     new BoundedLatenessGenerator[E]( /*getTimestamp: E => Long, */ allowedLateness)
   }
@@ -131,7 +130,8 @@ object StreamUtils extends LazyLogging {
     * @return AscendingTimestampExtractor[ FlinkEvent[S] ]
     */
   def ascendingTimestampExtractor[E <: FlinkEvent: TypeInformation](
-      getTimestamp: E => Long): AscendingTimestampExtractor[E] = {
+      getTimestamp: E => Long
+    ): AscendingTimestampExtractor[E] = {
     val extractor: AscendingTimestampExtractor[E] = new AscendingTimestampExtractor[E] {
       var lastTimestamp = Long.MinValue
       def extractAscendingTimestamp(event: E) = {
@@ -158,9 +158,13 @@ object StreamUtils extends LazyLogging {
     * @tparam E the type of stream element
     * @return DataStream[E]
     */
-  def fromKafka[E <: FlinkEvent: TypeInformation](sources: Map[String, Seq[Array[Byte]]],
-                                                  deserializationSchema: DeserializationSchema[E],
-                                                  prefix: String = "")(implicit args: Args, env: SEE): DataStream[E] = {
+  def fromKafka[E <: FlinkEvent: TypeInformation](
+      sources: Map[String, Seq[Array[Byte]]],
+      deserializationSchema: DeserializationSchema[E],
+      prefix: String = ""
+    )(implicit args: Args,
+      env: SEE
+    ): DataStream[E] = {
 
     val props = args.getProps(List(prefix, "kafka.source"))
     val topic = props.getProperty("topic")
@@ -196,9 +200,12 @@ object StreamUtils extends LazyLogging {
     * @tparam E data stream element type
     * @return DataStream[E]
     */
-  def fromCollection[E <: FlinkEvent: TypeInformation](topic: String, deserializationSchema: DeserializationSchema[E])(
-      implicit args: Args,
-      env: SEE) = {
+  def fromCollection[E <: FlinkEvent: TypeInformation](
+      topic: String,
+      deserializationSchema: DeserializationSchema[E]
+    )(implicit args: Args,
+      env: SEE
+    ) = {
     env
       .readTextFile(getSourceFilePath(topic))
       .map(json => deserializationSchema.deserialize(json.getBytes(StandardCharsets.UTF_8)))
@@ -211,18 +218,25 @@ object StreamUtils extends LazyLogging {
     * @return String
     */
   @throws[FileNotFoundException]
-  def getSourceFilePath(topic: String) = {
-    val loader = getClass
-    new File(
-      Try(loader.getResource(s"/in/$topic.json"))
-        .getOrElse(
-          Try(loader.getResource(s"/in/$topic.json.gz")).getOrElse(
-            throw new FileNotFoundException(s"can't find resource /in/$topic.json[.gz]")
-          ))
-        .toURI).getAbsolutePath
+  def getSourceFilePath(topic: String): String = {
+    val filename = s"/in/$topic.json"
+    val loader   = getClass
+    val resource = Option(loader.getResource(filename)) match {
+      case Some(value) => value.toURI
+      case None =>
+        Option(loader.getResource(s"$filename.gz")) match {
+          case Some(value) => value.toURI
+          case None        => throw new FileNotFoundException(s"can't load resource $filename")
+        }
+    }
+    val file = new File(resource)
+    file.getAbsolutePath
   }
 
   implicit class EventStreamOps[E <: FlinkEvent: TypeInformation](stream: DataStream[E]) {
+
+    def as[T <: FlinkEvent: TypeInformation] =
+      stream.filter(_.isInstanceOf[T]).map(_.asInstanceOf[T])
 
     def toKafka(serializationSchema: SerializationSchema[E], prefix: String = "")(implicit args: Args) =
       StreamUtils.toKafka[E](stream, serializationSchema, prefix)
@@ -230,9 +244,8 @@ object StreamUtils extends LazyLogging {
     def toKafkaKeyed(serializationSchema: KeyedSerializationSchema[E], prefix: String = "")(implicit args: Args) =
       StreamUtils.toKafkaKeyed[E](stream, serializationSchema, prefix)
 
-    def toJdbc(query: String, addToBatch: (E, PreparedStatement) => Unit, prefix: String = "")(implicit args: Args) = {
+    def toJdbc(query: String, addToBatch: (E, PreparedStatement) => Unit, prefix: String = "")(implicit args: Args) =
       StreamUtils.toJdbc[E](stream, query, addToBatch, prefix)
-    }
   }
 
   /**
@@ -244,10 +257,13 @@ object StreamUtils extends LazyLogging {
     * @tparam E the stream element type
     * @return DataStreamSink[E]
     */
-  def toKafka[E <: FlinkEvent: TypeInformation](stream: DataStream[E],
-                                                serializationSchema: SerializationSchema[E],
-                                                prefix: String = "")(implicit
-                                                                     args: Args) = {
+  def toKafka[E <: FlinkEvent: TypeInformation](
+      stream: DataStream[E],
+      serializationSchema: SerializationSchema[E],
+      prefix: String = ""
+    )(implicit
+      args: Args
+    ) = {
     val props = args.getProps(List(prefix, "kafka.sink"))
     val topic = props.getProperty("topic")
     props.remove("topic")
@@ -262,9 +278,12 @@ object StreamUtils extends LazyLogging {
     * @tparam E the stream element type
     * @return DataStreamSink[E]
     */
-  def toKafkaKeyed[E <: FlinkEvent: TypeInformation](stream: DataStream[E],
-                                                     serializationSchema: KeyedSerializationSchema[E],
-                                                     prefix: String = "")(implicit args: Args) = {
+  def toKafkaKeyed[E <: FlinkEvent: TypeInformation](
+      stream: DataStream[E],
+      serializationSchema: KeyedSerializationSchema[E],
+      prefix: String = ""
+    )(implicit args: Args
+    ) = {
     val props = args.getProps(List("", "kafka.sink"))
     val topic = props.getProperty("topic")
     props.remove("topic")
@@ -285,10 +304,13 @@ object StreamUtils extends LazyLogging {
     * @tparam E stream element type
     * @return DataStreamSink[E]
     */
-  def toJdbc[E <: FlinkEvent: TypeInformation](stream: DataStream[E],
-                                               query: String,
-                                               addToBatch: (E, PreparedStatement) => Unit,
-                                               prefix: String = "")(implicit args: FlinkJobArgs): DataStreamSink[E] = {
+  def toJdbc[E <: FlinkEvent: TypeInformation](
+      stream: DataStream[E],
+      query: String,
+      addToBatch: (E, PreparedStatement) => Unit,
+      prefix: String = ""
+    )(implicit args: FlinkJobArgs
+    ): DataStreamSink[E] = {
     val props = args.getProps(List(prefix, "jdbc.sink"))
     props.setProperty("query", query)
     stream.addSink(new JdbcSink[E](addToBatch, props))

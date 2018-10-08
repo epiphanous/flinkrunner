@@ -20,7 +20,7 @@ object FlinkArgDef {
     FlinkArgDef("kafka.source.bootstrap.servers", "kafka broker(s) for source", default = Some("localhost:9092")),
     FlinkArgDef("kafka.source.group.id", "kafka source consumer group id", default = Some("foobar")),
     FlinkArgDef("kafka.source.auto.offset.reset", "kafka source offset to start at", default = Some("latest")),
-    FlinkArgDef("kafka.source.topic", "kafka source topic name", default = Some("Telemetry")),
+    FlinkArgDef("kafka.source.topic", "kafka source topic name", default = None),
     FlinkArgDef("kafka.sinks", "comma-separated list of prefixes for required kafka sinks", default = Some("")),
     FlinkArgDef("kafka.sink.bootstrap.servers", "kafka broker(s) for sink"),
     FlinkArgDef("kafka.sink.topic", "kafka sink topic name"),
