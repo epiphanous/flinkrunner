@@ -1,6 +1,6 @@
 name := "flinkrunner"
 
-version := "0.1.0"
+version := "1.0.0"
 
 organization := "io.epiphanous"
 
@@ -35,15 +35,6 @@ val flinkDeps = Seq(
   ExclusionRule(organization = "org.slf4j", name = "slf4j-log4j12")
 ))
 
-val circeDeps = Seq(
-  "io.circe" %% "circe-core",
-  "io.circe" %% "circe-generic",
-  "io.circe" %% "circe-generic-extras",
-  "io.circe" %% "circe-java8",
-  "io.circe" %% "circe-parser"
-).map(_ % V.circe)
-
-
 val loggingDeps = Seq(
   "ch.qos.logback"             %  "logback-core"     % V.logback        % "provided",
   "ch.qos.logback"             %  "logback-classic"  % V.logback        % "provided",
@@ -58,7 +49,7 @@ val otherDeps = Seq(
 
 lazy val flink_runner = (project in file(".")).
   settings(
-    libraryDependencies ++= flinkDeps ++ loggingDeps ++ circeDeps ++ otherDeps
+    libraryDependencies ++= flinkDeps ++ loggingDeps ++ otherDeps
   )
 
 // stays inside the sbt console when we press "ctrl-c" while a Flink programme executes with "run" or "runMain"
