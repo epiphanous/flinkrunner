@@ -25,13 +25,14 @@ import org.apache.flink.streaming.api.windowing.time.Time
   * @tparam C   the control type
   * @tparam OUT the output stream element type
   */
-abstract class DataControlJob[D <: FlinkEvent: TypeInformation,
-                              C <: FlinkEvent: TypeInformation,
-                              OUT <: FlinkEvent: TypeInformation](
-//    helper: DataOrControlEventHelper[D, C],
+abstract class DataControlJob[
+    D <: FlinkEvent: TypeInformation,
+    C <: FlinkEvent: TypeInformation,
+    OUT <: FlinkEvent: TypeInformation
+  ](//    helper: DataOrControlEventHelper[D, C],
     sources: Map[String, Seq[Array[Byte]]] = Map.empty,
-    mixedSource: Seq[DataOrControl[D, C]] = Seq.empty
-) extends SimpleFlinkJob[DataControlPeriod[D], OUT](sources) {
+    mixedSource: Seq[DataOrControl[D, C]] = Seq.empty)
+    extends SimpleFlinkJob[DataControlPeriod[D], OUT](sources) {
 
   import DataControlJob._
 
@@ -41,7 +42,7 @@ abstract class DataControlJob[D <: FlinkEvent: TypeInformation,
     * @param env implicit flink execution environment
     * @return a data stream of data events.
     */
-  def data(implicit args: Args, env: SEE): DataStream[D]
+  def data(implicit args: Args, env: SEE): DataStream[D] = fromSource[D](sources, "data")
 
   /**
     * A source data stream for the control events.  Must be overridden by subclasses.
@@ -49,7 +50,7 @@ abstract class DataControlJob[D <: FlinkEvent: TypeInformation,
     * @param env implicit flink execution environment
     * @return a data stream of control events.
     */
-  def control(implicit args: Args, env: SEE): DataStream[C]
+  def control(implicit args: Args, env: SEE): DataStream[C] = fromSource[C](sources, "control")
 
   /**
     * Generate a data stream of data control periods. This method does not generally need to be overridden
@@ -107,7 +108,7 @@ abstract class DataControlJob[D <: FlinkEvent: TypeInformation,
           println(
             s"\n*** MATCHED ***\n${pat.map(kv => s"${kv._1} => ${kv._2.map(_.info).mkString("; ")}").mkString("\n  - ")}\n")
         try {
-          val on  = pat(CEP_CONTROL_ON).head.control.get
+          val on = pat(CEP_CONTROL_ON).head.control.get
           val off = pat(CEP_CONTROL_OFF).head.control.get
           val elements = pat(CEP_ACTIVE).toList
             .filter(_.isData)
@@ -131,7 +132,7 @@ abstract class DataControlJob[D <: FlinkEvent: TypeInformation,
   def pattern(implicit args: Args): Pattern[DataOrControl[D, C], DataOrControl[D, C]] = {
 
     val maxActiveDuration = Time.seconds(args.getLong("max.active.duration"))
-    val debug             = args.debug
+    val debug = args.debug
     val condition =
       (dc: DataOrControl[D, C], f: DataOrControl[D, C] => Boolean, name: String) => {
         val x = f(dc)
@@ -185,8 +186,8 @@ abstract class DataControlJob[D <: FlinkEvent: TypeInformation,
 }
 
 object DataControlJob {
-  val CEP_CONTROL_ON  = "control-on"
+  val CEP_CONTROL_ON = "control-on"
   val CEP_CONTROL_OFF = "control-off"
-  val CEP_ACTIVE      = "active"
-  val CEP_INACTIVE    = "inactive"
+  val CEP_ACTIVE = "active"
+  val CEP_INACTIVE = "inactive"
 }

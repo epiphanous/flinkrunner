@@ -23,10 +23,11 @@ import org.apache.flink.streaming.api.scala.DataStream
   * @tparam C   the control type
   * @tparam OUT the output stream element type
   */
-abstract class FilterByControlJob[D <: FlinkEvent: TypeInformation,
-                                  C <: FlinkEvent: TypeInformation,
-                                  OUT <: FlinkEvent: TypeInformation](
-//    helper: DataOrControlEventHelper[D, C],
+abstract class FilterByControlJob[
+    D <: FlinkEvent: TypeInformation,
+    C <: FlinkEvent: TypeInformation,
+    OUT <: FlinkEvent: TypeInformation
+  ](//    helper: DataOrControlEventHelper[D, C],
     sources: Map[String, Seq[Array[Byte]]] = Map.empty,
     mixedSource: Seq[DataOrControl[D, C]] = Seq.empty)
     extends SimpleFlinkJob[D, OUT](sources) {
@@ -37,7 +38,7 @@ abstract class FilterByControlJob[D <: FlinkEvent: TypeInformation,
     * @param env implicit flink execution environment
     * @return a data stream of data events.
     */
-  def data(implicit args: Args, env: SEE): DataStream[D]
+  def data(implicit args: Args, env: SEE): DataStream[D] = fromSource[D](sources, "data")
 
   /**
     * A source data stream for the control events.  Must be overridden by subclasses.
@@ -45,7 +46,7 @@ abstract class FilterByControlJob[D <: FlinkEvent: TypeInformation,
     * @param env implicit flink execution environment
     * @return a data stream of control events.
     */
-  def control(implicit args: Args, env: SEE): DataStream[C]
+  def control(implicit args: Args, env: SEE): DataStream[C] = fromSource[C](sources, "control")
 
   /**
     * Generate a stream of data records filtered by the control stream.
@@ -84,7 +85,7 @@ abstract class FilterByControlJob[D <: FlinkEvent: TypeInformation,
         } else {
           val update = lastControlOpt match {
             case Some((_, active)) => dc.$active != active
-            case None              => true
+            case None => true
           }
           (false, if (update) Some((dc.$timestamp, dc.$active)) else lastControlOpt)
         }

@@ -1,9 +1,9 @@
 package io.epiphanous.flinkrunner.flink
 
-//import com.fasterxml.jackson.databind.node.ObjectNode
 import io.epiphanous.flinkrunner.model.FlinkEvent
 import io.epiphanous.flinkrunner.util.StreamUtils._
 import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.streaming.api.TimeCharacteristic
 import org.apache.flink.streaming.api.scala.DataStream
 
 /**
@@ -21,16 +21,26 @@ abstract class SimpleFlinkJob[IN <: FlinkEvent: TypeInformation, OUT <: FlinkEve
     extends FlinkJob[OUT](sources) {
 
   /**
-    * Returns source data stream to pass into [[transform()]]. This must be overridden by subclasses.
-    *
-    * In general, code for getting a stream would be simple as follows:
-    * {{{
-    *   fromKafka()
-    * }}}
-    *
+    * Returns source data stream to pass into [[transform()]]. This can be overridden by subclasses.
     * @return input data stream
     */
-  def source()(implicit args: Args, env: SEE): DataStream[IN]
+  def source()(implicit args: Args, env: SEE): DataStream[IN] = {
+    val prefixes = args.getSourcePrefixes
+    if (prefixes.size > 1)
+      throw new IllegalArgumentException(
+        s"Multiple sources are configured (${prefixes.mkString(",")}. You must override the source() method in your job."
+      )
+    val srcPrefix = prefixes.head
+    fromSource[IN](sources, srcPrefix) |# maybeAssignTimestampsAndWatermarks
+  }
+
+  def maybeAssignTimestampsAndWatermarks[T <: FlinkEvent: TypeInformation](
+      in: DataStream[T]
+    )(implicit args: Args,
+      env: SEE
+    ): Unit =
+    if (env.getStreamTimeCharacteristic == TimeCharacteristic.EventTime)
+      in.assignTimestampsAndWatermarks(boundedLatenessEventTime[T]())
 
   /**
     * Primary method to transform the source data stream into the output data stream. The output of
@@ -57,7 +67,8 @@ abstract class SimpleFlinkJob[IN <: FlinkEvent: TypeInformation, OUT <: FlinkEve
     * @param args implicit flink job args
     * @param env implicit flink execution environment
     */
-  def sink(out: DataStream[OUT])(implicit args: Args, env: SEE): Unit = {}
+  def sink(out: DataStream[OUT])(implicit args: Args, env: SEE): Unit =
+    args.getSinkPrefixes.foreach(pfx => toSink(out, pfx))
 
   /**
     * The output stream will only be passed to [[sink()]] if [[FlinkJobArgs.mockSink]] evaluates

@@ -1,6 +1,6 @@
 name := "flinkrunner"
 
-version := "1.1.0"
+version := "1.1.0-SNAPSHOT"
 
 organization := "io.epiphanous"
 
@@ -11,7 +11,6 @@ Test / parallelExecution := false
 Test / fork := true
 
 resolvers += "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/.m2/repository"
-
 
 val V = new {
   val flink          = "1.6.1"

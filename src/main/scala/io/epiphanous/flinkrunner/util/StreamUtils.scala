@@ -134,13 +134,8 @@ object StreamUtils extends LazyLogging {
     * @tparam E the type of stream element
     * @return BoundedLatenessGenerator[E]
     */
-  def boundedLatenessEventTime[E <: FlinkEvent: TypeInformation](
-      lateness: Option[Long] = None
-    )(implicit args: Args
-    ): BoundedLatenessGenerator[E] = {
-    val allowedLateness = lateness.getOrElse(args.getLong("max.lateness"))
-    new BoundedLatenessGenerator[E](allowedLateness)
-  }
+  def boundedLatenessEventTime[E <: FlinkEvent: TypeInformation]()(implicit args: Args): BoundedLatenessGenerator[E] =
+    new BoundedLatenessGenerator[E](args.getLong("max.lateness"))
 
   /**
     * Creates an ascending timestamp extractor.
@@ -168,8 +163,8 @@ object StreamUtils extends LazyLogging {
     * @return DataStream[E]
     */
   def fromSource[E <: FlinkEvent: TypeInformation](
-      prefix: String = "",
-      sources: Map[String, Seq[Array[Byte]]]
+      sources: Map[String, Seq[Array[Byte]]],
+      prefix: String = ""
     )(implicit args: Args,
       env: SEE
     ): DataStream[E] = {

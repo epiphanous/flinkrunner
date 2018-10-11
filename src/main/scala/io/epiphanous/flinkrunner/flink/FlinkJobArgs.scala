@@ -66,6 +66,16 @@ class FlinkJobArgs(val jobName: String, val args: Array[String], val addedArgs: 
 
   val missing = argDefs.filter(p => !params.has(p.name) && p.default.isEmpty)
 
+  def getSinkPrefixes = {
+    val prefixes = getString("sinks").split("[ ,]+").toList
+    if (prefixes.nonEmpty) prefixes else List("")
+  }
+
+  def getSourcePrefixes = {
+    val prefixes = getString("sources").split("[ ,]+").toList
+    if (prefixes.nonEmpty) prefixes else List("")
+  }
+
   def getSourceConfig[E <: FlinkEvent](
       prefix: String = "",
       sources: Map[String, Seq[Array[Byte]]]
