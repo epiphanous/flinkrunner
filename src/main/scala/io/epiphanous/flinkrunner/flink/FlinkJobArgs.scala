@@ -3,12 +3,21 @@ package io.epiphanous.flinkrunner.flink
 import java.util.Properties
 
 import com.typesafe.scalalogging.LazyLogging
+import enumeratum.EnumEntry.Snakecase
+import enumeratum._
+import io.epiphanous.flinkrunner.model.FlinkEvent
+import io.epiphanous.flinkrunner.operator.AddToJdbcBatchFunction
+import org.apache.flink.api.common.serialization.{DeserializationSchema, Encoder, SerializationSchema}
 import org.apache.flink.api.java.utils.ParameterTool
+import org.apache.flink.streaming.util.serialization.KeyedSerializationSchema
 
 import scala.collection.JavaConverters._
 
 class FlinkJobArgs(val jobName: String, val args: Array[String], val addedArgs: Set[FlinkArgDef]) extends LazyLogging {
-  val params = ParameterTool.fromArgs(args)
+
+  val params = {
+    ParameterTool.fromArgs(args)
+  }
 
   /**
     * Our predefined `source` and `sink` arg definitions need to be expanded
@@ -29,8 +38,8 @@ class FlinkJobArgs(val jobName: String, val args: Array[String], val addedArgs: 
     *
     */
   val argDefs = {
-    val connectors                = List("kafka", "jdbc", "cassandra")
-    val defs                      = FlinkArgDef.CORE_FLINK_ARGUMENTS ++ addedArgs
+    val connectors = List("kinesis", "kafka", "jdbc", "cassandra", "file", "socket")
+    val defs = FlinkArgDef.CORE_FLINK_ARGUMENTS ++ addedArgs
     def connectorDefs(ss: String) = defs.filter(_.name.startsWith(s"$ss."))
     val (add, remove) = connectors
       .map(connector => {
@@ -55,35 +64,79 @@ class FlinkJobArgs(val jobName: String, val args: Array[String], val addedArgs: 
     defs ++ add -- remove
   }
 
-  val missing = argDefs.filter(p => p.required && !params.has(p.name))
+  val missing = argDefs.filter(p => !params.has(p.name) && p.default.isEmpty)
 
-  def getString(name: String): String =
-    if (isRequired(name)) params.getRequired(name) else params.get(name, getDefault(name))
-
-  def getKafkaSources: List[String] = {
-    getString("kafka.sources").split("[, ]+").toList
+  def getSourceConfig[E <: FlinkEvent](
+      prefix: String = "",
+      sources: Map[String, Seq[Array[Byte]]]
+    ): FlinkSourceConfig[E] = {
+    val dottedPrefix = getDottedPrefix(List(prefix, "source"))
+    val connectorString = getString("connector", dottedPrefix)
+    val connector = FlinkConnectorName.withNameOption(connectorString) match {
+      case Some(conn) => conn
+      case _ => throw new IllegalArgumentException(s"Unsupported source connector: $connectorString")
+    }
+    val props = getProps(s"$dottedPrefix$connectorString")
+    val deserializerClass = getString("deserializer.class", dottedPrefix)
+    val deserializer = Class.forName(deserializerClass).newInstance().asInstanceOf[DeserializationSchema[E]]
+    FlinkSourceConfig(connector, dottedPrefix, props, deserializer, sources)
   }
-  def getKafkaSinks: List[String] = {
-    getString("kafka.sinks").split("[, ]+").toList
+
+  def getSinkConfig[E <: FlinkEvent](prefix: String = ""): FlinkSinkConfig[E] = {
+    val dottedPrefix = getDottedPrefix(List(prefix, "sink"))
+    val connectorString = getString("connector", dottedPrefix)
+    val connector = FlinkConnectorName.withNameOption(connectorString) match {
+      case Some(conn) => conn
+      case _ => throw new IllegalArgumentException(s"Unsupported sink connector: $connectorString")
+    }
+    val serializer = getClassInstanceOpt[SerializationSchema[E]]("serializer.class", dottedPrefix)
+    val keyedSerializer = getClassInstanceOpt[KeyedSerializationSchema[E]]("keyed.serializer.class", dottedPrefix)
+    val encoder = getClassInstanceOpt[Encoder[E]]("encoder.class", dottedPrefix)
+    val jdbcBatchFunction = getClassInstanceOpt[AddToJdbcBatchFunction[E]]("batch.function.class", dottedPrefix)
+    val props = getProps(s"$dottedPrefix$connectorString")
+    FlinkSinkConfig(connector, dottedPrefix, props, serializer, keyedSerializer, encoder, jdbcBatchFunction)
   }
 
-  def getInt(name: String): Int =
-    if (isRequired(name)) params.getRequired(name).toInt else params.getInt(name, getDefault(name, "0").toInt)
-  def getLong(name: String): Long =
-    if (isRequired(name)) params.getRequired(name).toLong else params.getLong(name, getDefault(name, "0").toLong)
-  def getDouble(name: String): Double =
-    if (isRequired(name)) params.getRequired(name).toDouble else params.getDouble(name, getDefault(name, "0").toDouble)
-  def getBoolean(name: String): Boolean =
-    if (isRequired(name)) params.getRequired(name).toBoolean
-    else params.getBoolean(name, getDefault(name, "false").toBoolean)
-  def getDefault(name: String, fallback: String = ""): String = getArgDef(name).flatMap(_.default).getOrElse(fallback)
-  def isRequired(name: String): Boolean                       = getArgDef(name).exists(_.required)
-  def getArgDef(name: String): Option[FlinkArgDef]            = argDefs.find(p => p.name.equalsIgnoreCase(name))
-  def getProps(prefixes: List[String]) = {
+  def getParamOpt(name: String, prefix: String = ""): Option[String] = {
+    val pname = s"$prefix$name"
+    val paramOpt = Option(params.get(pname))
+    if (paramOpt.nonEmpty) paramOpt else getDefaultOpt(pname)
+  }
+
+  def getParam(name: String, prefix: String = "") = {
+    val pname = s"$prefix$name"
+    if (isRequired(pname)) params.getRequired(pname) else params.get(pname, getDefault(pname))
+  }
+
+  def getString(name: String, prefix: String = ""): String = getParam(name, prefix)
+  def getInt(name: String, prefix: String = ""): Int = getParam(name, prefix).toInt
+  def getLong(name: String, prefix: String = ""): Long = getParam(name, prefix).toLong
+  def getDouble(name: String, prefix: String = ""): Double = getParam(name, prefix).toDouble
+  def getBoolean(name: String, prefix: String = ""): Boolean = getParam(name, prefix).toBoolean
+  def getClassInstanceOpt[T](name: String, prefix: String = ""): Option[T] =
+    getParamOpt(name, prefix).map(c => Class.forName(c).newInstance().asInstanceOf[T])
+
+  def getDefaultOpt(name: String, prefix: String = ""): Option[String] = {
+    val pname = s"$prefix$name"
+    getArgDef(pname).flatMap(_.default)
+  }
+
+  def getDefault(name: String, prefix: String = ""): String = getDefaultOpt(name, prefix).get
+
+  def isDefined(name: String, prefix: String = "") = getArgDef(name, prefix).nonEmpty
+
+  def isRequired(name: String, prefix: String = ""): Boolean = {
+    val pname = s"$prefix$name"
+    getArgDef(pname).exists(_.default.isEmpty)
+  }
+  def getArgDef(name: String, prefix: String = ""): Option[FlinkArgDef] = {
+    val pname = s"$prefix$name"
+    argDefs.find(p => p.name.equalsIgnoreCase(pname))
+  }
+  def getProps(prefix: String): Properties = getProps(List(prefix))
+  def getProps(prefixes: List[String]): Properties = {
     val properties = new Properties()
-    val dottedPrefix = (prefixes.filter(_.nonEmpty) :+ "")
-      .map(_.replaceAll("^\\.|\\.$", ""))
-      .mkString(".")
+    val dottedPrefix = getDottedPrefix(prefixes)
     (
       params.getConfiguration
         .keySet()
@@ -91,17 +144,71 @@ class FlinkJobArgs(val jobName: String, val args: Array[String], val addedArgs: 
         ++ FlinkArgDef.CORE_FLINK_ARGUMENTS.map(_.name)
     ).filter(_.startsWith(dottedPrefix))
       .foreach(key => {
-        val name  = key.substring(dottedPrefix.length)
-        val value = params.get(key, getDefault(key, ""))
+        val name = key.substring(dottedPrefix.length)
+        val value = params.get(key, getDefault(key))
         properties.setProperty(name, value)
       })
     properties
   }
-  def isProd             = getString("environment").equalsIgnoreCase("shark")
-  def isStage            = getString("environment").equalsIgnoreCase("frog")
-  def isDev              = getString("environment").equalsIgnoreCase("dev")
-  def mockEdges: Boolean = isDev && getBoolean("mock.edges")
-  def showPlan: Boolean  = isDev && getBoolean("show.plan")
-  def debug: Boolean     = getBoolean("debug")
+  def getDottedPrefix(prefixes: List[String]) =
+    (prefixes.filter(_.nonEmpty) :+ "")
+      .map(_.replaceAll("^\\.|\\.$", ""))
+      .mkString(".")
+
+  def isProd: Boolean = getString("environment").equalsIgnoreCase("prod")
+  def isStage: Boolean = getString("environment").equalsIgnoreCase("stage")
+  def isDev: Boolean = getString("environment").equalsIgnoreCase("dev")
+  def mockSink: Boolean = getBoolean("mock.sink")
+  def showPlan: Boolean = isDev && getBoolean("show.plan")
+  def debug: Boolean = getBoolean("debug")
 
 }
+
+sealed trait FlinkConnectorName extends EnumEntry with Snakecase
+object FlinkConnectorName extends Enum[FlinkConnectorName] {
+  val values = findValues
+  case object Kinesis extends FlinkConnectorName
+  case object Kafka extends FlinkConnectorName
+  case object File extends FlinkConnectorName
+  case object Socket extends FlinkConnectorName
+  case object Cassandra extends FlinkConnectorName
+  case object Jdbc extends FlinkConnectorName
+  case object Collection extends FlinkConnectorName
+}
+
+sealed trait FlinkIOConfig {
+  def connector: FlinkConnectorName
+  def prefix: String
+  def props: Properties
+
+  def getString(key: String)(implicit args: Args): String =
+    args.getString(key, prefix)
+  def getInt(key: String)(implicit args: Args): Int =
+    args.getInt(key, prefix)
+  def getLong(key: String)(implicit args: Args): Long =
+    args.getLong(key, prefix)
+  def getDouble(key: String)(implicit args: Args): Double =
+    args.getDouble(key, prefix)
+  def getBoolean(key: String)(implicit args: Args): Boolean =
+    args.getBoolean(key, prefix)
+
+  def remove(key: String): Unit = props.remove(key)
+}
+
+case class FlinkSourceConfig[E <: FlinkEvent](
+    connector: FlinkConnectorName,
+    prefix: String,
+    props: Properties,
+    deserializer: DeserializationSchema[E],
+    sources: Map[String, Seq[Array[Byte]]])
+    extends FlinkIOConfig
+
+case class FlinkSinkConfig[E <: FlinkEvent](
+    connector: FlinkConnectorName,
+    prefix: String,
+    props: Properties,
+    serializer: Option[SerializationSchema[E]] = None,
+    keyedSerializer: Option[KeyedSerializationSchema[E]] = None,
+    fileEncoder: Option[Encoder[E]] = None,
+    jdbcBatchFunction: Option[AddToJdbcBatchFunction[E]] = None)
+    extends FlinkIOConfig

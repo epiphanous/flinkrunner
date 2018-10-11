@@ -18,14 +18,14 @@ abstract class FlinkJob[OUT <: FlinkEvent: TypeInformation](val sources: Map[Str
 
     logger.info(s"\nSTARTING FLINK JOB: $jobName ${args.mkString(" ")}\n")
 
-    implicit val jobArgs: FlinkJobArgs           = new FlinkJobArgs(jobName, args, extraArgs)
+    implicit val jobArgs: FlinkJobArgs = new FlinkJobArgs(jobName, args, extraArgs)
     implicit val env: StreamExecutionEnvironment = configureEnvironment
 
     val stream = flow
 
     if (jobArgs.showPlan) logger.info(s"PLAN:\n${env.getExecutionPlan}\n")
 
-    if (jobArgs.mockEdges) {
+    if (jobArgs.mockSink) {
       Left(DataStreamUtils.collect(stream.javaStream).asScala)
     } else
       Right(env.execute(jobName))

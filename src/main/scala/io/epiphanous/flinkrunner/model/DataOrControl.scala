@@ -1,6 +1,7 @@
 package io.epiphanous.flinkrunner.model
 
 case class DataOrControl[D <: FlinkEvent, C <: FlinkEvent](event: Either[D, C]) extends FlinkEvent {
+  def $id: String                           = event.fold(_.$id, _.$id)
   def $key: String                          = event.fold(_.$key, _.$key)
   def $timestamp: Long                      = event.fold(_.$timestamp, _.$timestamp)
   override def $active: Boolean             = event.fold(_.$active, _.$active)

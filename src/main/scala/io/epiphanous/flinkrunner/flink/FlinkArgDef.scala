@@ -1,6 +1,6 @@
 package io.epiphanous.flinkrunner.flink
 
-case class FlinkArgDef(name: String, text: String, required: Boolean = false, default: Option[String] = None)
+case class FlinkArgDef(name: String, text: String, default: Option[String] = None)
 
 object FlinkArgDef {
   val CORE_FLINK_ARGUMENTS = Set(
@@ -24,6 +24,18 @@ object FlinkArgDef {
     FlinkArgDef("kafka.sinks", "comma-separated list of prefixes for required kafka sinks", default = Some("")),
     FlinkArgDef("kafka.sink.bootstrap.servers", "kafka broker(s) for sink"),
     FlinkArgDef("kafka.sink.topic", "kafka sink topic name"),
+    FlinkArgDef("kinesis.sources", "comma-separated list of prefixes for required kafka sources", default = Some("")),
+    FlinkArgDef("kinesis.source.aws.region", "kinesis source aws region", default = Some("us-east-1")),
+    FlinkArgDef("kinesis.source.aws.credentials.provider",
+                "aws credentials provider for source",
+                default = Some("AUTO")),
+    FlinkArgDef("kinesis.source.flink.stream.initpos", "kinesis source starting position", default = Some("LATEST")),
+    FlinkArgDef("kinesis.source.topic", "kinesis source topic name", default = None),
+    FlinkArgDef("kinesis.sinks", "comma-separated list of prefixes for required kafka sinks", default = Some("")),
+    FlinkArgDef("kinesis.sink.aws.region", "kinesis sink aws region", default = Some("us-east-1")),
+    FlinkArgDef("kinesis.sink.aws.credentials.provider", "aws credentials provider for sink", default = Some("AUTO")),
+    FlinkArgDef("kinesis.sink.topic", "kinesis sink topic name"),
+    FlinkArgDef("event.store", "the event store (\"kafka\" or \"kinesis\")", Some("kafka")),
     FlinkArgDef("jdbc.sinks", "comma-separated list of prefixes for required jdbc sinks", default = Some("")),
     FlinkArgDef("jdbc.sink.driver.name", "class name of the jdbc driver", default = Some("org.postgresql.Driver")),
     FlinkArgDef("jdbc.sink.url",

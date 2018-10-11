@@ -4,6 +4,8 @@ import java.sql.{Connection, DriverManager, PreparedStatement}
 import java.util.Properties
 
 import com.typesafe.scalalogging.LazyLogging
+import io.epiphanous.flinkrunner.model.FlinkEvent
+import io.epiphanous.flinkrunner.operator.AddToJdbcBatchFunction
 import org.apache.flink.api.common.state.{ListState, ListStateDescriptor}
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.configuration.Configuration
@@ -28,15 +30,15 @@ import scala.util.{Failure, Success, Try}
   * @param props the properties used to configure the sink
   * @tparam E the class of sink elements.
   */
-class JdbcSink[E: TypeInformation](addToBatch: (E, PreparedStatement) => Unit, props: Properties)
+class JdbcSink[E <: FlinkEvent: TypeInformation](batchFunction: AddToJdbcBatchFunction[E], props: Properties)
     extends RichSinkFunction[E]
     with CheckpointedFunction
     with LazyLogging {
 
-  val bufferSize                              = props.getProperty("buffer.size").toInt
-  private val pendingRows                     = ListBuffer.empty[E]
-  private var connection: Connection          = _
-  private var statement: PreparedStatement    = _
+  val bufferSize = props.getProperty("buffer.size").toInt
+  private val pendingRows = ListBuffer.empty[E]
+  private var connection: Connection = _
+  private var statement: PreparedStatement = _
   private var checkpointedState: ListState[E] = _
 
   override def open(parameters: Configuration): Unit = {
@@ -61,9 +63,9 @@ class JdbcSink[E: TypeInformation](addToBatch: (E, PreparedStatement) => Unit, p
   override def invoke(value: E): Unit = {
     pendingRows += value
     if (pendingRows.size >= bufferSize) {
-      pendingRows.foreach(row => addToBatch(row, statement))
+      pendingRows.foreach(row => batchFunction.addToBatch(row, statement))
       Try(statement.executeBatch()) match {
-        case Success(_)  => pendingRows.clear()
+        case Success(_) => pendingRows.clear()
         case Failure(ex) => throw ex
       }
     }

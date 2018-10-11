@@ -1,5 +1,6 @@
 package io.epiphanous.flinkrunner
 
+import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.flink.{FlinkArgDef, FlinkJob, FlinkJobObject}
 import io.epiphanous.flinkrunner.model.FlinkEvent
@@ -53,7 +54,7 @@ class FlinkRunner[E <: FlinkEvent](systemName: String, jobs: Map[String, (FlinkJ
     ): Unit = {
     val wantsHelp = args.headOption match {
       case Some(str) if str.equalsIgnoreCase("help") => true
-      case _                                         => false
+      case _ => false
     }
     jobs.get(jobName) match {
       case Some((job, obj)) =>
@@ -61,7 +62,7 @@ class FlinkRunner[E <: FlinkEvent](systemName: String, jobs: Map[String, (FlinkJ
         else
           job.run(jobName, args, obj.extraArgs) match {
             case Left(results) => callback(results)
-            case Right(_)      => ()
+            case Right(_) => ()
           }
       case None =>
         showHelp(Some(s"Unknown job $jobName"))
@@ -76,14 +77,14 @@ class FlinkRunner[E <: FlinkEvent](systemName: String, jobs: Map[String, (FlinkJ
   def showHelpFor(jobName: String): Unit = {
     jobs.get(jobName) match {
       case Some((_, obj)) =>
-        val params   = (FlinkArgDef.CORE_FLINK_ARGUMENTS ++ obj.extraArgs).map(a => a.name -> a).toMap
-        val names    = params.keys.toList.sorted
+        val params = (FlinkArgDef.CORE_FLINK_ARGUMENTS ++ obj.extraArgs).map(a => a.name -> a).toMap
+        val names = params.keys.toList.sorted
         val maxWidth = names.map(_.length).max
 
         def pad(s: String) = s"$s${" " * (maxWidth - s.length)}"
         def showDefault(s: Option[String]) = s match {
           case Some(x) if !x.isEmpty => s"(default: $x)"
-          case _                     => ""
+          case _ => ""
         }
 
         val paramInfo = names
@@ -122,7 +123,7 @@ class FlinkRunner[E <: FlinkEvent](systemName: String, jobs: Map[String, (FlinkJ
       """.stripMargin
     error match {
       case Some(errMsg) => logger.error(errMsg)
-      case _            => // no op
+      case _ => // no op
     }
     println(usage)
   }

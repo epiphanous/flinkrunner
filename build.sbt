@@ -1,6 +1,6 @@
 name := "flinkrunner"
 
-version := "1.0.0"
+version := "1.1.0"
 
 organization := "io.epiphanous"
 
@@ -10,14 +10,20 @@ Test / parallelExecution := false
 
 Test / fork := true
 
+resolvers += "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/.m2/repository"
+
+
 val V = new {
-  val flink          = "1.6.0"
+  val flink          = "1.6.1"
   val logback        = "1.2.3"
   val log4jOverSlf4j = "1.7.25"
   val scalaLogging   = "3.9.0"
   val scalaTest      = "3.0.5"
   val rocksdb        = "5.14.2"
   val circe          = "0.9.3"
+  val bloom          = "0.11.0-rfl"
+  val enumeratum     = "1.5.13"
+  val config         = "1.3.3"
 }
 
 val flinkDeps = Seq(
@@ -26,6 +32,7 @@ val flinkDeps = Seq(
   "org.apache.flink" %  "flink-s3-fs-hadoop"         % V.flink % "provided",
   "org.apache.flink" %% "flink-cep-scala"            % V.flink % "provided",
   "org.apache.flink" %% "flink-connector-kafka-0.10" % V.flink,
+  "org.apache.flink" %% "flink-connector-kinesis"    % V.flink,
   "org.apache.flink" %% "flink-statebackend-rocksdb" % V.flink,
   "org.apache.flink" %  "flink-jdbc"                 % V.flink,
   "org.rocksdb"      %  "rocksdbjni"                 % V.rocksdb,
@@ -43,6 +50,9 @@ val loggingDeps = Seq(
 )
 
 val otherDeps = Seq(
+  "com.github.ponkin"             % "bloom-core"           % V.bloom,
+  "com.beachape"                 %% "enumeratum"           % V.enumeratum,
+//  "com.typesafe"                  % "config"               % V.config,
   "org.scalactic"                %% "scalactic"            % V.scalaTest % "test",
   "org.scalatest"                %% "scalatest"            % V.scalaTest % "test"
 )
