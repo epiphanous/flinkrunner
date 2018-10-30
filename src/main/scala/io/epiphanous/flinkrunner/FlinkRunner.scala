@@ -1,15 +1,20 @@
 package io.epiphanous.flinkrunner
 
-import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.flink.{FlinkArgDef, FlinkJob, FlinkJobObject}
+import io.epiphanous.flinkrunner.model.Config.{DeserializerCoproduct, FlinkSystem, JobConfig, SinkConfig}
 import io.epiphanous.flinkrunner.model.FlinkEvent
 
 /**
   * Flink Job Invoker
   */
-class FlinkRunner[E <: FlinkEvent](systemName: String, jobs: Map[String, (FlinkJob[E], FlinkJobObject)])
-    extends LazyLogging {
+class FlinkRunner[E <: FlinkEvent](jobFactory:String => FlinkJob[E], deserializers:SinkConfig => DeserializerCoproduct) extends LazyLogging {
+
+  val system =
+    pureconfig.loadConfig[FlinkSystem] match {
+      case Right(c) => c
+      case Left(t) => throw new RuntimeException(t.toList.map(_.toString).mkString("\n"))
+    }
 
   /**
     * An intermediate method to process main args, with optional callback to
@@ -56,11 +61,12 @@ class FlinkRunner[E <: FlinkEvent](systemName: String, jobs: Map[String, (FlinkJ
       case Some(str) if str.equalsIgnoreCase("help") => true
       case _ => false
     }
-    jobs.get(jobName) match {
-      case Some((job, obj)) =>
-        if (wantsHelp) showHelpFor(jobName)
+    system.jobs.get(jobName) match {
+      case Some(jobConfig) =>
+        if (wantsHelp) showHelpFor(jobConfig)
         else
-          job.run(jobName, args, obj.extraArgs) match {
+          val job = jobFactory(jobName)
+          job.run(args, system, jobConfig) match {
             case Left(results) => callback(results)
             case Right(_) => ()
           }
@@ -72,37 +78,15 @@ class FlinkRunner[E <: FlinkEvent](systemName: String, jobs: Map[String, (FlinkJ
   /**
     * Show help for a particular job
     *
-    * @param jobName name of the job to get help for
+    * @param job job config object
     */
-  def showHelpFor(jobName: String): Unit = {
-    jobs.get(jobName) match {
-      case Some((_, obj)) =>
-        val params = (FlinkArgDef.CORE_FLINK_ARGUMENTS ++ obj.extraArgs).map(a => a.name -> a).toMap
-        val names = params.keys.toList.sorted
-        val maxWidth = names.map(_.length).max
-
-        def pad(s: String) = s"$s${" " * (maxWidth - s.length)}"
-        def showDefault(s: Option[String]) = s match {
-          case Some(x) if !x.isEmpty => s"(default: $x)"
-          case _ => ""
-        }
-
-        val paramInfo = names
-          .map(arg => {
-            s"${pad(arg)}  ${params(arg).text} ${showDefault(params(arg).default)}"
-          })
-          .mkString("  - ", "\n  - ", "\n")
-        val usage =
-          s"""
-             |Usage: $systemName $jobName [job parameters]
-             |${obj.jobDescription}
-             |Job Parameters:
-             |
-             |$paramInfo
+  def showHelpFor(job: JobConfig): Unit = {
+    val usage =
+      s"""|Usage: ${ system.name} ${job.name} [job parameters]
+          |
+          |${job.help}
        """.stripMargin
-        println(usage)
-      case None => logger.error(s"Unknown job $jobName")
-    }
+    println(usage)
   }
 
   /**
@@ -111,15 +95,13 @@ class FlinkRunner[E <: FlinkEvent](systemName: String, jobs: Map[String, (FlinkJ
     * @param error an optional error message to show
     */
   def showHelp(error: Option[String] = None): Unit = {
-    // todo: complete this
-    val jobList = jobs.keys.toList.sorted.mkString("  - ", "\n  - ", "\n")
     val usage =
       s"""
-         |Usage: $systemName <jobName> [job parameters]
+         |Usage: ${system.name} <jobName> [job parameters]
          |
-         |  Jobs (try "$systemName <jobName> help" for details)
-         |  -------------------------------------------------
-         |$jobList
+         |Jobs (try "${system.name} <jobName> help" for details)
+         |
+         |  - ${system.envConfig.jobs.map { case (key, job) => s"${job.name} - ${job.description}" }.mkString("\n  - ")}
       """.stripMargin
     error match {
       case Some(errMsg) => logger.error(errMsg)

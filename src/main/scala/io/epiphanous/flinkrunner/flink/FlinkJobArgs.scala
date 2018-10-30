@@ -16,6 +16,7 @@ import scala.collection.JavaConverters._
 class FlinkJobArgs(val jobName: String, val args: Array[String], val addedArgs: Set[FlinkArgDef]) extends LazyLogging {
 
   val params = {
+
     ParameterTool.fromArgs(args)
   }
 
@@ -64,7 +65,19 @@ class FlinkJobArgs(val jobName: String, val args: Array[String], val addedArgs: 
     defs ++ add -- remove
   }
 
-  val missing = argDefs.filter(p => !params.has(p.name) && p.default.isEmpty)
+  val EDGE_PARAM_PATTERN = """([a-z][a-z0-9_]*)\.(sink|source)\..+""".r
+  val EDGE_LIST_PATTERN = """([a-z][a-z0-9_]*)\.(sink|source)s""".r
+
+  val missing = argDefs.filter(p => {
+    val noParam = !params.has(p.name)
+    val noDefault = p.default.isEmpty
+    p.name match {
+      case EDGE_PARAM_PATTERN(conn, edge) =>
+        getParamOpt(s"$conn.${edge}s").nonEmpty && noParam && noDefault && !mockEdges
+      case EDGE_LIST_PATTERN(_, _) => false
+      case _ => noParam && noDefault && !mockEdges
+    }
+  })
 
   def getSinkPrefixes = {
     val prefixes = getString("sinks").split("[ ,]+").toList
@@ -168,7 +181,7 @@ class FlinkJobArgs(val jobName: String, val args: Array[String], val addedArgs: 
   def isProd: Boolean = getString("environment").equalsIgnoreCase("prod")
   def isStage: Boolean = getString("environment").equalsIgnoreCase("stage")
   def isDev: Boolean = getString("environment").equalsIgnoreCase("dev")
-  def mockSink: Boolean = getBoolean("mock.sink")
+  def mockEdges: Boolean = getBoolean("mock.edges")
   def showPlan: Boolean = isDev && getBoolean("show.plan")
   def debug: Boolean = getBoolean("debug")
 

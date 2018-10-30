@@ -7,7 +7,7 @@ import java.util.Properties
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.flink.FlinkConnectorName._
 import io.epiphanous.flinkrunner.flink._
-import io.epiphanous.flinkrunner.model.FlinkEvent
+import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkEvent}
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.contrib.streaming.state.{PredefinedOptions, RocksDBStateBackend}
 import org.apache.flink.core.fs.Path
@@ -65,25 +65,17 @@ object StreamUtils extends LazyLogging {
     * @param args implicitly passed parameters
     * @return StreamExecutionEnvironment
     */
-  def configureEnvironment(implicit args: Args): SEE = {
-
-    if (args.missing.nonEmpty) {
-      throw new NoSuchElementException(
-        s"Missing job arguments:\n${args.missing.map(p => s"  - ${p.name}: ${p.text}").mkString("\n")}\n"
-      )
-    }
+  def configureEnvironment(implicit config: FlinkConfig): SEE = {
 
     val env =
-      if (args.isDev) StreamExecutionEnvironment.createLocalEnvironment(1)
+      if (config.isDev) StreamExecutionEnvironment.createLocalEnvironment(1)
       else
         StreamExecutionEnvironment.getExecutionEnvironment
 
-    env.getConfig.setGlobalJobParameters(args.params)
-
-    // configure logging TODO
-//    if (args.isProd) env.getConfig.disableSysoutLogging
+    env.getConfig.setGlobalJobParameters(config)
 
     // use event time
+    val timeCharacteristic = getTimeCharacteristic
     val timeCharacteristic = args.getString("time.characteristic") match {
       case "event" => TimeCharacteristic.EventTime
       case "ingestion" => TimeCharacteristic.IngestionTime

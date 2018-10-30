@@ -2,6 +2,31 @@ package io.epiphanous.flinkrunner.flink
 
 case class FlinkArgDef(name: String, text: String, default: Option[String] = None)
 
+//Boolean("checkpoint.flash")
+//Boolean("checkpoint.incremental")
+//Int("checkpoint.max.concurrent")
+//Int("global.parallelism")
+//Int("port")
+//Long("bucket.check.interval")
+//Long("bucket.rolling.policy.inactivity.interval")
+//Long("bucket.rolling.policy.max.part.size")
+//Long("bucket.rolling.policy.rollover.interval")
+//Long("checkpoint.interval")
+//Long("checkpoint.min.pause")
+//Long("control.lockout.duration")
+//Long("max.active.duration")
+//Long("max.lateness")
+//String("bucket.assigner")
+//String("bucket.assigner.datetime.format")
+//String("bucket.rolling.policy")
+//String("checkpoint.url")
+//String("encoder.format")
+//String("host")
+//String("path")
+//String("state.backend")
+//String("time.characteristic")
+//String("topic")
+
 object FlinkArgDef {
   val CORE_FLINK_ARGUMENTS = Set(
     FlinkArgDef("environment", "specify running environment (prod, stage, dev)", default = Some("dev")),

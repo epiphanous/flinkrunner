@@ -71,7 +71,7 @@ abstract class SimpleFlinkJob[IN <: FlinkEvent: TypeInformation, OUT <: FlinkEve
     args.getSinkPrefixes.foreach(pfx => toSink(out, pfx))
 
   /**
-    * The output stream will only be passed to [[sink()]] if [[FlinkJobArgs.mockSink]] evaluates
+    * The output stream will only be passed to [[sink()]] if [[FlinkJobArgs.mockEdges]] evaluates
     * to false (ie, you're not testing).
     *
     * @param out the output data stream to pass into [[sink()]]
@@ -79,7 +79,7 @@ abstract class SimpleFlinkJob[IN <: FlinkEvent: TypeInformation, OUT <: FlinkEve
     * @param env implicit flink execution environment
     */
   def maybeSink(out: DataStream[OUT])(implicit args: Args, env: SEE): Unit =
-    if (!args.mockSink) sink(out)
+    if (!args.mockEdges) sink(out)
 
   /**
     * A pipeline for transforming a single stream. Passes the output of [[source()]]

@@ -22,7 +22,7 @@ val V = new {
   val circe          = "0.9.3"
   val bloom          = "0.11.0-rfl"
   val enumeratum     = "1.5.13"
-  val config         = "1.3.3"
+  val pureConfig     = "0.9.2"
 }
 
 val flinkDeps = Seq(
@@ -49,11 +49,12 @@ val loggingDeps = Seq(
 )
 
 val otherDeps = Seq(
-  "com.github.ponkin"             % "bloom-core"           % V.bloom,
-  "com.beachape"                 %% "enumeratum"           % V.enumeratum,
-//  "com.typesafe"                  % "config"               % V.config,
-  "org.scalactic"                %% "scalactic"            % V.scalaTest % "test",
-  "org.scalatest"                %% "scalatest"            % V.scalaTest % "test"
+  "com.github.ponkin"             % "bloom-core"            % V.bloom,
+  "com.beachape"                 %% "enumeratum"            % V.enumeratum,
+  "com.github.pureconfig"        %% "pureconfig-enumeratum" % V.pureConfig,
+  "com.github.pureconfig"        %% "pureconfig"            % V.pureConfig,
+  "org.scalactic"                %% "scalactic"             % V.scalaTest % "test",
+  "org.scalatest"                %% "scalatest"             % V.scalaTest % "test"
 )
 
 lazy val flink_runner = (project in file(".")).
