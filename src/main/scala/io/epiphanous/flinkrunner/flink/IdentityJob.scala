@@ -1,11 +1,10 @@
 package io.epiphanous.flinkrunner.flink
-import io.epiphanous.flinkrunner.model.FlinkEvent
+import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkEvent}
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.scala.DataStream
 
-class IdentityJob[E <: FlinkEvent: TypeInformation](sources: Map[String, Seq[Array[Byte]]] = Map.empty)
-    extends SimpleFlinkJob[E, E](sources) {
+class IdentityJob[E <: FlinkEvent: TypeInformation] extends FlinkJob[E, E] {
 
-  override def transform(in: DataStream[E])(implicit args: Args, env: SEE) =
+  override def transform(in: DataStream[E])(implicit config: FlinkConfig) =
     in
 }

@@ -1,6 +1,7 @@
 package io.epiphanous.flinkrunner.flink
 
-import io.epiphanous.flinkrunner.model.{DataOrControl, FlinkEvent}
+import io.epiphanous.flinkrunner.SEE
+import io.epiphanous.flinkrunner.model.{DataOrControl, FlinkConfig, FlinkEvent}
 import io.epiphanous.flinkrunner.util.StreamUtils._
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.scala._
@@ -17,36 +18,29 @@ import org.apache.flink.streaming.api.scala.DataStream
   *
   * would output `d3 d4 d5`.
   *
-  * @param sources     not used
-  * @param mixedSource for testing, provides a sequence of DataOrControl[D,C] objects
   * @tparam D   the data type
   * @tparam C   the control type
   * @tparam OUT the output stream element type
   */
 abstract class FilterByControlJob[
-    D <: FlinkEvent: TypeInformation,
-    C <: FlinkEvent: TypeInformation,
-    OUT <: FlinkEvent: TypeInformation
-  ](//    helper: DataOrControlEventHelper[D, C],
-    sources: Map[String, Seq[Array[Byte]]] = Map.empty,
-    mixedSource: Seq[DataOrControl[D, C]] = Seq.empty)
-    extends SimpleFlinkJob[D, OUT](sources) {
+  D <: FlinkEvent: TypeInformation,
+  C <: FlinkEvent: TypeInformation,
+  OUT <: FlinkEvent: TypeInformation]
+    extends FlinkJob[D, OUT] {
 
   /**
-    * A source data stream for the data events. Must be overridden by subclasses.
-    * @param args implicit flink args
-    * @param env implicit flink execution environment
+    * A source data stream for the data events.
+    * @param config implicit flink config
     * @return a data stream of data events.
     */
-  def data(implicit args: Args, env: SEE): DataStream[D] = fromSource[D](sources, "data")
+  def data(implicit config: FlinkConfig, env: SEE): DataStream[D] = fromSource[D]("data")
 
   /**
-    * A source data stream for the control events.  Must be overridden by subclasses.
-    * @param args implicit flink args
-    * @param env implicit flink execution environment
+    * A source data stream for the control events.
+    * @param config implicit flink config
     * @return a data stream of control events.
     */
-  def control(implicit args: Args, env: SEE): DataStream[C] = fromSource[C](sources, "control")
+  def control(implicit config: FlinkConfig, env: SEE): DataStream[C] = fromSource[C]("control")
 
   /**
     * Generate a stream of data records filtered by the control stream.
@@ -55,37 +49,33 @@ abstract class FilterByControlJob[
     * [[DataOrControl]] objects and then uses a flat map with state to determine when to emit
     * the data records. It remembers the last control time and state and updates it when the state changes.
     **
-    * @param args implicit flink args
-    * @param env implicit flink execution environment
+    * @param config implicit flink config
     * @return data stream of data records
     */
-  override def source()(implicit args: Args, env: SEE): DataStream[D] = {
+  override def source()(implicit config: FlinkConfig, env: SEE): DataStream[D] = {
 
-    val controlLockoutDuration = args.getLong("control.lockout.duration")
+    val controlLockoutDuration = config.getDuration("control.lockout.duration")
 
     val in =
-      if (mixedSource.nonEmpty)
-        env.fromCollection(mixedSource)
-      else
-        data
-          .connect(control)
-          .map(DataOrControl.data[D, C], DataOrControl.control[D, C])
-          .keyBy(_.$key)
+      data
+        .connect(control)
+        .map(DataOrControl.data[D, C], DataOrControl.control[D, C])
+        .keyBy((e: DataOrControl[D, C]) => e.$key)
 
     in.assignTimestampsAndWatermarks(boundedLatenessEventTime[DataOrControl[D, C]]())
-      .keyBy(_.$key)
+      .keyBy((e: DataOrControl[D, C]) => e.$key)
       .filterWithState[(Long, Boolean)]((dc, lastControlOpt) => {
         if (dc.isData) {
           val emit = lastControlOpt match {
-            case Some((ts, active)) =>
-              active && ((dc.$timestamp - ts) >= controlLockoutDuration)
+            case Some((ts: Long, active: Boolean)) =>
+              active && ((dc.$timestamp - ts) >= controlLockoutDuration.toMillis)
             case None => false
           }
           (emit, lastControlOpt)
         } else {
           val update = lastControlOpt match {
             case Some((_, active)) => dc.$active != active
-            case None => true
+            case None              => true
           }
           (false, if (update) Some((dc.$timestamp, dc.$active)) else lastControlOpt)
         }

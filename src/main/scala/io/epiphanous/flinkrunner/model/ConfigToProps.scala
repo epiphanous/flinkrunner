@@ -1,13 +1,16 @@
-package io.epiphanous.flinkrunner.model.Config
+package io.epiphanous.flinkrunner.model
 import java.util.Properties
 
 import com.typesafe.config.ConfigObject
 
 trait ConfigToProps {
-  def config: ConfigObject
+  def config: Option[ConfigObject]
   val properties: Properties = {
     val p = new Properties()
-    p.putAll(config.unwrapped)
+    config match {
+      case Some(c) => p.putAll(c.unwrapped)
+      case None    =>
+    }
     p
   }
 }

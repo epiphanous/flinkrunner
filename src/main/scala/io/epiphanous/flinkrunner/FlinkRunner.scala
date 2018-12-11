@@ -1,42 +1,34 @@
 package io.epiphanous.flinkrunner
 
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.flink.{FlinkArgDef, FlinkJob, FlinkJobObject}
-import io.epiphanous.flinkrunner.model.Config.{DeserializerCoproduct, FlinkSystem, JobConfig, SinkConfig}
-import io.epiphanous.flinkrunner.model.FlinkEvent
+import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkEvent}
 
 /**
   * Flink Job Invoker
   */
-class FlinkRunner[E <: FlinkEvent](jobFactory:String => FlinkJob[E], deserializers:SinkConfig => DeserializerCoproduct) extends LazyLogging {
+class FlinkRunner[ADT <: FlinkEvent](
+  args: Array[String],
+  factory: FlinkRunnerFactory[ADT],
+  sources: Map[String, Seq[Array[Byte]]] = Map.empty,
+  optConfig: Option[String] = None)
+    extends LazyLogging {
 
-  val system =
-    pureconfig.loadConfig[FlinkSystem] match {
-      case Right(c) => c
-      case Left(t) => throw new RuntimeException(t.toList.map(_.toString).mkString("\n"))
-    }
+  implicit val config: FlinkConfig = new FlinkConfig(args, factory, sources, optConfig)
+  implicit val env = config.configureStreamExecutionEnvironment
 
   /**
     * An intermediate method to process main args, with optional callback to
     * capture output of flink job.
     *
-    * @param args     Array[String] arguments at program invocation
     * @param callback a function from an iterator to unit
     */
   def process(
-      args: Array[String],
-      callback: PartialFunction[Iterator[E], Unit] = {
-        case _ => ()
-      }
-    ): Unit = {
-    def badJobName(j: String) = j.equalsIgnoreCase("help") || j.startsWith("-")
-
-    args.headOption match {
-      case Some(jobName) if !badJobName(jobName) =>
-        process1(jobName, args.slice(1, args.length), callback)
-      case _ => showHelp()
+    callback: PartialFunction[Stream[ADT], Unit] = {
+      case _ => ()
     }
-  }
+  ): Unit =
+    if (config.jobName == "help") showHelp()
+    else process1(callback)
 
   /**
     * Actually invoke the job based on the job name and arguments passed in.
@@ -45,46 +37,35 @@ class FlinkRunner[E <: FlinkEvent](jobFactory:String => FlinkJob[E], deserialize
     * of results from a flink job. It will only be invoked if --mock.edges
     * option is on.
     *
-    * @param jobName  String first argument at program invocation
-    * @param args     Array[String] other arguments at program invocation
-    * @param callback a function from an iterator to unit that receives results
+    * @param callback a function from a stream to unit that receives results
     *                 from running flink job
     */
   def process1(
-      jobName: String,
-      args: Array[String],
-      callback: PartialFunction[Iterator[E], Unit] = {
-        case _ => ()
-      }
-    ): Unit = {
-    val wantsHelp = args.headOption match {
-      case Some(str) if str.equalsIgnoreCase("help") => true
-      case _ => false
+    callback: PartialFunction[Stream[ADT], Unit] = {
+      case _ => ()
     }
-    system.jobs.get(jobName) match {
-      case Some(jobConfig) =>
-        if (wantsHelp) showHelpFor(jobConfig)
-        else
-          val job = jobFactory(jobName)
-          job.run(args, system, jobConfig) match {
-            case Left(results) => callback(results)
-            case Right(_) => ()
-          }
-      case None =>
-        showHelp(Some(s"Unknown job $jobName"))
+  ): Unit = {
+    val wantsJobHelp = config.jobArgs.headOption match {
+      case Some(str) if str.equalsIgnoreCase("help") => true
+      case _                                         => false
+    }
+    if (wantsJobHelp) showJobHelp()
+    else {
+      config.getJobInstance.run match {
+        case Left(results) => callback(results.asInstanceOf[Iterator[ADT]].toStream)
+        case Right(_)      => ()
+      }
     }
   }
 
   /**
     * Show help for a particular job
-    *
-    * @param job job config object
-    */
-  def showHelpFor(job: JobConfig): Unit = {
+    **/
+  def showJobHelp(): Unit = {
     val usage =
-      s"""|Usage: ${ system.name} ${job.name} [job parameters]
+      s"""|Usage: ${config.systemName} ${config.jobName} [job parameters]
           |
-          |${job.help}
+          |${config.jobHelp}
        """.stripMargin
     println(usage)
   }
@@ -97,15 +78,15 @@ class FlinkRunner[E <: FlinkEvent](jobFactory:String => FlinkJob[E], deserialize
   def showHelp(error: Option[String] = None): Unit = {
     val usage =
       s"""
-         |Usage: ${system.name} <jobName> [job parameters]
+         |Usage: ${config.systemName} <jobName> [job parameters]
          |
-         |Jobs (try "${system.name} <jobName> help" for details)
+         |Jobs (try "${config.systemName} <jobName> help" for details)
          |
-         |  - ${system.envConfig.jobs.map { case (key, job) => s"${job.name} - ${job.description}" }.mkString("\n  - ")}
+         |${config.systemHelp}
       """.stripMargin
     error match {
       case Some(errMsg) => logger.error(errMsg)
-      case _ => // no op
+      case _            => // no op
     }
     println(usage)
   }

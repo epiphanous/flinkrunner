@@ -1,5 +1,6 @@
 package io.epiphanous.flinkrunner.flink
 
+import io.epiphanous.flinkrunner.SEE
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.util.StreamUtils._
 import org.apache.flink.api.common.typeinfo.TypeInformation
@@ -19,38 +20,31 @@ import org.apache.flink.streaming.api.windowing.time.Time
   * the timestamp of `on`, and end time of the timestamp of `off` and the elements `d3, d4, d5` as the
   * payload.
   *
-  * @param sources     not used
-  * @param mixedSource for testing, provides a sequence of DataOrControl[D,C] objects
-  * @tparam D   the data type
-  * @tparam C   the control type
+  * @tparam D the data type
+  * @tparam C the control type
   * @tparam OUT the output stream element type
   */
 abstract class DataControlJob[
-    D <: FlinkEvent: TypeInformation,
-    C <: FlinkEvent: TypeInformation,
-    OUT <: FlinkEvent: TypeInformation
-  ](//    helper: DataOrControlEventHelper[D, C],
-    sources: Map[String, Seq[Array[Byte]]] = Map.empty,
-    mixedSource: Seq[DataOrControl[D, C]] = Seq.empty)
-    extends SimpleFlinkJob[DataControlPeriod[D], OUT](sources) {
+  D <: FlinkEvent: TypeInformation,
+  C <: FlinkEvent: TypeInformation,
+  OUT <: FlinkEvent: TypeInformation]
+    extends FlinkJob[DataControlPeriod[D], OUT] {
 
   import DataControlJob._
 
   /**
-    * A source data stream for the data events. Must be overridden by subclasses.
-    * @param args implicit flink args
-    * @param env implicit flink execution environment
+    * A source data stream for the data events.
+    * @param config implicit flink config
     * @return a data stream of data events.
     */
-  def data(implicit args: Args, env: SEE): DataStream[D] = fromSource[D](sources, "data")
+  def data(implicit config: FlinkConfig, env: SEE): DataStream[D] = fromSource[D]("data")
 
   /**
-    * A source data stream for the control events.  Must be overridden by subclasses.
-    * @param args implicit flink args
-    * @param env implicit flink execution environment
+    * A source data stream for the control events.
+    * @param config implicit flink config
     * @return a data stream of control events.
     */
-  def control(implicit args: Args, env: SEE): DataStream[C] = fromSource[C](sources, "control")
+  def control(implicit config: FlinkConfig, env: SEE): DataStream[C] = fromSource[C]("control")
 
   /**
     * Generate a data stream of data control periods. This method does not generally need to be overridden
@@ -62,25 +56,21 @@ abstract class DataControlJob[
     * we manually filter the control stream to remove multiple, sequential controls with the same `isActive()`
     * value. So multiple `on` controls are replaced with the earliest `on` control and the same for `off` controls.
     *
-    * @param args implicit flink args
-    * @param env implicit flink execution environment
+    * @param config implicit flink configuration
     * @return data stream of data control periods
     */
-  override def source()(implicit args: Args, env: SEE): DataStream[DataControlPeriod[D]] = {
+  override def source()(implicit config: FlinkConfig, env: SEE): DataStream[DataControlPeriod[D]] = {
 
-    val controlLockoutDuration = args.getLong("control.lockout.duration")
+    val controlLockoutDuration = config.getLong("control.lockout.duration")
 
     val in =
-      if (mixedSource.nonEmpty)
-        env.fromCollection(mixedSource)
-      else
-        data
-          .connect(control)
-          .map(DataOrControl.data[D, C], DataOrControl.control[D, C])
+      data
+        .connect(control)
+        .map(DataOrControl.data[D, C], DataOrControl.control[D, C])
 
     val keyed = in
       .assignTimestampsAndWatermarks(boundedLatenessEventTime[DataOrControl[D, C]]())
-      .keyBy(_.$key)
+      .keyBy((e: DataOrControl[D, C]) => e.$key)
       // this is here to debounce multiple controls because of a bug in flink's CEP pattern
       // matching where the greedy operator doesn't work properly
       // (see https://issues.apache.org/jira/browse/FLINK-8914)
@@ -98,15 +88,16 @@ abstract class DataControlJob[
           }
         }
       })
-      .keyBy(_.$key)
+      .keyBy((e: DataOrControl[D, C]) => e.$key)
 
-    val debug = args.debug
+    val debug = config.isDev
     CEP
       .pattern(keyed, pattern)
       .flatSelect((pat, out) => {
         if (debug)
           println(
-            s"\n*** MATCHED ***\n${pat.map(kv => s"${kv._1} => ${kv._2.map(_.info).mkString("; ")}").mkString("\n  - ")}\n")
+            s"\n*** MATCHED ***\n${pat.map(kv => s"${kv._1} => ${kv._2.map(_.info).mkString("; ")}").mkString("\n  - ")}\n"
+          )
         try {
           val on = pat(CEP_CONTROL_ON).head.control.get
           val off = pat(CEP_CONTROL_OFF).head.control.get
@@ -116,7 +107,8 @@ abstract class DataControlJob[
             .filter(_.$timestamp - on.$timestamp >= controlLockoutDuration)
           if (elements.nonEmpty)
             out.collect(
-              DataControlPeriod[D](key = on.$key, start = on.$timestamp, end = off.$timestamp, elements = elements))
+              DataControlPeriod[D](key = on.$key, start = on.$timestamp, end = off.$timestamp, elements = elements)
+            )
         } catch {
           case e: Exception =>
             println(s"\n*** MATCH ERROR***\n$e\n")
@@ -129,10 +121,10 @@ abstract class DataControlJob[
     * Returns the pattern used by CEP to aggregate the control and data streams. Should not need to be overridden.
     * @return cep pattern
     */
-  def pattern(implicit args: Args): Pattern[DataOrControl[D, C], DataOrControl[D, C]] = {
+  def pattern(implicit config: FlinkConfig): Pattern[DataOrControl[D, C], DataOrControl[D, C]] = {
 
-    val maxActiveDuration = Time.seconds(args.getLong("max.active.duration"))
-    val debug = args.debug
+    val maxActiveDuration = config.getDuration("max.active.duration")
+    val debug = config.isDev
     val condition =
       (dc: DataOrControl[D, C], f: DataOrControl[D, C] => Boolean, name: String) => {
         val x = f(dc)
@@ -180,9 +172,10 @@ abstract class DataControlJob[
       .where(controlOffCondition)
       .next(inactive)
       .optional
-      .within(maxActiveDuration)
+      .within(Time.milliseconds(maxActiveDuration.toMillis))
 
   }
+
 }
 
 object DataControlJob {
