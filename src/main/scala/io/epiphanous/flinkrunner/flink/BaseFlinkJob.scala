@@ -5,7 +5,7 @@ import io.epiphanous.flinkrunner.SEE
 import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkEvent}
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.datastream.DataStreamUtils
-import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
+import org.apache.flink.streaming.api.scala.DataStream
 
 import scala.collection.JavaConverters._
 

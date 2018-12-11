@@ -1,5 +1,5 @@
 package io.epiphanous.flinkrunner
-import io.epiphanous.flinkrunner.flink.BaseFlinkJob
+import io.epiphanous.flinkrunner.flink.FlinkJob
 import io.epiphanous.flinkrunner.model.FlinkEvent
 import io.epiphanous.flinkrunner.operator.AddToJdbcBatchFunction
 import org.apache.flink.api.common.serialization.{DeserializationSchema, Encoder, SerializationSchema}
@@ -7,7 +7,7 @@ import org.apache.flink.streaming.util.serialization.{KeyedDeserializationSchema
 
 trait FlinkRunnerFactory[ADT <: FlinkEvent] {
 
-  def getJobInstance(name: String): BaseFlinkJob[ADT]
+  def getJobInstance(name: String): FlinkJob[_ <: ADT, _ <: ADT]
 
   def getDeserializationSchema: DeserializationSchema[ADT]
 

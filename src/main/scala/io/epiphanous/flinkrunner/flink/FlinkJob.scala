@@ -9,7 +9,7 @@ import org.apache.flink.streaming.api.TimeCharacteristic
 import org.apache.flink.streaming.api.datastream.DataStreamUtils
 import org.apache.flink.streaming.api.scala.DataStream
 
-import scala.collection.JavaConverters._
+import collection.JavaConverters._
 
 /**
   * An abstract flink job to transform on a stream of events from an algebraic data type (ADT).
@@ -17,8 +17,33 @@ import scala.collection.JavaConverters._
   * @tparam IN   The type of input stream elements
   * @tparam OUT  The type of output stream elements
   */
-abstract class FlinkJob[IN <: FlinkEvent: TypeInformation, OUT <: FlinkEvent: TypeInformation]
-    extends BaseFlinkJob[OUT] {
+abstract class FlinkJob[IN <: FlinkEvent: TypeInformation, OUT <: FlinkEvent: TypeInformation] extends LazyLogging {
+
+  /**
+    * A pipeline for transforming a single stream. Passes the output of [[source()]]
+    * through [[transform()]] and the result of that into [[maybeSink()]], which may pass it
+    * into [[sink()]] if we're not testing. Ultimately, returns the output data stream to
+    * facilitate testing.
+    *
+    * @param config implicit flink job config
+    * @return data output stream
+    */
+  def flow()(implicit config: FlinkConfig, env: SEE): DataStream[OUT] =
+    source |> transform |# maybeSink
+
+  def run()(implicit config: FlinkConfig, env: SEE): Either[Iterator[OUT], Unit] = {
+
+    logger.info(s"\nSTARTING FLINK JOB: ${config.jobName} ${config.jobArgs.mkString(" ")}\n")
+
+    val stream = flow
+
+    if (config.showPlan) logger.info(s"PLAN:\n${env.getExecutionPlan}\n")
+
+    if (config.mockEdges)
+      Left(DataStreamUtils.collect(stream.javaStream).asScala)
+    else
+      Right(env.execute(config.jobName))
+  }
 
   /**
     * Returns source data stream to pass into [[transform()]]. This can be overridden by subclasses.
@@ -39,7 +64,7 @@ abstract class FlinkJob[IN <: FlinkEvent: TypeInformation, OUT <: FlinkEvent: Ty
     * @param config implicit flink job config
     * @return output data stream
     */
-  def transform(in: DataStream[IN])(implicit config: FlinkConfig): DataStream[OUT]
+  def transform(in: DataStream[IN])(implicit config: FlinkConfig, env: SEE): DataStream[OUT]
 
   /**
     * Writes the transformed data stream to configured output sinks.
@@ -47,7 +72,7 @@ abstract class FlinkJob[IN <: FlinkEvent: TypeInformation, OUT <: FlinkEvent: Ty
     * @param out a transformed stream from [[transform()]]
     * @param config implicit flink job config
     */
-  def sink(out: DataStream[OUT])(implicit config: FlinkConfig): Unit =
+  def sink(out: DataStream[OUT])(implicit config: FlinkConfig, env: SEE): Unit =
     config.getSinkNames.foreach(name => out.toSink(name))
 
   /**
@@ -57,19 +82,7 @@ abstract class FlinkJob[IN <: FlinkEvent: TypeInformation, OUT <: FlinkEvent: Ty
     * @param out the output data stream to pass into [[sink()]]
     * @param config implicit flink job config
     */
-  def maybeSink(out: DataStream[OUT])(implicit config: FlinkConfig): Unit =
+  def maybeSink(out: DataStream[OUT])(implicit config: FlinkConfig, env: SEE): Unit =
     if (!config.mockEdges) sink(out)
-
-  /**
-    * A pipeline for transforming a single stream. Passes the output of [[source()]]
-    * through [[transform()]] and the result of that into [[maybeSink()]], which may pass it
-    * into [[sink()]] if we're not testing. Ultimately, returns the output data stream to
-    * facilitate testing.
-    *
-    * @param config implicit flink job config
-    * @return data output stream
-    */
-  def flow(implicit config: FlinkConfig, env: SEE): DataStream[OUT] =
-    source |> transform |# maybeSink
 
 }

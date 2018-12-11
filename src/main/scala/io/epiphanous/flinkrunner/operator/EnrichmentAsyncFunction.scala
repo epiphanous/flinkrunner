@@ -52,13 +52,14 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
     extends AsyncFunction[IN, OUT]
     with LazyLogging {
 
-  implicit val entityDecoder: EntityDecoder[IO, CV] = jsonOf[IO, CV]
+  @transient
+  lazy implicit val entityDecoder: EntityDecoder[IO, CV] = jsonOf[IO, CV]
 
   /**
     * A thread pool execution context for making asynchronous api calls.
     */
   @transient
-  implicit val ec: ExecutionContext = new ExecutionContext {
+  lazy implicit val ec: ExecutionContext = new ExecutionContext {
     val threadPool =
       Executors.newFixedThreadPool(Math.max(2, config.getInt(s"$configPrefix.num.threads")))
 
@@ -69,8 +70,11 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
       logger.error(t.getLocalizedMessage)
   }
 
-  implicit val cs: ContextShift[IO] = IO.contextShift(ec)
-  implicit val timer: Timer[IO] = IO.timer(ec)
+  @transient
+  lazy implicit val cs: ContextShift[IO] = IO.contextShift(ec)
+
+  @transient
+  lazy implicit val timer: Timer[IO] = IO.timer(ec)
 
   @transient
   lazy val api = BlazeClientBuilder[IO](ec).resource
@@ -81,7 +85,7 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
     * one is passed into the class constructor (usually just done for testing).
     */
   @transient
-  val defaultCacheLoader = new CacheLoader[String, Option[CV]] {
+  lazy val defaultCacheLoader = new CacheLoader[String, Option[CV]] {
     override def load(uri: String): Option[CV] = {
       api
         .use { client =>
@@ -97,7 +101,7 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
   }
 
   @transient
-  val cache = {
+  lazy val cache = {
     val builder = CacheBuilder
       .newBuilder()
       .concurrencyLevel(config.getInt(s"$configPrefix.cache.concurrency.level"))
