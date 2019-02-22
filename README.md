@@ -46,87 +46,87 @@ methods/fields:
   * `$id: String` - a unique id for the event
   * `$key: String` - a key to group events
 
-Additionally, a `FlinkEvent` has an `$active: Boolean` method that defaults to `false`.
-This is used by `FlinkRunner` in some of its abstract job types that you may or may not
-use. We'll discuss those details later.
-
-```scala
-sealed trait MyADTEvent extends FlinkEvent
-
-final case class SomeEvent($timestamp:Long, $id:String, $key:String, ...)
-  extends MyADTEvent
+  Additionally, a `FlinkEvent` has an `$active: Boolean` method that defaults to `false`.
+  This is used by `FlinkRunner` in some of its abstract job types that you may or may not
+  use. We'll discuss those details later.
   
-final case class OtherEvent($timestamp:Long, $id:String, $key:String, ...)
-  extends MyADTEvent
-```
+  ```scala
+  sealed trait MyADTEvent extends FlinkEvent
+  
+  final case class SomeEvent($timestamp:Long, $id:String, $key:String, ...)
+    extends MyADTEvent
+    
+  final case class OtherEvent($timestamp:Long, $id:String, $key:String, ...)
+    extends MyADTEvent
+  ```
 
 * Create a `Runner` object using `FlinkRunner`. This is what you use as the entry point
 to your jobs.
 
-```scala
-object Runner {
-
-  def main(args: Array[String]): Unit =
-    run(args)
-
-  def run(
-      args: Array[String],
-      optConfig: Option[String] = None,
-      sources: Map[String, Seq[Array[Byte]]] = Map.empty
-    )(callback: PartialFunction[Stream[MyADTEvent], Unit] = {
-        case _ =>
-          ()
-      }
-    ): Unit = {
-    val runner =
-      new FlinkRunner[MyADTEvent](args,
-                                        new MyADTRunnerFactory(),
-                                        sources,
-                                        optConfig)
-    runner.process(callback)
+  ```scala
+  object Runner {
+  
+    def main(args: Array[String]): Unit =
+      run(args)
+  
+    def run(
+        args: Array[String],
+        optConfig: Option[String] = None,
+        sources: Map[String, Seq[Array[Byte]]] = Map.empty
+      )(callback: PartialFunction[Stream[MyADTEvent], Unit] = {
+          case _ =>
+            ()
+        }
+      ): Unit = {
+      val runner =
+        new FlinkRunner[MyADTEvent](args,
+                                          new MyADTRunnerFactory(),
+                                          sources,
+                                          optConfig)
+      runner.process(callback)
+    }
   }
-}
-```
+  ```
 
 * Create a `MyADTRunnerFactory()` that extends `FlinkRunnerFactory()`. This is used
 by flink runner to get your jobs and serialization/deserialization schemas.
 
-```scala
-@SerialVersionUID(123456789L)
-class MyADTRunnerFactory
-    extends FlinkRunnerFactory[MyADTEvent]
-    with Serializable {
-
-  override def getJobInstance(name: String) =
-    name match {
-      case "MyADTJob1" => new MyADTJob1()
-      case "MyADTJob2" => new MyADTJob2()
-      case "MyADTJob3" => new MyADTJob3()
-      case _ => throw new UnsupportedOperationException(s"unknown job $name")
-    }
-
-  // just override the ones you need in your jobs
-  // note these are intended to work for all your types, which is one of the
-  // primary reasons we're using an ADT approach
-  override def getDeserializationSchema =
-    new MyADTEventDeserializationSchema()
-    
-  override def getKeyedDeserializationSchema =
-    new MyADTEventKeyedDeserializationSchema()
-    
-  override def getSerializationSchema =
-    new MyADTEventSerializationSchema()
-    
-  override def getKeyedSerializationSchema =
-    new MyADTEventKeyedSerializationSchema()
-    
-  override def getEncoder = new MyADTEventEncoder()
+  ```scala
+  @SerialVersionUID(123456789L)
+  class MyADTRunnerFactory
+      extends FlinkRunnerFactory[MyADTEvent]
+      with Serializable {
   
-  override def getAddToJdbcBatchFunction =
-    new MyADTEventAddToJdbcBatchFunction()
-}
-
-```
+    override def getJobInstance(name: String) =
+      name match {
+        case "MyADTJob1" => new MyADTJob1()
+        case "MyADTJob2" => new MyADTJob2()
+        case "MyADTJob3" => new MyADTJob3()
+        case _ => throw new UnsupportedOperationException(s"unknown job $name")
+      }
+  
+    // just override the ones you need in your jobs
+    // note these are intended to work for all your types, which is one of the
+    // primary reasons we're using an ADT approach
+    override def getDeserializationSchema =
+      new MyADTEventDeserializationSchema()
+      
+    override def getKeyedDeserializationSchema =
+      new MyADTEventKeyedDeserializationSchema()
+      
+    override def getSerializationSchema =
+      new MyADTEventSerializationSchema()
+      
+    override def getKeyedSerializationSchema =
+      new MyADTEventKeyedSerializationSchema()
+      
+    override def getEncoder = new MyADTEventEncoder()
+    
+    override def getAddToJdbcBatchFunction =
+      new MyADTEventAddToJdbcBatchFunction()
+  }
+  
+  ```
 
 * Create your serialization and deserialization schemas for your ADT. 
 You'll most likely need a deserialization schema
@@ -152,38 +152,39 @@ grokked by `flinkrunner` from the config.
 job classes. The top level `flinkrunner` job class is called `FlinkJob` and has the
 following interface:
 
-```scala
-abstract class FlinkJob[IN <: FlinkEvent: TypeInformation, OUT <: FlinkEvent: TypeInformation] extends LazyLogging {
+  ```scala
+  abstract class FlinkJob[IN <: FlinkEvent: TypeInformation, OUT <: FlinkEvent: TypeInformation] extends LazyLogging {
+    
+    // the entry point called by flink runner; invokes the flow
+    // and if mock.edges is true, returns an iterator of results
+    def run():Either[Iterator[OUT],Unit]
+    
+    // this is its actual code...sets up the execution plan
+    def flow():DataStream[OUT] =
+      source |> transform |# maybeSink
+    
+    // reads from first configured sink and assigns timestamps
+    // and watermarks if needed
+    def source():DataStream[IN]
+    
+    // called by source(), uses configuration to do its thing
+    def maybeAssignTimestampsAndWatermarks(in: DataStream[IN]):Unit
+    
+    // writes to first configured sink
+    def sink(out:DataStream[OUT]):Unit
+    
+    // only adds the sink to the execution plan of mock.edges is fals
+    def maybeSink():Unit
+    
+    // no implementation provided...
+    // this is what your job implements
+    def transform(in:DataStream[IN]):DataStream[OUT]
+  }
+  ```
   
-  // the entry point called by flink runner; invokes the flow
-  // and if mock.edges is true, returns an iterator of results
-  def run():Either[Iterator[OUT],Unit]
-  
-  // this is its actual code...sets up the execution plan
-  def flow():DataStream[OUT] =
-    source |> transform |# maybeSink
-  
-  // reads from first configured sink and assigns timestamps
-  // and watermarks if needed
-  def source():DataStream[IN]
-  
-  // called by source(), uses configuration to do its thing
-  def maybeAssignTimestampsAndWatermarks(in: DataStream[IN]):Unit
-  
-  // writes to first configured sink
-  def sink(out:DataStream[OUT]):Unit
-  
-  // only adds the sink to the execution plan of mock.edges is fals
-  def maybeSink():Unit
-  
-  // no implementation provided...
-  // this is what your job implements
-  def transform(in:DataStream[IN]):DataStream[OUT]
-}
-```
-While you're free to override any of these methods in your job, 
-usually you just need to provide a `transform()` method that
-converts your `DataStream[IN]` to a `DataStream[OUT]`. 
+  While you're free to override any of these methods in your job, 
+  usually you just need to provide a `transform()` method that
+  converts your `DataStream[IN]` to a `DataStream[OUT]`. 
 
 > TODO: Finish README.
 
