@@ -9,15 +9,15 @@ trait FlinkRunnerFactory[ADT <: FlinkEvent] {
 
   def getJobInstance(name: String): FlinkJob[_ <: ADT, _ <: ADT]
 
-  def getDeserializationSchema: DeserializationSchema[ADT]
+  def getDeserializationSchema: DeserializationSchema[ADT] = ???
 
-  def getKeyedDeserializationSchema: KeyedDeserializationSchema[ADT]
+  def getKeyedDeserializationSchema: KeyedDeserializationSchema[ADT] = ???
 
-  def getSerializationSchema: SerializationSchema[ADT]
+  def getSerializationSchema: SerializationSchema[ADT] = ???
 
-  def getKeyedSerializationSchema: KeyedSerializationSchema[ADT]
+  def getKeyedSerializationSchema: KeyedSerializationSchema[ADT] = ???
 
-  def getEncoder: Encoder[ADT]
+  def getEncoder: Encoder[ADT] = ???
 
-  def getAddToJdbcBatchFunction: AddToJdbcBatchFunction[ADT]
+  def getAddToJdbcBatchFunction: AddToJdbcBatchFunction[ADT] = ???
 }
