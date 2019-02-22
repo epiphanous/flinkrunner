@@ -2,6 +2,7 @@ package io.epiphanous.flinkrunner.model
 
 import java.io.File
 import java.time.Duration
+import java.util.{Properties, List => JList, Map => JMap}
 
 import com.typesafe.config.{ConfigFactory, ConfigObject}
 import com.typesafe.scalalogging.LazyLogging
@@ -14,7 +15,6 @@ import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
-
 @SerialVersionUID(1544548116L)
 class FlinkConfig(
   args: Array[String],
@@ -42,7 +42,7 @@ class FlinkConfig(
       else None
     val ocs = optConfig.map(ConfigFactory.parseString)
     // precedence in config is from right to left...
-    (sc ++ ocf ++ ocs).foldRight(ConfigFactory.empty())((z, c) => z.withFallback(c))
+    (ocs ++ ocf ++ sc).foldRight(ConfigFactory.empty())((z, c) => z.withFallback(c))
   }
 
   def getCollectionSource(name: String) =
@@ -114,6 +114,26 @@ class FlinkConfig(
       case ("a", p) => ConfigFactory.parseString(s"$p = ${jobParams.get(p)}").getDuration(p)
       case (_, p)   => _config.getDuration(p)
     }
+
+  def getProperties(path: String): Properties = {
+    val p = new Properties()
+    def flatten(key: String, value: Object): Unit = {
+      val pkey = if (key.isEmpty) key else s"$key."
+      value match {
+        case map: JMap[String, Object] => map.asScala.foreach { case (k, v) => flatten(s"$pkey$k", v) }
+        case list: JList[Object]       => list.asScala.zipWithIndex.foreach { case (v, i) => flatten(s"$pkey$i", v) }
+        case v                         => p.put(key, v.toString)
+      }
+    }
+    (_s(path) match {
+      case ("a", p) => Some(ConfigFactory.parseString(s"$p = ${jobParams.get(p)}").getObject(p))
+      case (_, p)   => if (_config.hasPath(p)) Some(_config.getObject(p)) else None
+    }) match {
+      case Some(c) => flatten("", c.unwrapped())
+      case None    => // noop
+    }
+    p
+  }
 
   def _classInstance[T](path: String): T = Class.forName(getString(path)).newInstance().asInstanceOf[T]
 
