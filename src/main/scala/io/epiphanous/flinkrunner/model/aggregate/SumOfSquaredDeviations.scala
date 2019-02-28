@@ -3,11 +3,11 @@ import java.time.Instant
 
 import squants.Quantity
 
-final case class ExponentialMovingStandardDeviation(
+final case class SumOfSquaredDeviations(
   dimension: String,
   unit: String,
   value: Double = 0d,
-  name: String = "ExponentialMovingStandardDeviation",
+  name: String = "Sum",
   count: BigInt = BigInt(0),
   aggregatedLastUpdated: Instant = Instant.EPOCH,
   lastUpdated: Instant = Instant.now(),
@@ -15,18 +15,16 @@ final case class ExponentialMovingStandardDeviation(
   params: Map[String, Any] = Map.empty[String, Any])
     extends Aggregate {
 
+  // see https://www.johndcook.com/blog/standard_deviation/
   override def updateQuantity[A <: Quantity[A]](current: A, quantity: A, depAggs: Map[String, Aggregate]) = {
-    val updatedEmv = depAggs("ExponentialMovingVariance")
-    current.unit(Math.sqrt(updatedEmv.value))
+    val q = quantity in current.unit
+    val currentMean = q.unit(this.dependentAggregations("Mean").value)
+    val updatedMean = q.unit(depAggs("Mean").value)
+    current + (q - currentMean) * (q - updatedMean).value
   }
-
 }
 
-object ExponentialMovingStandardDeviation {
-  def apply(dimension: String, unit: String, alpha: Double): ExponentialMovingStandardDeviation =
-    ExponentialMovingStandardDeviation(
-      dimension,
-      unit,
-      dependentAggregations = Map("ExponentialMovingVariance" -> ExponentialMovingVariance(dimension, unit, alpha))
-    )
+object SumOfSquaredDeviations {
+  def apply(dimension: String, unit: String) =
+    new SumOfSquaredDeviations(dimension, unit, dependentAggregations = Map("Mean" -> new Mean(dimension, unit)))
 }

@@ -1,35 +1,39 @@
 package io.epiphanous.flinkrunner.model.aggregate
 import java.time.Instant
 
-import squants.{Quantity, UnitOfMeasure}
+import squants.Quantity
 
-final case class ExponentialMovingVariance[A <: Quantity[A]](
-  unit: UnitOfMeasure[A],
-  value: Option[A] = None,
+final case class ExponentialMovingVariance(
+  dimension: String,
+  unit: String,
+  value: Double = 0d,
+  name: String = "ExponentialMovingVariance",
   count: BigInt = BigInt(0),
-  name: String = "EMV",
-  aggregatedLastUpdated: Instant = Instant.now(),
+  aggregatedLastUpdated: Instant = Instant.EPOCH,
   lastUpdated: Instant = Instant.now(),
-  emaOpt: Option[ExponentialMovingAverage[A]] = None,
-  alpha: Double = 0.7)
-    extends Aggregate[A] {
+  dependentAggregations: Map[String, Aggregate] = Map.empty[String, Aggregate],
+  params: Map[String, Any] = Map("alpha" -> 0.7))
+    extends Aggregate {
 
-  def ema = emaOpt.getOrElse(ExponentialMovingAverage(unit))
+  def alpha = params.getOrElse("alpha", 0.7).asInstanceOf[Double]
 
-  override def update(q: A, aggLastUpdated: Instant) = {
-    val currentEma = ema
-    val updatedEma = currentEma.update(q, aggLastUpdated)
-    val delta = q - currentEma.getValue
-    copy(
-      value = Some(
-        value
-          .map(ma => (1 - alpha) * (ma + alpha * delta.value * delta))
-          .getOrElse(q)
-      ),
-      count = count + 1,
-      aggregatedLastUpdated = aggLastUpdated,
-      emaOpt = Some(updatedEma)
-    )
+  def withAlpha(alpha: Double): ExponentialMovingVariance = copy(params = Map("alpha" -> alpha))
+
+  override def updateQuantity[A <: Quantity[A]](current: A, quantity: A, depAggs: Map[String, Aggregate]) = {
+    val currentEma = this.dependentAggregations("ExponentialMovingAverage")
+    val q = quantity in current.unit
+    val delta = q - current.unit(currentEma.value)
+    (1 - alpha) * (current + delta * delta.value * alpha)
   }
+
+}
+
+object ExponentialMovingVariance {
+  def apply(dimension: String, unit: String, alpha: Double): ExponentialMovingVariance =
+    ExponentialMovingVariance(
+      dimension,
+      unit,
+      dependentAggregations = Map("ExponentialMovingAverage" -> ExponentialMovingAverage(dimension, unit, alpha))
+    ).withAlpha(alpha)
 
 }

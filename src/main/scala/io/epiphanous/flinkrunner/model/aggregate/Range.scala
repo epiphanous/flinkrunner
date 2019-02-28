@@ -1,30 +1,25 @@
 package io.epiphanous.flinkrunner.model.aggregate
 import java.time.Instant
 
-import squants.{Quantity, UnitOfMeasure}
+import squants.Quantity
 
-final case class Range[A <: Quantity[A]](
-  unit: UnitOfMeasure[A],
-  value: Option[A] = None,
-  count: BigInt = BigInt(0),
+final case class Range(
+  dimension: String,
+  unit: String,
+  value: Double = 0d,
   name: String = "Range",
-  aggregatedLastUpdated: Instant = Instant.now(),
+  count: BigInt = BigInt(0),
+  aggregatedLastUpdated: Instant = Instant.EPOCH,
   lastUpdated: Instant = Instant.now(),
-  minOpt: Option[Min[A]] = None,
-  maxOpt: Option[Max[A]] = None)
-    extends Aggregate[A] {
+  dependentAggregations: Map[String, Aggregate] = Map.empty[String, Aggregate],
+  params: Map[String, Any] = Map.empty[String, Any])
+    extends Aggregate {
 
-  def min = minOpt.getOrElse(Min(unit))
+  override def updateQuantity[A <: Quantity[A]](current: A, quantity: A, depAggs: Map[String, Aggregate]) =
+    current.unit(depAggs("Max").value) - current.unit(depAggs("Min").value)
+}
 
-  def max = maxOpt.getOrElse(Max(unit))
-
-  override def update(q: A, aggLastUpdated: Instant) = {
-    val updatedMin = min.update(q, aggLastUpdated)
-    val updatedMax = max.update(q, aggLastUpdated)
-    copy(value = Some(updatedMax.getValue - updatedMin.getValue),
-         count = count + 1,
-         aggregatedLastUpdated = aggLastUpdated,
-         minOpt = Some(updatedMin),
-         maxOpt = Some(updatedMax))
-  }
+object Range {
+  def apply(dimension: String, unit: String): Range =
+    Range(dimension, unit, dependentAggregations = Map("Min" -> Min(dimension, unit), "Max" -> Max(dimension, unit)))
 }

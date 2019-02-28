@@ -1,21 +1,25 @@
 package io.epiphanous.flinkrunner.model.aggregate
 import java.time.Instant
 
-import squants.{Quantity, UnitOfMeasure}
+import squants.Quantity
 
-final case class Histogram[A <: Quantity[A]](
-  unit: UnitOfMeasure[A],
-  value: Option[A] = None,
+final case class Histogram(
+  dimension: String,
+  unit: String,
+  value: Double = 0d,
+  name: String = "Histogram",
   count: BigInt = BigInt(0),
-  name: String = "Count",
-  aggregatedLastUpdated: Instant = Instant.now(),
+  aggregatedLastUpdated: Instant = Instant.EPOCH,
   lastUpdated: Instant = Instant.now(),
-  bins: Map[String, Count[A]] = Map.empty[String, Count[A]])
-    extends Aggregate[A] {
+  dependentAggregations: Map[String, Aggregate] = Map.empty[String, Aggregate],
+  params: Map[String, Any] = Map.empty[String, Any])
+    extends Aggregate {
 
   import Histogram._
 
-  def bin(key: String): Count[A] = bins.getOrElse(key, Count(unit))
+  def withDependents(depAggs: Map[String, Aggregate]) = copy(dependentAggregations = depAggs)
+
+  def bin(key: String): Aggregate = this.dependentAggregations.getOrElse(key, Count())
 
   /** Compute a dynamic bin for the requested quantity. This picks a bin
     * based on the order of magnitude of the quantity in the aggregate's preferred unit.
@@ -28,33 +32,48 @@ final case class Histogram[A <: Quantity[A]](
     * @param q the quantity to compute a bin of
     * @return
     */
-  def binOf(q: A) = {
-    val d = (q in unit).value
-    val magnitude =
-      math.floor(math.log(math.abs(d)) / LN10 + TOL).toInt
-    val sign = math.signum(magnitude)
-    val abs = math.abs(magnitude)
-    val mag = sign * (abs - 1)
-    val pow = math.pow(10, mag)
-    val min = math.floor(d / pow) * pow
-    val max = math.ceil(d / pow) * pow
-    val formatString = if (abs < 8) {
-      val fs = s"%${if (sign < 0) "." else ""}$abs${if (sign > 0) ".0" else ""}"
-      s"${fs}f,${fs}f"
-    } else {
-      "%e,%e"
-    }
-    formatString.format(min, max)
+  def binOf[A <: Quantity[A]](q: A) = {
+    q.dimension
+      .symbolToUnit(unit)
+      .map(u => (q in u).value)
+      .map(d => {
+        val magnitude =
+          math.floor(math.log(math.abs(d)) / LN10 + TOL).toInt
+        val sign = math.signum(magnitude)
+        val abs = math.abs(magnitude)
+        val mag = sign * (abs - 1)
+        val pow = math.pow(10, mag)
+        val min = math.floor(d / pow) * pow
+        val max = math.ceil(d / pow) * pow
+        val formatString = if (abs < 8) {
+          val fs = s"%${if (sign < 0) "." else ""}$abs${if (sign > 0) ".0" else ""}"
+          s"${fs}f,${fs}f"
+        } else {
+          "%e,%e"
+        }
+        formatString.format(min, max)
+      })
   }
 
-  override def update(q: A, aggLastUpdated: Instant) = {
-    val binKey = binOf(q)
-    val updatedBin = bin(binKey).update(q, aggLastUpdated)
-    copy(value = Some(q),
-         count = count + 1,
-         aggregatedLastUpdated = aggLastUpdated,
-         bins = bins.updated(binKey, updatedBin))
-  }
+  override def update[A <: Quantity[A]](q: A, aggLU: Instant) =
+    binOf(q) match {
+      case Some(binKey) =>
+        bin(binKey)
+          .update(q.value, q.unit.symbol, aggLU) match {
+          case Some(updatedBin) => Some(copy(dependentAggregations = dependentAggregations.updated(binKey, updatedBin)))
+          case None => {
+            logger.error(s"$name[$dimension,$unit] Quantity[$q] can't be binned")
+            None
+          }
+        }
+      case None =>
+        logger.error(s"$name[$dimension,$unit] can't be updated with $q")
+        None
+    }
+
+  override def toString =
+    s"$name[${this.dependentAggregations.map(kv => f"${kv._1}=${kv._2.value}%.0f").mkString(", ")}"
+
 }
 
 object Histogram {

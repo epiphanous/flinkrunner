@@ -3,11 +3,11 @@ import java.time.Instant
 
 import squants.Quantity
 
-final case class Max(
+final case class Mean(
   dimension: String,
   unit: String,
   value: Double = 0d,
-  name: String = "Max",
+  name: String = "Mean",
   count: BigInt = BigInt(0),
   aggregatedLastUpdated: Instant = Instant.EPOCH,
   lastUpdated: Instant = Instant.now(),
@@ -15,7 +15,8 @@ final case class Max(
   params: Map[String, Any] = Map.empty[String, Any])
     extends Aggregate {
 
-  override def updateQuantity[A <: Quantity[A]](current: A, quantity: A, depAggs: Map[String, Aggregate]) =
-    current.max(quantity)
-
+  override def updateQuantity[A <: Quantity[A]](current: A, quantity: A, depAggs: Map[String, Aggregate]) = {
+    val n = count.doubleValue()
+    (current * n + quantity) / (n + 1)
+  }
 }

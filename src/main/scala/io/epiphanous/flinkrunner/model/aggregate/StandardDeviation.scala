@@ -1,13 +1,14 @@
 package io.epiphanous.flinkrunner.model.aggregate
+
 import java.time.Instant
 
 import squants.Quantity
 
-final case class ExponentialMovingStandardDeviation(
+final case class StandardDeviation(
   dimension: String,
   unit: String,
   value: Double = 0d,
-  name: String = "ExponentialMovingStandardDeviation",
+  name: String = "StandardDeviation",
   count: BigInt = BigInt(0),
   aggregatedLastUpdated: Instant = Instant.EPOCH,
   lastUpdated: Instant = Instant.now(),
@@ -16,17 +17,13 @@ final case class ExponentialMovingStandardDeviation(
     extends Aggregate {
 
   override def updateQuantity[A <: Quantity[A]](current: A, quantity: A, depAggs: Map[String, Aggregate]) = {
-    val updatedEmv = depAggs("ExponentialMovingVariance")
-    current.unit(Math.sqrt(updatedEmv.value))
+    val updatedVariance = depAggs("Variance")
+    current.unit(Math.sqrt(updatedVariance.value))
   }
 
 }
 
-object ExponentialMovingStandardDeviation {
-  def apply(dimension: String, unit: String, alpha: Double): ExponentialMovingStandardDeviation =
-    ExponentialMovingStandardDeviation(
-      dimension,
-      unit,
-      dependentAggregations = Map("ExponentialMovingVariance" -> ExponentialMovingVariance(dimension, unit, alpha))
-    )
+object StandardDeviation {
+  def apply(dimension: String, unit: String): StandardDeviation =
+    StandardDeviation(dimension, unit, dependentAggregations = Map("Variance" -> Variance(dimension, unit)))
 }

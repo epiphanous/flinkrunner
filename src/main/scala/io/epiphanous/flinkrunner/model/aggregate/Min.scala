@@ -1,16 +1,21 @@
 package io.epiphanous.flinkrunner.model.aggregate
 import java.time.Instant
 
-import squants.{Quantity, UnitOfMeasure}
+import squants.Quantity
 
-final case class Min[A <: Quantity[A]](
-  unit: UnitOfMeasure[A],
-  value: Option[A] = None,
-  count: BigInt = BigInt(0),
+final case class Min(
+  dimension: String,
+  unit: String,
+  value: Double = 0d,
   name: String = "Min",
-  aggregatedLastUpdated: Instant = Instant.now(),
-  lastUpdated: Instant = Instant.now())
-    extends Aggregate[A] {
-  override def update(q: A, aggLastUpdated: Instant) =
-    copy(value = Some(value.map(_.min(q)).getOrElse(q)), count = count + 1, aggregatedLastUpdated = aggLastUpdated)
+  count: BigInt = BigInt(0),
+  aggregatedLastUpdated: Instant = Instant.EPOCH,
+  lastUpdated: Instant = Instant.now(),
+  dependentAggregations: Map[String, Aggregate] = Map.empty[String, Aggregate],
+  params: Map[String, Any] = Map.empty[String, Any])
+    extends Aggregate {
+
+  override def updateQuantity[A <: Quantity[A]](current: A, quantity: A, depAggs: Map[String, Aggregate]) =
+    current.min(quantity)
+
 }
