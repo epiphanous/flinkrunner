@@ -17,10 +17,14 @@ final case class ExponentialMovingVariance(
 
   def alpha = params.getOrElse("alpha", 0.7).asInstanceOf[Double]
 
-  def withAlpha(alpha: Double): ExponentialMovingVariance = copy(params = Map("alpha" -> alpha))
+  override def getDependents = {
+    if (this.dependentAggregations.isEmpty)
+      Map("ExponentialMovingAverage" -> ExponentialMovingAverage(dimension, unit, params = params))
+    else this.dependentAggregations
+  }
 
   override def updateQuantity[A <: Quantity[A]](current: A, quantity: A, depAggs: Map[String, Aggregate]) = {
-    val currentEma = this.dependentAggregations("ExponentialMovingAverage")
+    val currentEma = getDependents("ExponentialMovingAverage")
     val q = quantity in current.unit
     val delta = q - current.unit(currentEma.value)
     (1 - alpha) * (current + delta * delta.value * alpha)
@@ -30,10 +34,6 @@ final case class ExponentialMovingVariance(
 
 object ExponentialMovingVariance {
   def apply(dimension: String, unit: String, alpha: Double): ExponentialMovingVariance =
-    ExponentialMovingVariance(
-      dimension,
-      unit,
-      dependentAggregations = Map("ExponentialMovingAverage" -> ExponentialMovingAverage(dimension, unit, alpha))
-    ).withAlpha(alpha)
+    ExponentialMovingVariance(dimension, unit, params = Map("alpha" -> alpha))
 
 }

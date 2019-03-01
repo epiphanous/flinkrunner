@@ -1,6 +1,7 @@
 package io.epiphanous.flinkrunner.model.aggregate
 import java.time.Instant
 
+import io.epiphanous.flinkrunner.model.UnitMapper
 import squants.Quantity
 
 final case class Histogram(
@@ -17,8 +18,6 @@ final case class Histogram(
 
   import Histogram._
 
-  def withDependents(depAggs: Map[String, Aggregate]) = copy(dependentAggregations = depAggs)
-
   def bin(key: String): Aggregate = this.dependentAggregations.getOrElse(key, Count())
 
   /** Compute a dynamic bin for the requested quantity. This picks a bin
@@ -32,13 +31,15 @@ final case class Histogram(
     * @param q the quantity to compute a bin of
     * @return
     */
-  def binOf[A <: Quantity[A]](q: A) = {
-    q.dimension
-      .symbolToUnit(unit)
+  def binOf[A <: Quantity[A]](q: A, unitMapper: UnitMapper) = {
+    unitMapper
+      .createQuantity(q.dimension, value, unit)
+      .map(_.unit)
       .map(u => (q in u).value)
       .map(d => {
+        val absd = math.abs(d)
         val magnitude =
-          math.floor(math.log(math.abs(d)) / LN10 + TOL).toInt
+          math.floor(math.log10(if (absd < TOL) TOL else absd)).toInt
         val sign = math.signum(magnitude)
         val abs = math.abs(magnitude)
         val mag = sign * (abs - 1)
@@ -55,11 +56,11 @@ final case class Histogram(
       })
   }
 
-  override def update[A <: Quantity[A]](q: A, aggLU: Instant) =
-    binOf(q) match {
+  override def update[A <: Quantity[A]](q: A, aggLU: Instant, unitMapper: UnitMapper) =
+    binOf(q, unitMapper) match {
       case Some(binKey) =>
         bin(binKey)
-          .update(q.value, q.unit.symbol, aggLU) match {
+          .update(q.value, q.unit.symbol, aggLU, unitMapper) match {
           case Some(updatedBin) => Some(copy(dependentAggregations = dependentAggregations.updated(binKey, updatedBin)))
           case None => {
             logger.error(s"$name[$dimension,$unit] Quantity[$q] can't be binned")
@@ -72,11 +73,10 @@ final case class Histogram(
     }
 
   override def toString =
-    s"$name[${this.dependentAggregations.map(kv => f"${kv._1}=${kv._2.value}%.0f").mkString(", ")}"
+    s"$name[${this.dependentAggregations.map(kv => f"[${kv._1})=${kv._2.count}%d").mkString(", ")}"
 
 }
 
 object Histogram {
-  final val LN10 = math.log(10)
   final val TOL = 1e-9
 }

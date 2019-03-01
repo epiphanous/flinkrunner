@@ -6,7 +6,7 @@ import squants.Quantity
 final case class Min(
   dimension: String,
   unit: String,
-  value: Double = 0d,
+  value: Double = Double.MaxValue,
   name: String = "Min",
   count: BigInt = BigInt(0),
   aggregatedLastUpdated: Instant = Instant.EPOCH,

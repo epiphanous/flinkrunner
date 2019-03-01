@@ -17,8 +17,6 @@ final case class ExponentialMovingAverage(
 
   def alpha: Double = params.getOrElse("alpha", 0.7).asInstanceOf[Double]
 
-  def withAlpha(alpha: Double): ExponentialMovingAverage = copy(params = Map("alpha" -> alpha))
-
   override def updateQuantity[A <: Quantity[A]](current: A, quantity: A, depAggs: Map[String, Aggregate]) =
     current * (1 - alpha) + quantity * alpha
 
@@ -26,5 +24,5 @@ final case class ExponentialMovingAverage(
 
 object ExponentialMovingAverage {
   def apply(dimension: String, unit: String, alpha: Double): ExponentialMovingAverage =
-    ExponentialMovingAverage(dimension, unit).withAlpha(alpha)
+    ExponentialMovingAverage(dimension, unit, params = Map("alpha" -> alpha))
 }

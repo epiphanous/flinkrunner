@@ -48,28 +48,40 @@ trait Aggregate extends Product with Serializable with LazyLogging {
   def updateQuantity[A <: Quantity[A]](current: A, quantity: A, depAggs: Map[String, Aggregate]): A = ???
 
   /**
+    * Update dependent aggregations.
+    * @param q the quantity being added to the aggregations
+    * @param aggLU the instant associated with the new quantity
+    * @param unitMapper a unit mapper
+    * @tparam A the type of the quantity
+    * @return
+    */
+  def updateDependents[A <: Quantity[A]](q: A, aggLU: Instant, unitMapper: UnitMapper): Map[String, Aggregate] =
+    getDependents
+      .map(kv => kv._1 -> kv._2.update(q, aggLU, unitMapper))
+      .filter(_._2.nonEmpty)
+      .map(kv => kv._1 -> kv._2.get)
+
+  def getDependents: Map[String, Aggregate] = this.dependentAggregations
+
+  /**
     * Update the aggregate with a Quantity.
     * @param q Quantity[A]
     * @param aggLU event timestamp of quantity
     * @tparam A dimension of Quantity
     * @return Aggregate
     */
-  def update[A <: Quantity[A]](q: A, aggLU: Instant): Option[Aggregate] = {
+  def update[A <: Quantity[A]](q: A, aggLU: Instant, unitMapper: UnitMapper): Option[Aggregate] = {
     if (q.dimension.name != dimension) {
       logger.error(s"$name[$dimension,$unit] can not be updated with (Quantity[${q.dimension.name}]=$q)")
       None
     } else {
-      val depAggs = this.dependentAggregations
-        .map(kv => kv._1 -> kv._2.update(q, aggLU))
-        .filter(kv => kv._2.nonEmpty)
-        .map(kv => kv._1 -> kv._2.get)
+      val depAggs = updateDependents(q, aggLU, unitMapper)
       if (depAggs.size < this.dependentAggregations.size) {
         logger.error(s"$name[$dimension,$unit] dependents can not be updated with (Quantity[${q.dimension.name}]=$q)")
         None
       } else {
-        q.dimension
-          .symbolToUnit(unit)
-          .map(u => u(value))
+        unitMapper
+          .createQuantity(q.dimension, value, unit)
           .map(current => updateQuantity(current, q, depAggs) in current.unit) match {
           case Some(updated) =>
             Some(_copy(updated.value, aggLU, depAggs))
@@ -119,11 +131,12 @@ object Aggregate {
     params: Map[String, Any] = Map.empty[String, Any],
     alpha: Double = 0.7
   ): Aggregate = {
+    val initValue = if (name == "Min" && count == 0 && value == 0) Double.MaxValue else value
     name match {
       case "Mean" =>
         Mean(dimension, unit, value, name, count, aggregatedLastUpdated, lastUpdated)
       case "Count" =>
-        Count(dimension, unit, value, name, count, aggregatedLastUpdated, lastUpdated)
+        Count("Dimensionless", "ea", value, name, count, aggregatedLastUpdated, lastUpdated)
       case "ExponentialMovingAverage" =>
         ExponentialMovingAverage(dimension,
                                  unit,
@@ -164,7 +177,7 @@ object Aggregate {
         Max(dimension, unit, value, name, count, aggregatedLastUpdated, lastUpdated)
 
       case "Min" =>
-        Min(dimension, unit, value, name, count, aggregatedLastUpdated, lastUpdated)
+        Min(dimension, unit, initValue, name, count, aggregatedLastUpdated, lastUpdated)
 
       case "Range" =>
         Range(dimension, unit, value, name, count, aggregatedLastUpdated, lastUpdated, dependentAggregations)

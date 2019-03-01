@@ -21,9 +21,10 @@ final case class StandardDeviation(
     current.unit(Math.sqrt(updatedVariance.value))
   }
 
-}
+  override def getDependents = {
+    if (this.dependentAggregations.isEmpty)
+      Map("Variance" -> Variance(dimension, unit))
+    else this.dependentAggregations
+  }
 
-object StandardDeviation {
-  def apply(dimension: String, unit: String): StandardDeviation =
-    StandardDeviation(dimension, unit, dependentAggregations = Map("Variance" -> Variance(dimension, unit)))
 }

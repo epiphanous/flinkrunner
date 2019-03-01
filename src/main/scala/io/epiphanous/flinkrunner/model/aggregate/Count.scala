@@ -5,7 +5,7 @@ import io.epiphanous.flinkrunner.model.UnitMapper
 
 final case class Count(
   dimension: String = "Dimensionless",
-  unit: String = "each",
+  unit: String = "ea",
   value: Double = 0d,
   name: String = "Count",
   count: BigInt = BigInt(0),
@@ -21,5 +21,10 @@ final case class Count(
     aggLU: Instant,
     unitMapper: UnitMapper = UnitMapper.defaultUnitMapper
   ) =
-    Some(copy(value = value + 1, aggregatedLastUpdated = aggLU))
+    Some(copy(value = this.value + 1, count = count + 1, aggregatedLastUpdated = aggLU))
+}
+
+object Count {
+  def apply(dimension: String, unit: String): Count =
+    Count()
 }

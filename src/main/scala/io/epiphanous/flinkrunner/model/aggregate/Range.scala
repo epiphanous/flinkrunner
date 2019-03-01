@@ -15,11 +15,12 @@ final case class Range(
   params: Map[String, Any] = Map.empty[String, Any])
     extends Aggregate {
 
-  override def updateQuantity[A <: Quantity[A]](current: A, quantity: A, depAggs: Map[String, Aggregate]) =
-    current.unit(depAggs("Max").value) - current.unit(depAggs("Min").value)
-}
+  override def getDependents = {
+    if (this.dependentAggregations.isEmpty)
+      Map("Min" -> Min(dimension, unit), "Max" -> Max(dimension, unit))
+    else this.dependentAggregations
+  }
 
-object Range {
-  def apply(dimension: String, unit: String): Range =
-    Range(dimension, unit, dependentAggregations = Map("Min" -> Min(dimension, unit), "Max" -> Max(dimension, unit)))
+  override def updateQuantity[A <: Quantity[A]](current: A, quantity: A, depAggs: Map[String, Aggregate]) =
+    current.unit(depAggs("Max").value - depAggs("Min").value)
 }

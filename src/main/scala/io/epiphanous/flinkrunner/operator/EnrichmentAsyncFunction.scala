@@ -46,7 +46,8 @@ import scala.util.{Failure, Success, Try}
   */
 abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
   configPrefix: String,
-  cacheLoaderOpt: Option[CacheLoader[String, Option[CV]]] = None
+  cacheLoaderOpt: Option[CacheLoader[String, Option[CV]]] = None,
+  preloaded: Map[String, CV] = Map.empty[String, CV]
 )(implicit config: FlinkConfig,
   decoder: Decoder[CV])
     extends AsyncFunction[IN, OUT]
@@ -87,15 +88,19 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
   @transient
   lazy val defaultCacheLoader = new CacheLoader[String, Option[CV]] {
     override def load(uri: String): Option[CV] = {
-      api
-        .use { client =>
-          client.expect[CV](uri).attempt
-        }
-        .unsafeRunSync() match {
-        case Left(failure) =>
-          logger.error(s"Can't load key $uri: ${failure.getMessage}")
-          None
-        case Right(value) => Some(value)
+      preloaded.get(uri) match {
+        case Some(cv) => Some(cv)
+        case None =>
+          api
+            .use { client =>
+              client.expect[CV](uri).attempt
+            }
+            .unsafeRunSync() match {
+            case Left(failure) =>
+              logger.error(s"Can't load key $uri: ${failure.getMessage}")
+              None
+            case Right(value) => Some(value)
+          }
       }
     }
   }
