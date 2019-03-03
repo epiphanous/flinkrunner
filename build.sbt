@@ -1,6 +1,6 @@
 name := "flinkrunner"
 
-version := "1.1.5-SNAPSHOT"
+version := "1.1.5"
 
 organization := "io.epiphanous"
 
