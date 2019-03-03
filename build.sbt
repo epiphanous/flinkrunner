@@ -48,7 +48,7 @@ val flinkDeps = Seq("org.apache.flink" %% "flink-scala"                % V.flink
                     "org.apache.flink" % "flink-s3-fs-hadoop"          % V.flink % "provided",
                     "org.apache.flink" %% "flink-cep-scala"            % V.flink % "provided",
                     "org.apache.flink" %% "flink-connector-kafka"      % V.flink,
-                    "org.apache.flink" %% "flink-connector-kinesis"    % V.flink,
+                    "org.apache.flink" %% "flink-connector-kinesis"    % V.flink % "provided",
                     "org.apache.flink" %% "flink-statebackend-rocksdb" % V.flink,
 //                    "org.apache.flink" % "flink-jdbc"                  % V.flink,
                     "org.rocksdb"      % "rocksdbjni"                  % V.rocksdb,
