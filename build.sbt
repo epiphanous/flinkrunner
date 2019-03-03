@@ -1,7 +1,7 @@
 name := "flinkrunner"
 
 inThisBuild(List(
-  organization := "io.epiphanous"
+  organization := "io.epiphanous",
   homepage := Some(url("https://github.com/epiphanous/flinkrunner")),
   licenses := List("MIT" -> url("https://opensource.org/licenses/MIT")),
   developers := List(
