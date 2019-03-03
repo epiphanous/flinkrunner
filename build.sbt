@@ -1,8 +1,18 @@
 name := "flinkrunner"
 
-version := "1.1.5"
-
-organization := "io.epiphanous"
+inThisBuild(List(
+  organization := "io.epiphanous"
+  homepage := Some(url("https://github.com/epiphanous/flinkrunner")),
+  licenses := List("MIT" -> url("https://opensource.org/licenses/MIT")),
+  developers := List(
+    Developer(
+      "nextdude",
+      "Robert Lyons",
+      "nextdude@gmail.com",
+      url("https://epiphanous.io")
+    )
+  )
+))
 
 ThisBuild / scalaVersion := "2.11.12"
 
@@ -24,7 +34,6 @@ val V = new {
   val bloom = "0.11.0-rfl"
   val enumeratum = "1.5.13"
   val typesafeConfig = "1.3.3"
-  val scalaConfig = "0.4"
   val guava = "27.0.1-jre"
   val squants = "1.3.0"
   val antlr4 = "4.7.1"
