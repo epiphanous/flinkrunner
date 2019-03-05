@@ -12,15 +12,17 @@ import scala.util.Random
   * duplicates for streaming data using stable bloom
   * filters</a>. In SIGMOD, pages 25–36, 2006.
   *
-  * We use heap storage (an array of Longs). This implies [[M]] can be set as high as about 125 gigabits.
+  * We use heap storage (an array of Longs).
+  * This implies <code>M=m*d</code> can be set as high as about 125 giga-bits.
   *
   * @param funnel a Guava funnel for taking input
-  * @param M capacity of the filter in total bits allocated (M is a Long but M/(d*floor(63/d)) must fit in a 32-bit Int)
+  * @param m number of cells (see the paper, <code>m</code> is a <code>Long</code> but <code>m/floor(63/d)</code>
+  *          must fit in a 32-bit <code>Int</code>)
   * @param d bits per cell (see the paper, should lie in [1,63] but often set to 1, 2 or 3)
-  * @param FPR expected false positive rate (should like in (0,1))
+  * @param FPR expected false positive rate (should lie in (0,1))
   * @tparam T the type of funnel used
   */
-case class StableBloomFilter[T](funnel: Funnel[T], M: Long, d: Int, FPR: Double) {
+case class StableBloomFilter[T](funnel: Funnel[T], m: Long, d: Int, FPR: Double) {
 
   import StableBloomFilter._
 
@@ -29,14 +31,14 @@ case class StableBloomFilter[T](funnel: Funnel[T], M: Long, d: Int, FPR: Double)
   /** number of bits used per unit storage */
   val storedBits = STORAGE_BITS / d * d
 
-  require(math.ceil(M.toDouble / storedBits) <= Int.MaxValue.toDouble, s"M/$storedBits must be <= ${Int.MaxValue}")
+  /** total memory required */
+  val M = m * d
+
+  require(M / storedBits < Int.MaxValue, s"M/$storedBits must be <= ${Int.MaxValue}")
   require(FPR > 0 && FPR < 1, "FPR must be a double in (0,1)")
 
   /** cell value to set upon insertion */
   val Max = (1 << d) - 1
-
-  /** number of cells */
-  val m = math.floor(M / d).toLong
 
   /** number of longs used for storage */
   val w = math.ceil(M / storedBits).toInt
