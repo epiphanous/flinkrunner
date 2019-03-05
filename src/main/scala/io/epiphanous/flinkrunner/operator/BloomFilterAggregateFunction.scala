@@ -5,13 +5,13 @@ import com.google.common.hash.Funnels
 import io.epiphanous.flinkrunner.algorithm.membership.StableBloomFilter
 import org.apache.flink.api.common.functions.RichAggregateFunction
 
-class BloomFilterAggregateFunction(capacity: Long, bitsPerCell: Int = 3, falsePositiveRate: Double = 0.001)
+class BloomFilterAggregateFunction(numCells: Long, bitsPerCell: Int = 3, falsePositiveRate: Double = 0.001)
     extends RichAggregateFunction[CharSequence, StableBloomFilter[CharSequence], StableBloomFilter[CharSequence]] {
 
   override def createAccumulator() =
     StableBloomFilter
       .builder(Funnels.stringFunnel(StandardCharsets.UTF_8))
-      .withCapacity(capacity)
+      .withNumCells(numCells)
       .withBitsPerCell(bitsPerCell)
       .withFalsePositiveRate(falsePositiveRate)
       .build()

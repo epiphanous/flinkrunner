@@ -5,18 +5,18 @@ import com.google.common.hash.Funnel
   * A builder interface for creating [[StableBloomFilter]] instances.
   *
   * @param funnel a guava funnel
-  * @param capacity number of total bits to make available
+  * @param numCells number of cells in the filter
   * @param bitsPerCell number of bits per cell in the filter
   * @param falsePositiveRate desired maximum false positive rate of the filter
   * @tparam T the type of item inserted into the filter
   */
 case class StableBloomFilterBuilder[T](
   funnel: Funnel[T],
-  capacity: Long = 1024 * 1024 * 8L,
+  numCells: Long = 1000000,
   bitsPerCell: Int = 3,
   falsePositiveRate: Double = 0.01) {
-  def withCapacity(n: Long) = copy(capacity = n)
-  def withFalsePositiveRate(p: Double) = copy(falsePositiveRate = p)
+  def withNumCells(m: Long) = copy(numCells = m)
   def withBitsPerCell(d: Int) = copy(bitsPerCell = d)
-  def build() = StableBloomFilter(funnel, capacity, bitsPerCell, falsePositiveRate)
+  def withFalsePositiveRate(p: Double) = copy(falsePositiveRate = p)
+  def build() = StableBloomFilter(funnel, numCells, bitsPerCell, falsePositiveRate)
 }
