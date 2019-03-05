@@ -72,6 +72,14 @@ case class StableBloomFilter[T](funnel: Funnel[T], m: Long, d: Int, FPR: Double)
   }
 
   /**
+    * Return true if this SBF might contain the requested item.
+    * @param item the item to check
+    * @return
+    */
+  def mightContain(item: T): Boolean =
+    hash(item).forall(i => get(i) > 0L)
+
+  /**
     * Merge another filter into this filter.
     * @param another the other filter
     * @return
