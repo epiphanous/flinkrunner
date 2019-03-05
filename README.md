@@ -4,10 +4,6 @@
 
 A scala library to simplify flink jobs.
 
-## Credits
-
-Includes software from [ponkin/bloom](https://github.com/ponkin/bloom) for Bloom filters.
-
 ## Usage
 
 Not on maven central yet, so you have to build if yourself from source:
@@ -22,6 +18,20 @@ And add a resolver in your build file to your local repo:
 resolvers += "Local Maven Repository" at "file://" +
   Path.userHome.absolutePath + "/.m2/repository"
 ```
+
+## Kinesis
+
+`Flinkrunner` can be used with Kinesis, but in order to do so, you need to compile the flink kinesis connector yourself.
+The apache flink project doesn't include the kinesis connector on maven
+central because of license restrictions, and we don't include it in flinkrunner for the same reasons.
+Thus in order to use kinesis, you first have to build the kinesis connector (see [these instructions](https://ci.apache.org/projects/flink/flink-docs-stable/dev/connectors/kinesis.html)),
+then use this command to build your own local copy of flinkrunner with kinesis support included:
+
+```sbtshell
+sbt -Dwith.kinesis=true publishLocal
+```
+
+This will use your locally built copy of the kinesis connector in flinkrunner and store it in your local repo.
 
 ## What is FlinkRunner?
 
