@@ -24,8 +24,6 @@ import org.apache.flink.streaming.api.functions.timestamps.AscendingTimestampExt
 import org.apache.flink.streaming.api.functions.timestamps.AscendingTimestampExtractor.IgnoringHandler
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.streaming.connectors.kafka.{FlinkKafkaConsumer, FlinkKafkaProducer}
-import org.apache.flink.streaming.connectors.kinesis.serialization.KinesisSerializationSchema
-import org.apache.flink.streaming.connectors.kinesis.{FlinkKinesisConsumer, FlinkKinesisProducer}
 import org.apache.flink.streaming.util.serialization.{KeyedDeserializationSchema, KeyedSerializationSchema}
 
 object StreamUtils extends LazyLogging {
@@ -104,7 +102,7 @@ object StreamUtils extends LazyLogging {
     config.getSourceConfig(name) match {
       case src: KafkaSourceConfig      => fromKafka(src)
       case src: KeyedKafkaSourceConfig => fromKeyedKafka(src)
-      case src: KinesisSourceConfig    => fromKinesis(src)
+      case src: KinesisSourceConfig    => KinesisStreamUtils.fromKinesis(src)
       case src: FileSourceConfig       => fromFile(src)
       case src: SocketSourceConfig     => fromSocket(src)
       case src: CollectionSourceConfig => fromCollection(src)
@@ -149,27 +147,6 @@ object StreamUtils extends LazyLogging {
       new FlinkKafkaConsumer[E](srcConfig.topic,
                                 config.getKeyedDeserializationSchema.asInstanceOf[KeyedDeserializationSchema[E]],
                                 srcConfig.properties)
-    env
-      .addSource(consumer)
-      .name(srcConfig.label)
-  }
-
-  /**
-    * Configure stream from kinesis.
-    * @param srcConfig a source config
-    * @param config implicitly provided job config
-    * @tparam E stream element type
-    * @return DataStream[E]
-    */
-  def fromKinesis[E <: FlinkEvent: TypeInformation](
-    srcConfig: KinesisSourceConfig
-  )(implicit config: FlinkConfig,
-    env: SEE
-  ): DataStream[E] = {
-    val consumer =
-      new FlinkKinesisConsumer[E](srcConfig.stream,
-                                  config.getDeserializationSchema.asInstanceOf[DeserializationSchema[E]],
-                                  srcConfig.properties)
     env
       .addSource(consumer)
       .name(srcConfig.label)
@@ -285,7 +262,7 @@ object StreamUtils extends LazyLogging {
     config.getSinkConfig(name) match {
       case s: KafkaSinkConfig      => toKafka[E](stream, s)
       case s: KeyedKafkaSinkConfig => toKeyedKafka[E](stream, s)
-      case s: KinesisSinkConfig    => toKinesis[E](stream, s)
+      case s: KinesisSinkConfig    => KinesisStreamUtils.toKinesis[E](stream, s)
       case s: FileSinkConfig       => toFile[E](stream, s)
       case s: SocketSinkConfig     => toSocket[E](stream, s)
       case s: JdbcSinkConfig       => toJdbc[E](stream, s)
@@ -333,30 +310,6 @@ object StreamUtils extends LazyLogging {
                                   config.getKeyedSerializationSchema.asInstanceOf[KeyedSerializationSchema[E]],
                                   sinkConfig.properties)
       )
-      .name(sinkConfig.label)
-
-  /**
-    * Send stream to a kinesis sink.
-    * @param stream the data stream
-    * @param sinkConfig a sink configuration
-    * @param config implicit job args
-    * @tparam E stream element type
-    * @return DataStreamSink[E]
-    */
-  def toKinesis[E <: FlinkEvent: TypeInformation](
-    stream: DataStream[E],
-    sinkConfig: KinesisSinkConfig
-  )(implicit config: FlinkConfig
-  ): DataStreamSink[E] =
-    stream
-      .addSink({
-        val sink =
-          new FlinkKinesisProducer[E](config.getSerializationSchema.asInstanceOf[KinesisSerializationSchema[E]],
-                                      sinkConfig.properties)
-        sink.setDefaultStream(sinkConfig.stream)
-        sink.setFailOnError(true)
-        sink
-      })
       .name(sinkConfig.label)
 
   /**

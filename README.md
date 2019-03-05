@@ -4,6 +4,10 @@
 
 A scala library to simplify flink jobs.
 
+## Credits
+
+Includes software from [ponkin/bloom](https://github.com/ponkin/bloom) for Bloom filters.
+
 ## Usage
 
 Not on maven central yet, so you have to build if yourself from source:

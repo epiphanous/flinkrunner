@@ -1,25 +1,28 @@
 package io.epiphanous.flinkrunner.operator
-import com.github.ponkin.bloom.StableBloomFilter
+import java.nio.charset.StandardCharsets
+
+import com.google.common.hash.Funnels
+import io.epiphanous.flinkrunner.algorithm.membership.StableBloomFilter
 import org.apache.flink.api.common.functions.RichAggregateFunction
 
 class BloomFilterAggregateFunction(capacity: Long, bitsPerCell: Int = 3, falsePositiveRate: Double = 0.001)
-    extends RichAggregateFunction[String, StableBloomFilter, StableBloomFilter] {
+    extends RichAggregateFunction[CharSequence, StableBloomFilter[CharSequence], StableBloomFilter[CharSequence]] {
 
   override def createAccumulator() =
     StableBloomFilter
-      .builder()
-      .withExpectedNumberOfItems(capacity)
-      .withBitsPerBucket(bitsPerCell)
+      .builder(Funnels.stringFunnel(StandardCharsets.UTF_8))
+      .withCapacity(capacity)
+      .withBitsPerCell(bitsPerCell)
       .withFalsePositiveRate(falsePositiveRate)
       .build()
 
-  override def add(value: String, accumulator: StableBloomFilter) = {
-    accumulator.put(value)
+  override def add(value: CharSequence, accumulator: StableBloomFilter[CharSequence]) = {
+    accumulator.add(value)
     accumulator
   }
 
-  override def getResult(accumulator: StableBloomFilter) = accumulator
+  override def getResult(accumulator: StableBloomFilter[CharSequence]) = accumulator
 
-  override def merge(a: StableBloomFilter, b: StableBloomFilter) =
-    a.mergeInPlace(b).asInstanceOf[StableBloomFilter]
+  override def merge(a: StableBloomFilter[CharSequence], b: StableBloomFilter[CharSequence]) =
+    a.merge(b)
 }

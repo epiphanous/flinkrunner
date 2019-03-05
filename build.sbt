@@ -31,7 +31,6 @@ val V = new {
   val rocksdb = "5.17.2"
   val circe = "0.11.1"
   val http4s = "0.20.0-M5"
-  val bloom = "0.11.0-rfl"
   val enumeratum = "1.5.13"
   val typesafeConfig = "1.3.3"
   val guava = "27.0.1-jre"
@@ -43,18 +42,27 @@ enablePlugins(Antlr4Plugin)
 antlr4Version in Antlr4 := V.antlr4
 antlr4PackageName in Antlr4 := Some("io.epiphanous.antlr4")
 
-val flinkDeps = Seq("org.apache.flink" %% "flink-scala"                % V.flink % "provided",
-                    "org.apache.flink" %% "flink-streaming-scala"      % V.flink % "provided",
-                    "org.apache.flink" % "flink-s3-fs-hadoop"          % V.flink % "provided",
-                    "org.apache.flink" %% "flink-cep-scala"            % V.flink % "provided",
-                    "org.apache.flink" %% "flink-connector-kafka"      % V.flink,
-                    "org.apache.flink" %% "flink-connector-kinesis"    % V.flink % "provided",
-                    "org.apache.flink" %% "flink-statebackend-rocksdb" % V.flink,
-//                    "org.apache.flink" % "flink-jdbc"                  % V.flink,
-                    "org.rocksdb"      % "rocksdbjni"                  % V.rocksdb,
-                    "org.apache.flink" %% "flink-test-utils"           % V.flink % "test").map(
+val maybeKinesis =
+  System.getProperty("with.kinesis", "false") match {
+    case "true" | "1" | "yes" => Seq("connector-kinesis")
+    case _ => Seq.empty[String]
+  }
+
+val flinkDeps = (
+  (Seq("scala", "streaming-scala", "cep-scala") ++ maybeKinesis).map(a =>
+    "org.apache.flink" %% s"flink-$a" % V.flink % Provided
+  ) ++
+  Seq("connector-kafka", "statebackend-rocksdb").map(a =>
+    "org.apache.flink" %% s"flink-$a" % V.flink
+  ) ++
+  Seq(
+    "org.apache.flink" %% "flink-test-utils" % V.flink % Test,
+    "org.rocksdb"      % "rocksdbjni"   % V.rocksdb
+  )
+  ).map(
   _.excludeAll(ExclusionRule(organization = "log4j"), ExclusionRule(organization = "org.slf4j", name = "slf4j-log4j12"))
 )
+
 
 val loggingDeps = Seq("ch.qos.logback"             % "logback-core"     % V.logback % "provided",
                       "ch.qos.logback"             % "logback-classic"  % V.logback % "provided",
@@ -64,10 +72,9 @@ val loggingDeps = Seq("ch.qos.logback"             % "logback-core"     % V.logb
 val http4sDeps =
   Seq("http4s-dsl", "http4s-client", "http4s-blaze-client", "http4s-circe").map("org.http4s" %% _ % V.http4s)
 
-val otherDeps = Seq("com.github.ponkin" % "bloom-core"  % V.bloom,
-                    "com.beachape"      %% "enumeratum" % V.enumeratum,
-                    "com.typesafe"      % "config"      % V.typesafeConfig,
-                    "com.google.guava"  % "guava"       % V.guava,
+val otherDeps = Seq("com.beachape"      %% "enumeratum" % V.enumeratum,
+                    "com.typesafe"      %  "config"     % V.typesafeConfig,
+                    "com.google.guava"  %  "guava"      % V.guava,
                     "org.typelevel"     %% "squants"    % V.squants,
                     "org.scalactic"     %% "scalactic"  % V.scalaTest % Test,
                     "org.scalatest"     %% "scalatest"  % V.scalaTest % Test)
