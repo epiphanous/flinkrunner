@@ -59,8 +59,8 @@ class FlinkRunner[ADT <: FlinkEvent](
     **/
   def showJobHelp(): Unit = {
     val usage =
-      s"""|Usage: ${config.systemName} ${config.jobName} [job parameters]
-          |
+      s"""|
+          |Usage: ${config.systemName} ${config.jobName} [job parameters]
           |${config.jobHelp}
        """.stripMargin
     println(usage)
@@ -72,11 +72,24 @@ class FlinkRunner[ADT <: FlinkEvent](
     * @param error an optional error message to show
     */
   def showHelp(error: Option[String] = None): Unit = {
+    val jobInfo = config.jobs match {
+      case s if s.isEmpty => "  *** No jobs defined ***"
+      case s =>
+        s.map(jn => {
+            val desc = config.getString(s"jobs.$jn.description")
+            s"  - $jn: $desc"
+          })
+          .mkString("\n")
+    }
     val usage =
-      s"""|Usage: ${config.systemName} <jobName> [job parameters]
+      s"""|
+          |Usage: ${config.systemName} <jobName> [job parameters]
           |
-          |Jobs (try "${config.systemName} <jobName> help" for details)
+          |Jobs:
           |
+          |$jobInfo
+          |
+          |Try "${config.systemName} <jobName> --help" for details)
           |${config.systemHelp}
       """.stripMargin
     error.foreach(m => logger.error(m))

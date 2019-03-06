@@ -35,7 +35,7 @@ class FlinkConfig(
   }
 
   val _config = {
-    val sc = Seq(ConfigFactory.load("flink-runner.conf"), ConfigFactory.load())
+    val sc = Seq(ConfigFactory.load(), ConfigFactory.load("flink-runner.conf"))
     val ocf =
       if (jobParams.has("config"))
         Some(ConfigFactory.parseFile(new File(jobParams.get("config"))))
