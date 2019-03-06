@@ -11,11 +11,11 @@
   <img src="https://img.shields.io/badge/license-MIT-brightgreen.svg" alt="license"/>
 </a>
 <!-- release -->
-<a href="#releases" title="Release">
+<a href="https://github.com/epiphanous/flinkrunner/releases" title="release">
   <img src="https://img.shields.io/github/release/epiphanous/flinkrunner.svg" alt="release" />
 </a>
 <!-- maven central -->
-<a href="#maven">
+<a href="https://mvnrepository.com/artifact/io.epiphanous/flinkrunner">
   <img src="https://img.shields.io/maven-central/v/io.epiphanous/flinkrunner.svg" alt="maven" />
 </a>
 <!-- last commit -->
@@ -23,11 +23,11 @@
   <img src="https://img.shields.io/github/last-commit/epiphanous/flinkrunner.svg" alt="commit" />
 </a>
 <!-- build -->
-<a href="https://travis-ci.com/epiphanous/flinkrunner">
+<a href="https://travis-ci.com/epiphanous/flinkrunner" title="Build Status">
   <img src="https://img.shields.io/travis/com/epiphanous/flinkrunner.svg" alt="build" />
 </a>
 <!-- coverage -->
-<a href="https://coveralls.io/github/epiphanous/flinkrunner" title="Coverage">
+<a href="https://coveralls.io/github/epiphanous/flinkrunner" title="Test Coverage">
   <img src="https://coveralls.io/repos/github/epiphanous/flinkrunner/badge.svg?branch=master" alt="coverage" />
 </a>
 </div>
