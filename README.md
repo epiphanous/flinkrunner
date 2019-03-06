@@ -1,12 +1,23 @@
+<h1 align="center">FlinkRunner</h1>
+<div align="center">
+  <strong>A scala library to simplify flink jobs</strong>
+</div>
 
-# Flink Runner
+<div align="center">
+<!-- license -->
 ![license:MIT](https://img.shields.io/badge/license-MIT-brightgreen.svg)
+<!-- release -->
 ![release](https://img.shields.io/github/release/epiphanous/flinkrunner.svg)
+<!-- maven central -->
+![maven-central](https://img.shields.io/maven-central/v/io.epiphanous/flinkrunner.svg)
+<!-- last commit -->
+![last-commit](https://img.shields.io/github/last-commit/epiphanous/flinkrunner.svg)
+<!-- build -->
 ![build](https://img.shields.io/travis/com/epiphanous/flinkrunner.svg)
-
+<!-- coverage -->
 ![Coverage Status](https://coveralls.io/repos/github/epiphanous/flinkrunner/badge.svg?branch=master)
+</div>
 
-A scala library to simplify flink jobs.
 
 ## Usage
 
