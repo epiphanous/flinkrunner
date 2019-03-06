@@ -43,7 +43,8 @@ To build from source:
     resolvers += "Local Maven Repository" at "file://" +
         Path.userHome.absolutePath + "/.m2/repository" 
     ...
-    libraryDependencies += "io.epiphanous" %% "flinkrunner" % "v1.5.1"
+    libraryDependencies += "io.epiphanous" %% "flinkrunner" % "1.5.1"
+                                      // notice no v here ----^^
     ```
   > If you don't add the local resolver, sbt will try to load the library from maven central, which
   may work in the future, but won't include kinesis under any circumstance.
