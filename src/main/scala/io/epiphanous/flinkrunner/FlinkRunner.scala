@@ -14,7 +14,7 @@ class FlinkRunner[ADT <: FlinkEvent](
     extends LazyLogging {
 
   implicit val config: FlinkConfig = new FlinkConfig(args, factory, sources, optConfig)
-  implicit val env = config.configureStreamExecutionEnvironment
+  implicit val env: SEE = config.configureStreamExecutionEnvironment
 
   /**
     * An intermediate method to process main args, with optional callback to
@@ -45,11 +45,7 @@ class FlinkRunner[ADT <: FlinkEvent](
       case _ => ()
     }
   ): Unit = {
-    val wantsJobHelp = config.jobArgs.headOption match {
-      case Some(str) if str.equalsIgnoreCase("help") => true
-      case _                                         => false
-    }
-    if (wantsJobHelp) showJobHelp()
+    if (config.jobArgs.headOption.exists(s => List("help", "--help", "-help", "-h").contains(s))) showJobHelp()
     else {
       config.getJobInstance.run match {
         case Left(results) => callback(results.asInstanceOf[Iterator[ADT]].toStream)
@@ -77,17 +73,13 @@ class FlinkRunner[ADT <: FlinkEvent](
     */
   def showHelp(error: Option[String] = None): Unit = {
     val usage =
-      s"""
-         |Usage: ${config.systemName} <jobName> [job parameters]
-         |
-         |Jobs (try "${config.systemName} <jobName> help" for details)
-         |
-         |${config.systemHelp}
+      s"""|Usage: ${config.systemName} <jobName> [job parameters]
+          |
+          |Jobs (try "${config.systemName} <jobName> help" for details)
+          |
+          |${config.systemHelp}
       """.stripMargin
-    error match {
-      case Some(errMsg) => logger.error(errMsg)
-      case _            => // no op
-    }
+    error.foreach(m => logger.error(m))
     println(usage)
   }
 
