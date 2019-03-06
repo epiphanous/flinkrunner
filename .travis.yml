@@ -15,8 +15,6 @@ jobs:
   include:
     - stage: test
       script: sbt compile coverage test
-    - stage: report
-      script: sbt coveralls
 
 before_install:
   - git fetch --tags
