@@ -1,37 +1,43 @@
 # Flink Runner
 
-**Version: `1.1.5`**
+**Version: `1.1.6`**
 
 A scala library to simplify flink jobs.
 
 ## Usage
 
-Not on maven central yet, so you have to build if yourself from source:
+Not on maven central yet, so you have to build if yourself from source. 
 
-```sbtshell
-sbt publishLocal
-```
+* Clone this repo:
 
-And add a resolver in your build file to your local repo:
+    ```bash
+    git clone https://github.com/epiphanous/flinkrunner
+    ```
 
-```sbtshell
-resolvers += "Local Maven Repository" at "file://" +
-  Path.userHome.absolutePath + "/.m2/repository"
-```
+* Build flinkrunner and install it locally, using the `--with-kinesis=true` option if you want
+  to include support for AWS Kinesis in the library
+
+    ```bash
+    sbt [--with.kinesis=true] publishLocal
+    ```
+
+* In your project, add a resolver in your `build.sbt` file to your local repo:
+
+    ```sbtshell
+    resolvers += "Local Maven Repository" at "file://" +
+        Path.userHome.absolutePath + "/.m2/repository"
+    ```
 
 ## Kinesis
 
-`Flinkrunner` can be used with Kinesis, but in order to do so, you need to compile the flink kinesis connector yourself.
-The apache flink project doesn't include the kinesis connector on maven
+The apache flink project doesn't include its kinesis connector on maven
 central because of license restrictions, and we don't include it in flinkrunner for the same reasons.
-Thus in order to use kinesis, you first have to build the kinesis connector (see [these instructions](https://ci.apache.org/projects/flink/flink-docs-stable/dev/connectors/kinesis.html)),
-then use this command to build your own local copy of flinkrunner with kinesis support included:
+Thus in order to use kinesis, you first have to build flink's kinesis connector (see 
+[these instructions](https://ci.apache.org/projects/flink/flink-docs-stable/dev/connectors/kinesis.html)),
+then use the `--with-kinesis=true` option as described above when building your local copy of `FlinkRunner`.
 
-```sbtshell
-sbt -Dwith.kinesis=true publishLocal
-```
+> Note that building Flink with Kinesis can take over 30 minutes! It's a very big project.
 
-This will use your locally built copy of the kinesis connector in flinkrunner and store it in your local repo.
 
 ## What is FlinkRunner?
 
