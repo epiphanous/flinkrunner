@@ -1,6 +1,6 @@
 # Flink Runner
 
-**Version: `v1.1.5`**
+**Version: `v1.5.1`**
 
 A scala library to simplify flink jobs.
 
@@ -18,14 +18,14 @@ To build from source:
     ```
 
 * Checkout the tag of flinkrunner you want to build. The most recent stable version is
-  `v1.1.5`, but you can ensure you have the most recent tags with `git fetch --tags` and 
+  `v1.5.1`, but you can ensure you have the most recent tags with `git fetch --tags` and 
   list tags with `git tag -l`, then
   
     ```bash
-    git checkout tags/v1.1.5 -b my-build-v1.1.5
+    git checkout tags/v1.5.1 -b my-build-v1.5.1
     ```
     
-   This will create a new local branch `my-build-v1.1.5` based on the `v1.1.5` tag release.
+   This will create a new local branch `my-build-v1.5.1` based on the `v1.5.1` tag release.
       
 * Build flinkrunner and install it locally, using the `--with-kinesis=true` option if you want
   to include support for AWS Kinesis in the library
