@@ -1,8 +1,44 @@
-# Flink Runner
+<h1 align="center">FlinkRunner</h1>
 
-**Version: `v1.5.1`**
+<div align="center">
+  <strong>A scala library to simplify flink jobs</strong>
+</div>
 
-A scala library to simplify flink jobs.
+<div align="center">
+<br />
+<!-- license -->
+<a href="https://github.com/epiphanous/flinkrunner/blob/master/LICENSE" title="License">
+  <img src="https://img.shields.io/badge/license-MIT-brightgreen.svg" alt="license"/>
+</a>
+<!-- release -->
+<a href="https://github.com/epiphanous/flinkrunner/releases" title="release">
+  <img src="https://img.shields.io/github/release/epiphanous/flinkrunner.svg" alt="release" />
+</a>
+<!-- maven central -->
+<a href="https://mvnrepository.com/artifact/io.epiphanous/flinkrunner">
+  <img src="https://img.shields.io/maven-central/v/io.epiphanous/flinkrunner.svg" alt="maven" />
+</a>
+<!-- last commit -->
+<a href="https://github.com/epiphanous/flinkrunner/commits" title="Last Commit">
+  <img src="https://img.shields.io/github/last-commit/epiphanous/flinkrunner.svg" alt="commit" />
+</a>
+<!-- build -->
+<a href="https://travis-ci.com/epiphanous/flinkrunner" title="Build Status">
+  <img src="https://img.shields.io/travis/com/epiphanous/flinkrunner.svg" alt="build" />
+</a>
+<!-- coverage -->
+<a href="https://coveralls.io/github/epiphanous/flinkrunner" title="Test Coverage">
+  <img src="https://coveralls.io/repos/github/epiphanous/flinkrunner/badge.svg?branch=master" alt="coverage" />
+</a>
+</div>
+
+<div align="center">
+  <sub>Built by
+  <a href="https://twitter.com/epiphanous">nextdude@epiphanous.io</a> and
+  <a href="https://github.com/epiphanous/flinkrunner/graphs/contributors">
+    contributors
+  </a>
+</div>
 
 ## Usage
 
@@ -18,14 +54,14 @@ To build from source:
     ```
 
 * Checkout the tag of flinkrunner you want to build. The most recent stable version is
-  `v1.5.1`, but you can ensure you have the most recent tags with `git fetch --tags` and 
+  `v1.5.2`, but you can ensure you have the most recent tags with `git fetch --tags` and 
   list tags with `git tag -l`, then
   
     ```bash
-    git checkout tags/v1.5.1 -b my-build-v1.5.1
+    git checkout tags/v1.5.2 -b my-build-v1.5.2
     ```
     
-   This will create a new local branch `my-build-v1.5.1` based on the `v1.5.1` tag release.
+   This will create a new local branch `my-build-v1.5.2` based on the `v1.5.2` tag release.
       
 * Build flinkrunner and install it locally, using the `--with-kinesis=true` option if you want
   to include support for AWS Kinesis in the library
@@ -34,7 +70,7 @@ To build from source:
     sbt [--with.kinesis=true] publishLocal
     ```
     
-  This will install a local copy of version `v1.5.1` of `flinkrunner` in your local repo.
+  This will install a local copy of version `v1.5.2` of `flinkrunner` in your local repo.
 
 * In your project's build file, add a resolver to your local repo and add the local
   `flinkrunner` dependency:
@@ -43,7 +79,7 @@ To build from source:
     resolvers += "Local Maven Repository" at "file://" +
         Path.userHome.absolutePath + "/.m2/repository" 
     ...
-    libraryDependencies += "io.epiphanous" %% "flinkrunner" % "1.5.1"
+    libraryDependencies += "io.epiphanous" %% "flinkrunner" % "1.5.2"
                                       // notice no v here ----^^
     ```
   > If you don't add the local resolver, sbt will try to load the library from maven central, which
