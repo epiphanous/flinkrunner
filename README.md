@@ -5,19 +5,26 @@
 
 <div align="center">
 <!-- license -->
-![license:MIT](https://img.shields.io/badge/license-MIT-brightgreen.svg)
+[![license:MIT](https://img.shields.io/badge/license-MIT-brightgreen.svg)](https://github.com/epiphanous/flinkrunner/blob/master/LICENSE)
 <!-- release -->
-![release](https://img.shields.io/github/release/epiphanous/flinkrunner.svg)
+[![release](https://img.shields.io/github/release/epiphanous/flinkrunner.svg)](#releases)
 <!-- maven central -->
-![maven-central](https://img.shields.io/maven-central/v/io.epiphanous/flinkrunner.svg)
+[![maven-central](https://img.shields.io/maven-central/v/io.epiphanous/flinkrunner.svg)](#maven)
 <!-- last commit -->
-![last-commit](https://img.shields.io/github/last-commit/epiphanous/flinkrunner.svg)
+[![last-commit](https://img.shields.io/github/last-commit/epiphanous/flinkrunner.svg)](https://github.com/epiphanous/flinkrunner/commits)
 <!-- build -->
-![build](https://img.shields.io/travis/com/epiphanous/flinkrunner.svg)
+[![build](https://img.shields.io/travis/com/epiphanous/flinkrunner.svg)](https://travis-ci.com/epiphanous/flinkrunner)
 <!-- coverage -->
-![Coverage Status](https://coveralls.io/repos/github/epiphanous/flinkrunner/badge.svg?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/epiphanous/flinkrunner/badge.svg?branch=master)](https://coveralls.io/github/epiphanous/flinkrunner)
 </div>
 
+<div align="center">
+  <sub>Built by
+  <a href="https://twitter.com/epiphanous">nextdude@epiphanous.io</a> and
+  <a href="https://github.com/epiphanous/flinkrunner/graphs/contributors">
+    contributors
+  </a>
+</div>
 
 ## Usage
 
