@@ -1,12 +1,15 @@
 # Flink Runner
 
-**Version: `1.1.6`**
+**Version: `v1.1.5`**
 
 A scala library to simplify flink jobs.
 
 ## Usage
 
-Not on maven central yet, so you have to build if yourself from source. 
+`Flinkrunner` is not on maven central yet (will be soon), so you have to build it yourself from source. If you
+want AWS Kinesis support, you will have to build `flinkrunner` yourself even when `flinkrunner` is on maven central.
+
+To build from source: 
 
 * Clone this repo:
 
@@ -14,20 +17,37 @@ Not on maven central yet, so you have to build if yourself from source.
     git clone https://github.com/epiphanous/flinkrunner
     ```
 
+* Checkout the tag of flinkrunner you want to build. The most recent stable version is
+  `v1.1.5`, but you can ensure you have the most recent tags with `git fetch --tags` and 
+  list tags with `git tag -l`, then
+  
+    ```bash
+    git checkout tags/v1.1.5 -b my-build-v1.1.5
+    ```
+    
+   This will create a new local branch `my-build-v1.1.5` based on the `v1.1.5` tag release.
+      
 * Build flinkrunner and install it locally, using the `--with-kinesis=true` option if you want
   to include support for AWS Kinesis in the library
 
     ```bash
     sbt [--with.kinesis=true] publishLocal
     ```
+    
+  This will install a local copy of version `v1.5.1` of `flinkrunner` in your local repo.
 
-* In your project, add a resolver in your `build.sbt` file to your local repo:
+* In your project's build file, add a resolver to your local repo and add the local
+  `flinkrunner` dependency:
 
     ```sbtshell
     resolvers += "Local Maven Repository" at "file://" +
-        Path.userHome.absolutePath + "/.m2/repository"
+        Path.userHome.absolutePath + "/.m2/repository" 
+    ...
+    libraryDependencies += "io.epiphanous" %% "flinkrunner" % "v1.5.1"
     ```
-
+  > If you don't add the local resolver, sbt will try to load the library from maven central, which
+  may work in the future, but won't include kinesis under any circumstance.
+  
 ## Kinesis
 
 The apache flink project doesn't include its kinesis connector on maven
