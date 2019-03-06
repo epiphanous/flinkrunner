@@ -59,7 +59,8 @@ class FlinkRunner[ADT <: FlinkEvent](
     **/
   def showJobHelp(): Unit = {
     val usage =
-      s"""|
+      s"""|${config.jobName} - ${config.jobDescription}
+          |
           |Usage: ${config.systemName} ${config.jobName} [job parameters]
           |${config.jobHelp}
        """.stripMargin

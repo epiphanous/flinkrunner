@@ -220,6 +220,7 @@ class FlinkConfig(
 
   lazy val systemHelp = _config.getString("system.help")
   lazy val jobHelp = getString("help")
+  lazy val jobDescription = getString("description")
   lazy val globalParallelism = getInt("global.parallelism")
   lazy val checkpointInterval = getLong("checkpoint.interval")
   lazy val checkpointMinPause = getDuration("checkpoint.min.pause")
