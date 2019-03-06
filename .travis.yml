@@ -13,10 +13,12 @@ stages:
 
 jobs:
   include:
-    - env: TEST="compile"
+    - stage: compile
       script: sbt compile
-    - env: TEST="coverage"
+    - stage: test
       script: sbt coverage test
+    - stage: report
+      script: sbt coveralls
 
 before_install:
   - git fetch --tags
