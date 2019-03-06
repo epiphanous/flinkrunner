@@ -54,14 +54,14 @@ To build from source:
     ```
 
 * Checkout the tag of flinkrunner you want to build. The most recent stable version is
-  `v1.5.1`, but you can ensure you have the most recent tags with `git fetch --tags` and 
+  `v1.5.2`, but you can ensure you have the most recent tags with `git fetch --tags` and 
   list tags with `git tag -l`, then
   
     ```bash
-    git checkout tags/v1.5.1 -b my-build-v1.5.1
+    git checkout tags/v1.5.2 -b my-build-v1.5.2
     ```
     
-   This will create a new local branch `my-build-v1.5.1` based on the `v1.5.1` tag release.
+   This will create a new local branch `my-build-v1.5.2` based on the `v1.5.2` tag release.
       
 * Build flinkrunner and install it locally, using the `--with-kinesis=true` option if you want
   to include support for AWS Kinesis in the library
@@ -70,7 +70,7 @@ To build from source:
     sbt [--with.kinesis=true] publishLocal
     ```
     
-  This will install a local copy of version `v1.5.1` of `flinkrunner` in your local repo.
+  This will install a local copy of version `v1.5.2` of `flinkrunner` in your local repo.
 
 * In your project's build file, add a resolver to your local repo and add the local
   `flinkrunner` dependency:
@@ -79,7 +79,7 @@ To build from source:
     resolvers += "Local Maven Repository" at "file://" +
         Path.userHome.absolutePath + "/.m2/repository" 
     ...
-    libraryDependencies += "io.epiphanous" %% "flinkrunner" % "1.5.1"
+    libraryDependencies += "io.epiphanous" %% "flinkrunner" % "1.5.2"
                                       // notice no v here ----^^
     ```
   > If you don't add the local resolver, sbt will try to load the library from maven central, which
