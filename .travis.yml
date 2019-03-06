@@ -13,10 +13,8 @@ stages:
 
 jobs:
   include:
-    - stage: compile
-      script: sbt compile
     - stage: test
-      script: sbt coverage test
+      script: sbt compile coverage test
     - stage: report
       script: sbt coveralls
 
