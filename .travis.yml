@@ -15,7 +15,11 @@ jobs:
   include:
     - env: TEST="compile"
       script: sbt compile
+    - env: TEST="coverage"
+      script: sbt coverage test
 
 before_install:
   - git fetch --tags
 
+after_success:
+  - sbt coveralls

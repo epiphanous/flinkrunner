@@ -1,6 +1,10 @@
-# Flink Runner
 
-**Version: `v1.5.1`**
+# Flink Runner
+![license:MIT](https://img.shields.io/badge/license-MIT-brightgreen.svg)
+![release](https://img.shields.io/github/release/epiphanous/flinkrunner.svg)
+![build](https://img.shields.io/travis/com/epiphanous/flinkrunner.svg)
+
+![Coverage Status](https://coveralls.io/repos/github/epiphanous/flinkrunner/badge.svg?branch=master)
 
 A scala library to simplify flink jobs.
 
