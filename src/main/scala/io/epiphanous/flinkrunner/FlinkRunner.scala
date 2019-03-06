@@ -72,7 +72,7 @@ class FlinkRunner[ADT <: FlinkEvent](
     * @param error an optional error message to show
     */
   def showHelp(error: Option[String] = None): Unit = {
-    val jobInfo = config.jobs match {
+    val jobInfo = config.jobs.toList.sorted match {
       case s if s.isEmpty => "  *** No jobs defined ***"
       case s =>
         s.map(jn => {
