@@ -1,9 +1,11 @@
 <h1 align="center">FlinkRunner</h1>
+
 <div align="center">
   <strong>A scala library to simplify flink jobs</strong>
 </div>
 
 <div align="center">
+<br />
 <!-- license -->
 <a href="https://github.com/epiphanous/flinkrunner/blob/master/LICENSE" title="License">
   <img src="https://img.shields.io/badge/license-MIT-brightgreen.svg" alt="license"/>
