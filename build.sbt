@@ -63,7 +63,6 @@ val flinkDeps = (
   _.excludeAll(ExclusionRule(organization = "log4j"), ExclusionRule(organization = "org.slf4j", name = "slf4j-log4j12"))
 )
 
-
 val loggingDeps = Seq("ch.qos.logback"             % "logback-core"     % V.logback % "provided",
                       "ch.qos.logback"             % "logback-classic"  % V.logback % "provided",
                       "org.slf4j"                  % "log4j-over-slf4j" % V.log4jOverSlf4j % "provided",

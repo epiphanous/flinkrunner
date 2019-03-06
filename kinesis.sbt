@@ -108,8 +108,12 @@ object KinesisStreamUtils extends LazyLogging {
 sourceGenerators in Compile += Def.task {
   val file = (sourceManaged in Compile).value / "kinesis" / "io" / "epiphanous" / "flinkrunner" / "util" / "KinesisStreamUtils.scala"
   IO.write(file, System.getProperty("with.kinesis", "false") match {
-    case "true" | "1" | "yes" => withKinesis
-    case _ => withoutKinesis
+    case "true" | "1" | "yes" =>
+      println("*** compiling with kinesis support")
+      withKinesis
+    case _ =>
+      println("*** compiling without kinesis support")
+      withoutKinesis
   })
   Seq(file)
 }
