@@ -40,20 +40,36 @@
   </a>
 </div>
 
-## Usage
+## Maven Dependency
 
-`Flinkrunner` is not on maven central yet (will be soon), so you have to build it yourself from source. If you
-want AWS Kinesis support, you will have to build `flinkrunner` yourself even when `flinkrunner` is on maven central.
+`Flinkrunner` is now on maven central as of release 1.5.3, built against Flink 1.7.2 with Scala 2.11 and JDK 8.
 
-To build from source: 
+```sbtshell
+libraryDependencies += "io.epiphanous" %% "flinkrunner" % "1.5.3"
+```
 
-* Clone this repo:
+>The apache flink project doesn't include its AWS Kinesis connector on maven
+central because of license restrictions, and we don't include it in `FlinkRunner` for the same reasons.
+In order to use Kinesis with `FlinkRunner`, please follow the instructions in the next section.
+
+## Build from Source
+
+Due to licensing restrictions, if you want to use AWS Kinesis with `FlinkRunner` you have to build it (and the
+Flink kinesis connector) from source. To do so,
+
+* First, you'll need to build a local copy of Flink's kinesis connector. See 
+  [these instructions](https://ci.apache.org/projects/flink/flink-docs-stable/dev/connectors/kinesis.html)
+  for details on how to accomplish that.
+  
+  > Note that building Flink with Kinesis can take over 30 minutes! It's a very big project.
+
+* Clone the `FlinkRunner` repo:
 
     ```bash
     git clone https://github.com/epiphanous/flinkrunner
     ```
 
-* Checkout the tag of flinkrunner you want to build. The most recent stable version is
+* Checkout the tag of `FlinkRunner` you want to build. The most recent stable version is
   `v1.5.2`, but you can ensure you have the most recent tags with `git fetch --tags` and 
   list tags with `git tag -l`, then
   
@@ -63,17 +79,17 @@ To build from source:
     
    This will create a new local branch `my-build-v1.5.2` based on the `v1.5.2` tag release.
       
-* Build flinkrunner and install it locally, using the `--with-kinesis=true` option if you want
+* Build `FlinkRunner` and install it locally, using the `--with.kinesis=true` option if you want
   to include support for AWS Kinesis in the library
 
     ```bash
-    sbt [--with.kinesis=true] publishLocal
+    sbt --with.kinesis=true publishLocal
     ```
     
-  This will install a local copy of version `v1.5.2` of `flinkrunner` in your local repo.
+  This will install `FlinkRunner` in your local repo.
 
 * In your project's build file, add a resolver to your local repo and add the local
-  `flinkrunner` dependency:
+  `FlinkRunner` dependency:
 
     ```sbtshell
     resolvers += "Local Maven Repository" at "file://" +
@@ -82,19 +98,9 @@ To build from source:
     libraryDependencies += "io.epiphanous" %% "flinkrunner" % "1.5.2"
                                       // notice no v here ----^^
     ```
-  > If you don't add the local resolver, sbt will try to load the library from maven central, which
-  may work in the future, but won't include kinesis under any circumstance.
-  
-## Kinesis
-
-The apache flink project doesn't include its kinesis connector on maven
-central because of license restrictions, and we don't include it in flinkrunner for the same reasons.
-Thus in order to use kinesis, you first have to build flink's kinesis connector (see 
-[these instructions](https://ci.apache.org/projects/flink/flink-docs-stable/dev/connectors/kinesis.html)),
-then use the `--with-kinesis=true` option as described above when building your local copy of `FlinkRunner`.
-
-> Note that building Flink with Kinesis can take over 30 minutes! It's a very big project.
-
+  > If you don't add the local resolver, sbt will load the library from maven central, which
+  won't include kinesis support.
+ 
 
 ## What is FlinkRunner?
 
@@ -105,10 +111,10 @@ up common sources and sinks to the point where you control them purely
 with configuration and not code. `Flinkrunner` supports a variety of sources
 and sinks out of the box, including `kafka`, `kinesis`, `jdbc`, `filesystems`
 (including `s3`) and `sockets`. It also has many common
-operators to help you in writing your own transformation logic. Finally, `flinkrunner`
+operators to help you in writing your own transformation logic. Finally, `FlinkRunner`
 makes it easy to test your transformation logic with property-based testing.
 
-At a high level, `flinkrunner` helps you think about your flink jobs at a high level,
+At a high level, `FlinkRunner` helps you think about your flink jobs at a high level,
 so you can focus on the logic in the pipeline between the sources and sinks.
 
 ## Get Started
@@ -220,13 +226,13 @@ and optionally augmented with options you pass in programmatically at run time.
 to parse command line arguments and create `ParameterTool` objects.
 All of your job methods will be passed an implicit `FlinkConfig` object that
 gives you access to
-the current configuration. Further, `flinkrunner` takes care of configuring your streaming
+the current configuration. Further, `FlinkRunner` takes care of configuring your streaming
 environment automatically based on the configuration settings. Perhaps the best part is
 you don't have to write any code at all to setup sources and sinks, as these are all
-grokked by `flinkrunner` from the config.
+grokked by `FlinkRunner` from the config.
 
-* Write your jobs! This is the fun part. You job will inherit from one of `flinkrunner`'s
-job classes. The top level `flinkrunner` job class is called `FlinkJob` and has the
+* Write your jobs! This is the fun part. You job will inherit from one of `FlinkRunner`'s
+job classes. The top level `FlinkRunner` job class is called `FlinkJob` and has the
 following interface:
 
   ```scala
