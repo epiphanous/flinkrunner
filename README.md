@@ -40,7 +40,7 @@
 
 ## Maven Dependency
 
-`Flinkrunner` is now on maven central as of release 1.5.5, built against Flink 1.7.2 with Scala 2.11 and JDK 8.
+`Flinkrunner` `v1.5.5` is now on maven central, built against Flink 1.7.2 with Scala 2.11 and JDK 8.
 
 ```sbtshell
 libraryDependencies += "io.epiphanous" %% "flinkrunner" % "1.5.5"
