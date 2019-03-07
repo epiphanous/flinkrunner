@@ -50,8 +50,8 @@ val maybeKinesis = if (withK) Seq("connector-kinesis") else Seq.empty[String]
 
 // post-process version to add k suffix if we're building with kinesis
 val versionSuffix = if (withK) "k" else ""
-version in ThisBuild ~= (v => v.replaceFirst("^(v?\\d(\\.\\d){2})",s"$$1$versionSuffix") + versionSuffix)
-dynver in ThisBuild ~= (v => v.replaceFirst("^(v?\\d(\\.\\d){2})",s"$$1$versionSuffix") + versionSuffix)
+version in ThisBuild ~= (v => v.replaceFirst("^(v?\\d(\\.\\d){2})(?=[^k])",s"$$1$versionSuffix") + versionSuffix)
+dynver in ThisBuild ~= (v => v.replaceFirst("^(v?\\d(\\.\\d){2})(?=[^k])",s"$$1$versionSuffix") + versionSuffix)
 
 val flinkDeps = (
   (Seq("scala", "streaming-scala", "cep-scala") ++ maybeKinesis).map(a =>
