@@ -40,10 +40,10 @@
 
 ## Maven Dependency
 
-`Flinkrunner` is now on maven central as of release 1.5.4, built against Flink 1.7.2 with Scala 2.11 and JDK 8.
+`Flinkrunner` is now on maven central as of release 1.5.5, built against Flink 1.7.2 with Scala 2.11 and JDK 8.
 
 ```sbtshell
-libraryDependencies += "io.epiphanous" %% "flinkrunner" % "1.5.4"
+libraryDependencies += "io.epiphanous" %% "flinkrunner" % "1.5.5"
 ```
 
 >The apache flink project doesn't include its AWS Kinesis connector on maven
@@ -68,23 +68,22 @@ Flink kinesis connector) from source. To do so,
     ```
 
 * Checkout the tag of `FlinkRunner` you want to build. The most recent stable version is
-  `v1.5.4`, but you can ensure you have the most recent tags with `git fetch --tags` and 
+  `v1.5.5`, but you can ensure you have the most recent tags with `git fetch --tags` and 
   list tags with `git tag -l`, then
   
     ```bash
-    git checkout tags/v1.5.4 -b my-build-v1.5.4
+    git checkout tags/v1.5.5 -b my-build-v1.5.5
     ```
     
-   This will create a new local branch `my-build-v1.5.4` based on the `v1.5.4` tag release.
+   This will create a new local branch `my-build-v1.5.5` based on the `v1.5.5` tag release.
       
-* Build `FlinkRunner` and install it locally, using the `--with.kinesis=true` option if you want
-  to include support for AWS Kinesis in the library
+* Build `FlinkRunner` and install it locally, using the `--with.kinesis=true` option
 
     ```bash
     sbt --with.kinesis=true publishLocal
     ```
     
-  This will install `FlinkRunner` in your local repo.
+  This will install `FlinkRunner` with kinesis support in your local repo.
 
 * In your project's build file, add a resolver to your local repo and add the local
   `FlinkRunner` dependency:
@@ -93,11 +92,9 @@ Flink kinesis connector) from source. To do so,
     resolvers += "Local Maven Repository" at "file://" +
         Path.userHome.absolutePath + "/.m2/repository" 
     ...
-    libraryDependencies += "io.epiphanous" %% "flinkrunner" % "1.5.4"
-                                      // notice no v here ----^^
+    libraryDependencies += "io.epiphanous" %% "flinkrunner" % "1.5.5k"
+                                      // notice no v here  ---^^    ^^---k for kinesis
     ```
-  > If you don't add the local resolver, sbt will load the library from maven central, which
-  won't include kinesis support.
  
 
 ## What is FlinkRunner?

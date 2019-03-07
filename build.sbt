@@ -42,11 +42,16 @@ enablePlugins(Antlr4Plugin)
 antlr4Version in Antlr4 := V.antlr4
 antlr4PackageName in Antlr4 := Some("io.epiphanous.antlr4")
 
-val maybeKinesis =
-  System.getProperty("with.kinesis", "false") match {
-    case "true" | "1" | "yes" => Seq("connector-kinesis")
-    case _ => Seq.empty[String]
-  }
+val withK = Seq("true","1","yes","y").exists(
+  _.equalsIgnoreCase(System.getProperty("with.kinesis", "false"))
+)
+
+val maybeKinesis = if (withK) Seq("connector-kinesis") else Seq.empty[String]
+
+// post-process version to add k suffix if we're building with kinesis
+val versionSuffix = if (withK) "k" else ""
+version in ThisBuild ~= (v => v.replaceFirst("^(v?\\d(\\.\\d){2})",s"$$1$versionSuffix") + versionSuffix)
+dynver in ThisBuild ~= (v => v.replaceFirst("^(v?\\d(\\.\\d){2})",s"$$1$versionSuffix") + versionSuffix)
 
 val flinkDeps = (
   (Seq("scala", "streaming-scala", "cep-scala") ++ maybeKinesis).map(a =>
