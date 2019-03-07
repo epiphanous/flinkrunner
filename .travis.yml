@@ -7,14 +7,15 @@ jdk:
 
 stages:
   - name: test
-
-    # - name: release
-    #    if: (branch = master AND type = push) OR (tag IS present)
+  - name: release
+    if: (branch = master AND type = push) OR (tag IS present)
 
 jobs:
   include:
-    - stage: test
+    - env: TEST="test coverage"
       script: sbt compile coverage test coverageReport coverageAggregate coveralls
+    - stage: release
+      script: sbt ci-release
 
 before_install:
   - git fetch --tags
