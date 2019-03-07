@@ -27,9 +27,7 @@
   <img src="https://img.shields.io/travis/com/epiphanous/flinkrunner.svg" alt="build" />
 </a>
 <!-- coverage -->
-<a href="https://coveralls.io/github/epiphanous/flinkrunner" title="Test Coverage">
-  <img src="https://coveralls.io/repos/github/epiphanous/flinkrunner/badge.svg?branch=master" alt="coverage" />
-</a>
+<a href='https://coveralls.io/github/epiphanous/flinkrunner?branch=master'><img src='https://coveralls.io/repos/github/epiphanous/flinkrunner/badge.svg?branch=master' alt='Coverage Status' /></a>
 </div>
 
 <div align="center">
@@ -42,10 +40,10 @@
 
 ## Maven Dependency
 
-`Flinkrunner` is now on maven central as of release 1.5.3, built against Flink 1.7.2 with Scala 2.11 and JDK 8.
+`Flinkrunner` is now on maven central as of release 1.5.4, built against Flink 1.7.2 with Scala 2.11 and JDK 8.
 
 ```sbtshell
-libraryDependencies += "io.epiphanous" %% "flinkrunner" % "1.5.3"
+libraryDependencies += "io.epiphanous" %% "flinkrunner" % "1.5.4"
 ```
 
 >The apache flink project doesn't include its AWS Kinesis connector on maven
@@ -70,14 +68,14 @@ Flink kinesis connector) from source. To do so,
     ```
 
 * Checkout the tag of `FlinkRunner` you want to build. The most recent stable version is
-  `v1.5.2`, but you can ensure you have the most recent tags with `git fetch --tags` and 
+  `v1.5.4`, but you can ensure you have the most recent tags with `git fetch --tags` and 
   list tags with `git tag -l`, then
   
     ```bash
-    git checkout tags/v1.5.2 -b my-build-v1.5.2
+    git checkout tags/v1.5.4 -b my-build-v1.5.4
     ```
     
-   This will create a new local branch `my-build-v1.5.2` based on the `v1.5.2` tag release.
+   This will create a new local branch `my-build-v1.5.4` based on the `v1.5.4` tag release.
       
 * Build `FlinkRunner` and install it locally, using the `--with.kinesis=true` option if you want
   to include support for AWS Kinesis in the library
@@ -95,7 +93,7 @@ Flink kinesis connector) from source. To do so,
     resolvers += "Local Maven Repository" at "file://" +
         Path.userHome.absolutePath + "/.m2/repository" 
     ...
-    libraryDependencies += "io.epiphanous" %% "flinkrunner" % "1.5.2"
+    libraryDependencies += "io.epiphanous" %% "flinkrunner" % "1.5.4"
                                       // notice no v here ----^^
     ```
   > If you don't add the local resolver, sbt will load the library from maven central, which
