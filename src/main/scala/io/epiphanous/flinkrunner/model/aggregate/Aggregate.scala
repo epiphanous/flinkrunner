@@ -129,7 +129,8 @@ object Aggregate {
     lastUpdated: Instant = Instant.now(),
     dependentAggregations: Map[String, Aggregate] = Map.empty[String, Aggregate],
     params: Map[String, Any] = Map.empty[String, Any],
-    alpha: Double = 0.7
+    alpha: Option[Double] = None,
+    base: Option[Double] = None
   ): Aggregate = {
     val initValue = if (name == "Min" && count == 0 && value == 0) Double.MaxValue else value
     name match {
@@ -146,7 +147,7 @@ object Aggregate {
                                  aggregatedLastUpdated,
                                  lastUpdated,
                                  Map.empty[String, Aggregate],
-                                 params)
+                                 maybeUpdateParams(params, "alpha", alpha, 0.7))
 
       case "ExponentialMovingStandardDeviation" =>
         ExponentialMovingStandardDeviation(dimension,
@@ -157,7 +158,7 @@ object Aggregate {
                                            aggregatedLastUpdated,
                                            lastUpdated,
                                            dependentAggregations,
-                                           params)
+                                           maybeUpdateParams(params, "alpha", alpha, 0.7))
 
       case "ExponentialMovingVariance" =>
         ExponentialMovingVariance(dimension,
@@ -168,7 +169,7 @@ object Aggregate {
                                   aggregatedLastUpdated,
                                   lastUpdated,
                                   dependentAggregations,
-                                  params)
+                                  maybeUpdateParams(params, "alpha", alpha, 0.7))
 
       case "Histogram" =>
         Histogram(dimension, unit, value, name, count, aggregatedLastUpdated, lastUpdated, dependentAggregations)
@@ -207,8 +208,21 @@ object Aggregate {
                                aggregatedLastUpdated,
                                lastUpdated,
                                dependentAggregations)
+      case "Percentage" =>
+        Percentage(dimension,
+                   unit,
+                   value,
+                   name,
+                   count,
+                   aggregatedLastUpdated,
+                   lastUpdated,
+                   dependentAggregations,
+                   maybeUpdateParams(params, "base", base, 1d))
 
       case _ => throw new UnsupportedOperationException(s"Unknown aggregation type '$name'")
     }
   }
+
+  def maybeUpdateParams[T](map: Map[String, Any], key: String, value: Option[T], defaultValue: T): Map[String, Any] =
+    if (map.contains(key)) map else map.updated(key, value.getOrElse(map.getOrElse(key, defaultValue)))
 }
