@@ -7,15 +7,14 @@ final case class ExponentialMovingVariance(
   dimension: String,
   unit: String,
   value: Double = 0d,
-  name: String = "ExponentialMovingVariance",
   count: BigInt = BigInt(0),
   aggregatedLastUpdated: Instant = Instant.EPOCH,
   lastUpdated: Instant = Instant.now(),
   dependentAggregations: Map[String, Aggregate] = Map.empty[String, Aggregate],
-  params: Map[String, Any] = Map("alpha" -> 0.7))
+  params: Map[String, String] = Map("alpha" -> ExponentialMovingVariance.defaultAlpha))
     extends Aggregate {
 
-  def alpha = params.getOrElse("alpha", 0.7).asInstanceOf[Double]
+  def alpha = params.getOrElse("alpha", ExponentialMovingVariance.defaultAlpha).toDouble
 
   override def getDependents = {
     if (this.dependentAggregations.isEmpty)
@@ -33,7 +32,9 @@ final case class ExponentialMovingVariance(
 }
 
 object ExponentialMovingVariance {
+  final val DEFAULT_ALPHA = 0.7
+  def defaultAlpha = DEFAULT_ALPHA.toString
   def apply(dimension: String, unit: String, alpha: Double): ExponentialMovingVariance =
-    ExponentialMovingVariance(dimension, unit, params = Map("alpha" -> alpha))
+    ExponentialMovingVariance(dimension, unit, params = Map("alpha" -> alpha.toString))
 
 }

@@ -7,7 +7,9 @@ import io.epiphanous.flinkrunner.model.UnitMapper
 import squants.Quantity
 
 trait Aggregate extends Product with Serializable with LazyLogging {
-  def name: String
+
+  def name: String = getClass.getSimpleName
+
   def dimension: String
   def unit: String
   def value: Double
@@ -15,23 +17,26 @@ trait Aggregate extends Product with Serializable with LazyLogging {
   def aggregatedLastUpdated: Instant
   def lastUpdated: Instant
   def dependentAggregations: Map[String, Aggregate]
-  def params: Map[String, Any]
+  def params: Map[String, String]
+
+  def isDimensionless: Boolean = false
+  def outUnit: String = unit
 
   // a copy constructor
   private def _copy(
-    value: Double,
+    newValue: Double,
     aggregatedLastUpdated: Instant,
     dependentAggregations: Map[String, Aggregate]
   ): Aggregate =
-    Aggregate(this.name,
-              this.dimension,
-              this.unit,
-              value,
-              this.count + 1,
+    Aggregate(name,
+              dimension,
+              outUnit,
+              newValue,
+              count + 1,
               aggregatedLastUpdated,
               Instant.now(),
               dependentAggregations,
-              this.params)
+              params)
 
   /**
     * Used by some subclasses to update the underlying aggregate value as a Quantity.
@@ -113,11 +118,15 @@ trait Aggregate extends Product with Serializable with LazyLogging {
   def isEmpty: Boolean = count == BigInt(0)
   def isDefined: Boolean = !isEmpty
   def nonEmpty: Boolean = !isEmpty
-  override def toString = f"$value%f $unit"
+  override def toString = f"$value%f $outUnit"
   def labeledValue = s"$name: $toString"
 }
 
-object Aggregate {
+object Aggregate extends LazyLogging {
+
+  implicit class caseOps(s: String) {
+    def normalize: String = "[^A-Za-z\\d]".r.replaceAllIn(s, "").toLowerCase()
+  }
 
   def apply(
     name: String,
@@ -128,101 +137,87 @@ object Aggregate {
     aggregatedLastUpdated: Instant = Instant.EPOCH,
     lastUpdated: Instant = Instant.now(),
     dependentAggregations: Map[String, Aggregate] = Map.empty[String, Aggregate],
-    params: Map[String, Any] = Map.empty[String, Any],
-    alpha: Option[Double] = None,
-    base: Option[Double] = None
+    params: Map[String, String] = Map.empty[String, String]
   ): Aggregate = {
-    val initValue = if (name == "Min" && count == 0 && value == 0) Double.MaxValue else value
-    name match {
-      case "Mean" =>
-        Mean(dimension, unit, value, name, count, aggregatedLastUpdated, lastUpdated)
-      case "Count" =>
-        Count("Dimensionless", "ea", value, name, count, aggregatedLastUpdated, lastUpdated)
-      case "ExponentialMovingAverage" =>
+    val normalizedName = name.normalize
+    val initValue = if (normalizedName == "min" && count == 0 && value == 0) Double.MaxValue else value
+    normalizedName match {
+      case "mean" =>
+        Mean(dimension, unit, value, count, aggregatedLastUpdated, lastUpdated)
+      case "count" =>
+        Count(dimension, unit, value, count, aggregatedLastUpdated, lastUpdated)
+      case "exponentialmovingaverage" =>
         ExponentialMovingAverage(dimension,
                                  unit,
                                  value,
-                                 name,
                                  count,
                                  aggregatedLastUpdated,
                                  lastUpdated,
-                                 Map.empty[String, Aggregate],
-                                 maybeUpdateParams(params, "alpha", alpha, 0.7))
+                                 dependentAggregations,
+                                 maybeUpdateParams(params, "alpha", ExponentialMovingAverage.defaultAlpha))
 
-      case "ExponentialMovingStandardDeviation" =>
+      case "exponentialmovingstandarddeviation" =>
         ExponentialMovingStandardDeviation(dimension,
                                            unit,
                                            value,
-                                           name,
                                            count,
                                            aggregatedLastUpdated,
                                            lastUpdated,
                                            dependentAggregations,
-                                           maybeUpdateParams(params, "alpha", alpha, 0.7))
+                                           maybeUpdateParams(params,
+                                                             "alpha",
+                                                             ExponentialMovingStandardDeviation.defaultAlpha))
 
-      case "ExponentialMovingVariance" =>
+      case "exponentialmovingvariance" =>
         ExponentialMovingVariance(dimension,
                                   unit,
                                   value,
-                                  name,
                                   count,
                                   aggregatedLastUpdated,
                                   lastUpdated,
                                   dependentAggregations,
-                                  maybeUpdateParams(params, "alpha", alpha, 0.7))
+                                  maybeUpdateParams(params, "alpha", ExponentialMovingVariance.defaultAlpha))
 
-      case "Histogram" =>
-        Histogram(dimension, unit, value, name, count, aggregatedLastUpdated, lastUpdated, dependentAggregations)
+      case "histogram" =>
+        Histogram(dimension, unit, value, count, aggregatedLastUpdated, lastUpdated, dependentAggregations)
 
-      case "Max" =>
-        Max(dimension, unit, value, name, count, aggregatedLastUpdated, lastUpdated)
+      case "max" =>
+        Max(dimension, unit, value, count, aggregatedLastUpdated, lastUpdated)
 
-      case "Min" =>
-        Min(dimension, unit, initValue, name, count, aggregatedLastUpdated, lastUpdated)
+      case "min" =>
+        Min(dimension, unit, initValue, count, aggregatedLastUpdated, lastUpdated)
 
-      case "Range" =>
-        Range(dimension, unit, value, name, count, aggregatedLastUpdated, lastUpdated, dependentAggregations)
+      case "range" =>
+        Range(dimension, unit, value, count, aggregatedLastUpdated, lastUpdated, dependentAggregations)
 
-      case "Sum" =>
-        Sum(dimension, unit, value, name, count, aggregatedLastUpdated, lastUpdated)
+      case "sum" =>
+        Sum(dimension, unit, value, count, aggregatedLastUpdated, lastUpdated)
 
-      case "Variance" =>
-        Variance(dimension, unit, value, name, count, aggregatedLastUpdated, lastUpdated, dependentAggregations)
+      case "variance" =>
+        Variance(dimension, unit, value, count, aggregatedLastUpdated, lastUpdated, dependentAggregations)
 
-      case "StandardDeviation" =>
-        StandardDeviation(dimension,
-                          unit,
-                          value,
-                          name,
-                          count,
-                          aggregatedLastUpdated,
-                          lastUpdated,
-                          dependentAggregations)
+      case "standarddeviation" =>
+        StandardDeviation(dimension, unit, value, count, aggregatedLastUpdated, lastUpdated, dependentAggregations)
 
-      case "SumOfSquaredDeviations" =>
-        SumOfSquaredDeviations(dimension,
-                               unit,
-                               value,
-                               name,
-                               count,
-                               aggregatedLastUpdated,
-                               lastUpdated,
-                               dependentAggregations)
-      case "Percentage" =>
+      case "sumofsquareddeviations" =>
+        SumOfSquaredDeviations(dimension, unit, value, count, aggregatedLastUpdated, lastUpdated, dependentAggregations)
+      case "percentage" =>
         Percentage(dimension,
                    unit,
                    value,
-                   name,
                    count,
                    aggregatedLastUpdated,
                    lastUpdated,
                    dependentAggregations,
-                   maybeUpdateParams(params, "base", base, 1d))
+                   maybeUpdateParams(params, "base", Percentage.defaultBase))
 
-      case _ => throw new UnsupportedOperationException(s"Unknown aggregation type '$name'")
+      case _ =>
+        val message = s"Unknown aggregation type '$name'"
+        logger.error(message)
+        throw new UnsupportedOperationException(message)
     }
   }
 
-  def maybeUpdateParams[T](map: Map[String, Any], key: String, value: Option[T], defaultValue: T): Map[String, Any] =
-    if (map.contains(key)) map else map.updated(key, value.getOrElse(map.getOrElse(key, defaultValue)))
+  def maybeUpdateParams(map: Map[String, String], key: String, defaultValue: String): Map[String, String] =
+    if (map.contains(key)) map else map.updated(key, defaultValue)
 }
