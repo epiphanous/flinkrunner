@@ -4,11 +4,10 @@ package io.epiphanous.flinkrunner.util
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.SEE
 import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkEvent, KinesisSinkConfig, KinesisSourceConfig}
-import org.apache.flink.api.common.serialization.DeserializationSchema
+import org.apache.flink.api.common.serialization.{DeserializationSchema, SerializationSchema}
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
-import org.apache.flink.streaming.connectors.kinesis.serialization.KinesisSerializationSchema
 import org.apache.flink.streaming.connectors.kinesis.{FlinkKinesisConsumer, FlinkKinesisProducer}
 
 object KinesisStreamUtils extends LazyLogging {
@@ -50,10 +49,11 @@ object KinesisStreamUtils extends LazyLogging {
     stream
       .addSink({
         val sink =
-          new FlinkKinesisProducer[E](config.getSerializationSchema.asInstanceOf[KinesisSerializationSchema[E]],
+          new FlinkKinesisProducer[E](config.getSerializationSchema.asInstanceOf[SerializationSchema[E]],
                                       sinkConfig.properties)
         sink.setDefaultStream(sinkConfig.stream)
         sink.setFailOnError(true)
+        sink.setDefaultPartition("0")
         sink
       })
       .name(sinkConfig.label)
