@@ -8,17 +8,16 @@ final case class Histogram(
   dimension: String,
   unit: String,
   value: Double = 0d,
-  name: String = "Histogram",
   count: BigInt = BigInt(0),
   aggregatedLastUpdated: Instant = Instant.EPOCH,
   lastUpdated: Instant = Instant.now(),
   dependentAggregations: Map[String, Aggregate] = Map.empty[String, Aggregate],
-  params: Map[String, Any] = Map.empty[String, Any])
+  params: Map[String, String] = Map.empty[String, String])
     extends Aggregate {
 
   import Histogram._
 
-  def bin(key: String): Aggregate = this.dependentAggregations.getOrElse(key, Count())
+  def bin(key: String): Aggregate = this.dependentAggregations.getOrElse(key, Count(dimension, unit))
 
   /** Compute a dynamic bin for the requested quantity. This picks a bin
     * based on the order of magnitude of the quantity in the aggregate's preferred unit.
