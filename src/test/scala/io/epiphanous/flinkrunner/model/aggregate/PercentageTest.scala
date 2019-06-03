@@ -13,7 +13,7 @@ class PercentageTest extends FlatSpec with Matchers with LazyLogging {
 
   it should "update" in {
     val q = p.update(86400 / 2, "s", Instant.now())
-    q.map(_.value) shouldBe Some(0.5)
+    q.map(_.value) shouldBe Some(50)
   }
 
   it should "dimension" in {
@@ -31,7 +31,7 @@ class PercentageTest extends FlatSpec with Matchers with LazyLogging {
   it should "params" in {
     p.params.isEmpty shouldBe false
     p.params.contains("base") shouldBe true
-    p.params.get("base") shouldBe Some(86400d)
+    p.params.get("base") shouldBe Some("86400.0")
   }
 
   it should "name" in {
