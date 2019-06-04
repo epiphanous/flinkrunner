@@ -1,6 +1,6 @@
 package io.epiphanous.flinkrunner.operator
 
-import java.util.concurrent.Executors
+import java.util.concurrent.{Executors, TimeUnit}
 
 import cats.effect.{ContextShift, IO, Timer}
 import com.google.common.cache.{CacheBuilder, CacheLoader}
@@ -107,11 +107,13 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
 
   @transient
   lazy val cache = {
+    val expireAfter = config.getDuration(s"$configPrefix.cache.expire.after")
     val builder = CacheBuilder
       .newBuilder()
       .concurrencyLevel(config.getInt(s"$configPrefix.cache.concurrency.level"))
       .maximumSize(config.getInt(s"$configPrefix.cache.max.size"))
-      .expireAfterWrite(config.getDuration(s"$configPrefix.cache.expire.after"))
+      .expireAfterWrite(expireAfter.toMillis, TimeUnit.MILLISECONDS)
+//      .expireAfterWrite(expireAfter) // for guava 27
     if (!config.getBoolean(s"$configPrefix.cache.use.strong.keys"))
       builder.weakKeys()
     if (config.getBoolean(s"$configPrefix.cache.record.stats"))

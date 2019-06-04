@@ -33,7 +33,8 @@ val V = new {
   val http4s = "0.20.0-M5"
   val enumeratum = "1.5.13"
   val typesafeConfig = "1.3.3"
-  val guava = "27.0.1-jre"
+//  val guava = "27.0.1-jre"
+  val guava = "24.1-jre"
   val squants = "1.3.0"
   val antlr4 = "4.7.1"
 }
