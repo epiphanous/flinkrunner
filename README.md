@@ -40,10 +40,10 @@
 
 ## Maven Dependency
 
-`Flinkrunner` `v1.6.3` is now on maven central, built against Flink 1.7.2 with Scala 2.11 and JDK 8.
+`Flinkrunner` `v1.6.4` is now on maven central, built against Flink 1.7.2 with Scala 2.11 and JDK 8.
 
 ```sbtshell
-libraryDependencies += "io.epiphanous" %% "flinkrunner" % "1.6.3"
+libraryDependencies += "io.epiphanous" %% "flinkrunner" % "1.6.4"
 ```
 
 >The apache flink project doesn't include its AWS Kinesis connector on maven
@@ -68,14 +68,14 @@ Flink kinesis connector) from source. To do so,
     ```
 
 * Checkout the tag of `FlinkRunner` you want to build. The most recent stable version is
-  `v1.6.3`, but you can ensure you have the most recent tags with `git fetch --tags` and 
+  `v1.6.4`, but you can ensure you have the most recent tags with `git fetch --tags` and 
   list tags with `git tag -l`, then
   
     ```bash
-    git checkout tags/v1.6.3 -b my-build-v1.6.3
+    git checkout tags/v1.6.4 -b my-build-v1.6.4
     ```
     
-   This will create a new local branch `my-build-v1.6.3` based on the `v1.6.3` tag release.
+   This will create a new local branch `my-build-v1.6.4` based on the `v1.6.4` tag release.
       
 * Build `FlinkRunner` and install it locally, using the `--with.kinesis=true` option
 
@@ -92,7 +92,7 @@ Flink kinesis connector) from source. To do so,
     resolvers += "Local Maven Repository" at "file://" +
         Path.userHome.absolutePath + "/.m2/repository" 
     ...
-    libraryDependencies += "io.epiphanous" %% "flinkrunner" % "1.6.3k"
+    libraryDependencies += "io.epiphanous" %% "flinkrunner" % "1.6.4k"
                                       // notice no v here  ---^^    ^^---k for kinesis
     ```
  
