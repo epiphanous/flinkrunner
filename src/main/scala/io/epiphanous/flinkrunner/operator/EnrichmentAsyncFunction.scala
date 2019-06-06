@@ -1,18 +1,20 @@
 package io.epiphanous.flinkrunner.operator
 
-import java.util.concurrent.{Executors, TimeUnit}
+import java.io.{PrintWriter, StringWriter}
+import java.util.concurrent.TimeUnit
 
 import cats.effect.{ContextShift, IO, Timer}
 import com.google.common.cache.{CacheBuilder, CacheLoader}
 import com.typesafe.scalalogging.LazyLogging
 import io.circe.Decoder
 import io.epiphanous.flinkrunner.model.FlinkConfig
+import org.apache.flink.runtime.concurrent.Executors.directExecutionContext
 import org.apache.flink.streaming.api.scala.async.{AsyncFunction, ResultFuture}
 import org.http4s.EntityDecoder
 import org.http4s.circe.jsonOf
 import org.http4s.client.blaze.BlazeClientBuilder
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -56,20 +58,8 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
   @transient
   lazy implicit val entityDecoder: EntityDecoder[IO, CV] = jsonOf[IO, CV]
 
-  /**
-    * A thread pool execution context for making asynchronous api calls.
-    */
   @transient
-  lazy implicit val ec: ExecutionContext = new ExecutionContext {
-    val threadPool =
-      Executors.newFixedThreadPool(Math.max(2, config.getInt(s"$configPrefix.num.threads")))
-
-    def execute(runnable: Runnable): Unit =
-      threadPool.submit(runnable)
-
-    def reportFailure(t: Throwable): Unit =
-      logger.error(t.getLocalizedMessage)
-  }
+  lazy implicit val ec = directExecutionContext()
 
   @transient
   lazy implicit val cs: ContextShift[IO] = IO.contextShift(ec)
@@ -88,6 +78,7 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
   @transient
   lazy val defaultCacheLoader = new CacheLoader[String, Option[CV]] {
     override def load(uri: String): Option[CV] = {
+      logger.debug(s"=== cache load $uri")
       preloaded.get(uri) match {
         case Some(cv) => Some(cv)
         case None =>
@@ -107,6 +98,7 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
 
   @transient
   lazy val cache = {
+    logger.debug("=== initializing new cache")
     val expireAfter = config.getDuration(s"$configPrefix.cache.expire.after")
     val builder = CacheBuilder
       .newBuilder()
@@ -129,8 +121,13 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
 
   override def asyncInvoke(in: IN, collector: ResultFuture[OUT]): Unit =
     asyncInvokeF(in) map {
-      case Failure(throwable) => collector.completeExceptionally(throwable)
-      case Success(results)   => collector.complete(results)
+      case Failure(throwable) => {
+        val sw = new StringWriter()
+        throwable.printStackTrace(new PrintWriter(sw))
+        logger.error(s"asyncInvoke[$in] failed: ${throwable.getMessage}\n$sw")
+        collector.completeExceptionally(throwable)
+      }
+      case Success(results) => collector.complete(results)
     }
 
   /**
