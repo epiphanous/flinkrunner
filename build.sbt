@@ -37,6 +37,8 @@ val V = new {
   val guava = "24.1-jre"
   val squants = "1.3.0"
   val antlr4 = "4.7.1"
+  val avro = "1.9.0"
+  val avro4s = "3.0.0-RC2"
 }
 
 enablePlugins(Antlr4Plugin)
@@ -78,6 +80,8 @@ val http4sDeps =
   Seq("http4s-dsl", "http4s-client", "http4s-blaze-client", "http4s-circe").map("org.http4s" %% _ % V.http4s)
 
 val otherDeps = Seq("com.beachape"      %% "enumeratum" % V.enumeratum,
+                    "org.apache.avro"  % "avro" % V.avro,
+                    "com.sksamuel.avro4s" %% "avro4s-core" % V.avro4s,
                     "com.typesafe"      %  "config"     % V.typesafeConfig,
                     "com.google.guava"  %  "guava"      % V.guava,
                     "org.typelevel"     %% "squants"    % V.squants,
