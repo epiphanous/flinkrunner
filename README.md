@@ -16,7 +16,7 @@
 </a>
 <!-- maven central -->
 <a href="https://mvnrepository.com/artifact/io.epiphanous/flinkrunner">
-  <img src="https://img.shields.io/maven-central/v/io.epiphanous/flinkrunner.svg" alt="maven" />
+  <img src="https://img.shields.io/maven-central/v/io.epiphanous/flinkrunner_2.11.svg" alt="maven" />
 </a>
 <!-- last commit -->
 <a href="https://github.com/epiphanous/flinkrunner/commits" title="Last Commit">
@@ -40,10 +40,10 @@
 
 ## Maven Dependency
 
-`Flinkrunner` `v1.6.5` is now on maven central, built against Flink 1.7.2 with Scala 2.11 and JDK 8.
+`Flinkrunner` `v1.6.6` is now on maven central, built against Flink 1.7.2 with Scala 2.11 and JDK 8.
 
 ```sbtshell
-libraryDependencies += "io.epiphanous" %% "flinkrunner" % "1.6.5"
+libraryDependencies += "io.epiphanous" %% "flinkrunner" % "1.6.6"
 ```
 
 >The apache flink project doesn't include its AWS Kinesis connector on maven
@@ -55,10 +55,10 @@ In order to use Kinesis with `FlinkRunner`, please follow the instructions in th
 Due to licensing restrictions, if you want to use AWS Kinesis with `FlinkRunner` you have to build it (and the
 Flink kinesis connector) from source. To do so,
 
-* First, you'll need to build a local copy of Flink's kinesis connector. See 
+* First, you'll need to build a local copy of Flink's kinesis connector. See
   [these instructions](https://ci.apache.org/projects/flink/flink-docs-stable/dev/connectors/kinesis.html)
   for details on how to accomplish that.
-  
+
   > Note that building Flink with Kinesis can take over 30 minutes! It's a very big project.
 
 * Clone the `FlinkRunner` repo:
@@ -68,21 +68,21 @@ Flink kinesis connector) from source. To do so,
     ```
 
 * Checkout the tag of `FlinkRunner` you want to build. The most recent stable version is
-  `v1.6.5`, but you can ensure you have the most recent tags with `git fetch --tags` and 
+  `v1.6.6`, but you can ensure you have the most recent tags with `git fetch --tags` and
   list tags with `git tag -l`, then
-  
-    ```bash
-    git checkout tags/v1.6.5 -b my-build-v1.6.5
-    ```
-    
-   This will create a new local branch `my-build-v1.6.5` based on the `v1.6.5` tag release.
-      
-* Build `FlinkRunner` and install it locally, using the `--with.kinesis=true` option
 
     ```bash
-    sbt --with.kinesis=true publishLocal
+    git checkout tags/v1.6.6 -b my-build-v1.6.6
     ```
-    
+
+   This will create a new local branch `my-build-v1.6.6` based on the `v1.6.6` tag release.
+
+* Build `FlinkRunner` and install it locally, using the `-Dwith.kinesis=true` option
+
+    ```bash
+    sbt -Dwith.kinesis=true publishLocal
+    ```
+
   This will install `FlinkRunner` with kinesis support in your local repo.
 
 * In your project's build file, add a resolver to your local repo and add the local
@@ -90,12 +90,12 @@ Flink kinesis connector) from source. To do so,
 
     ```sbtshell
     resolvers += "Local Maven Repository" at "file://" +
-        Path.userHome.absolutePath + "/.m2/repository" 
+        Path.userHome.absolutePath + "/.m2/repository"
     ...
-    libraryDependencies += "io.epiphanous" %% "flinkrunner" % "1.6.5k"
+    libraryDependencies += "io.epiphanous" %% "flinkrunner" % "1.6.6k"
                                       // notice no v here  ---^^    ^^---k for kinesis
     ```
- 
+
 
 ## What is FlinkRunner?
 

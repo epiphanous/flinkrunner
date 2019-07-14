@@ -147,6 +147,7 @@ class FlinkConfig(
   def getEncoder = factory.getEncoder
   def getAddToJdbcBatchFunction =
     factory.getAddToJdbcBatchFunction
+  def getBucketAssigner(p: Properties) = factory.getBucketAssigner(p)
 
   def getSourceConfig(name: String): SourceConfig = SourceConfig(name, this)
   def getSinkConfig(name: String): SinkConfig = SinkConfig(name, this)

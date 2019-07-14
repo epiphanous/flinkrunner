@@ -11,11 +11,11 @@ import org.apache.flink.api.common.serialization.{DeserializationSchema, Encoder
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.core.fs.Path
 import org.apache.flink.streaming.api.datastream.DataStreamSink
-import org.apache.flink.streaming.api.functions.sink.filesystem.StreamingFileSink
 import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.{
   BasePathBucketAssigner,
   DateTimeBucketAssigner
 }
+import org.apache.flink.streaming.api.functions.sink.filesystem.{BucketAssigner, StreamingFileSink}
 import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.{
   DefaultRollingPolicy,
   OnCheckpointRollingPolicy
@@ -344,16 +344,15 @@ object StreamUtils extends LazyLogging {
     sinkConfig: FileSinkConfig
   )(implicit config: FlinkConfig
   ): DataStreamSink[E] = {
-
     val path = sinkConfig.path
     val p = sinkConfig.properties
     val bucketCheckInterval = p.getProperty("bucket.check.interval", s"${60000}").toLong
-    val bucketAssigner = p.getProperty("bucket.assigner", "datetime") match {
+    val bucketAssigner = p.getProperty("bucket.assigner.type", "datetime") match {
       case "none" => new BasePathBucketAssigner[E]()
       case "datetime" =>
-        val bucketFormat = p.getProperty("bucket.assigner.datetime.format", "yyyy/MM/dd/HH")
-        new DateTimeBucketAssigner[E](bucketFormat)
-      case assigner => throw new IllegalArgumentException(s"Unknown bucket assigner type: '$assigner'")
+        new DateTimeBucketAssigner[E](p.getProperty("bucket.assigner.datetime.format", "YYYY/MM/DD/HH"))
+      case "custom" => config.getBucketAssigner(p).asInstanceOf[BucketAssigner[E, String]]
+      case other    => throw new IllegalArgumentException(s"Unknown bucket assigner type '$other'.")
     }
     val encoderFormat = p.getProperty("encoder.format", "row")
     val sink = encoderFormat match {
