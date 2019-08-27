@@ -30,7 +30,7 @@ abstract class FlinkJob[IN <: FlinkEvent: TypeInformation, OUT <: FlinkEvent: Ty
   def source()(implicit config: FlinkConfig, env: SEE): DataStream[IN] =
     fromSource[IN](getEventSourceName) |# maybeAssignTimestampsAndWatermarks
 
-  override def maybeAssignTimestampsAndWatermarks(in: DataStream[IN])(implicit config: FlinkConfig, env: SEE): Unit =
+  def maybeAssignTimestampsAndWatermarks(in: DataStream[IN])(implicit config: FlinkConfig, env: SEE): Unit =
     if (env.getStreamTimeCharacteristic == TimeCharacteristic.EventTime)
       in.assignTimestampsAndWatermarks(boundedLatenessEventTime[IN]())
 
