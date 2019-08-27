@@ -18,7 +18,7 @@ import org.apache.flink.streaming.api.scala.{BroadcastConnectedStream, DataStrea
   * @tparam IN Input stream event type
   * @tparam OUT  Output stream event type
   */
-abstract class BroadcastFlinkJob[
+class BroadcastFlinkJob[
   BC <: FlinkEvent: TypeInformation,
   IN <: FlinkEvent: TypeInformation,
   OUT <: FlinkEvent: TypeInformation
@@ -27,10 +27,16 @@ abstract class BroadcastFlinkJob[
 
   import BroadcastFlinkJob._
 
-  def getBroadcastStateDescriptor()(implicit config: FlinkConfig): MapStateDescriptor[String, BC]
+  def getBroadcastStateDescriptor(
+    nameOpt: Option[String] = None
+  )(implicit config: FlinkConfig
+  ): MapStateDescriptor[String, BC] =
+    new MapStateDescriptor[String, BC](nameOpt.getOrElse(BROADCAST_STATE_DESCRIPTOR_NAME),
+                                       createTypeInformation[String],
+                                       createTypeInformation[BC])
 
   def broadcastSource(implicit config: FlinkConfig, env: SEE): BroadcastStream[BC] =
-    fromSource[BC](getBroadcastSourceName).broadcast(getBroadcastStateDescriptor)
+    fromSource[BC](getBroadcastSourceName).broadcast(getBroadcastStateDescriptor())
 
   def getBroadcastSourceName()(implicit config: FlinkConfig) = BROADCAST_SOURCE_NAME
   def getEventSourceName()(implicit config: FlinkConfig) = EVENT_SOURCE_NAME
@@ -56,4 +62,5 @@ abstract class BroadcastFlinkJob[
 object BroadcastFlinkJob {
   final val BROADCAST_SOURCE_NAME = "broadcast"
   final val EVENT_SOURCE_NAME = "events"
+  final val BROADCAST_STATE_DESCRIPTOR_NAME = "broadcast state"
 }
