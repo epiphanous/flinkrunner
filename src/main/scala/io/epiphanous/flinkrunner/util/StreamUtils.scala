@@ -10,6 +10,7 @@ import io.epiphanous.flinkrunner.operator.AddToJdbcBatchFunction
 import org.apache.flink.api.common.serialization.{DeserializationSchema, Encoder, SerializationSchema}
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.core.fs.Path
+import org.apache.flink.streaming.api.TimeCharacteristic
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.{
   BasePathBucketAssigner,
@@ -86,6 +87,14 @@ object StreamUtils extends LazyLogging {
     extractor.withViolationHandler(new IgnoringHandler())
     extractor
   }
+
+  def maybeAssignTimestampsAndWatermarks[E <: FlinkEvent: TypeInformation](
+    in: DataStream[E]
+  )(implicit config: FlinkConfig,
+    env: SEE
+  ): Unit =
+    if (env.getStreamTimeCharacteristic == TimeCharacteristic.EventTime)
+      in.assignTimestampsAndWatermarks(boundedLatenessEventTime[E]())
 
   /**
     * Configure stream source from configuration.

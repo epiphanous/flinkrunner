@@ -1,15 +1,11 @@
 package io.epiphanous.flinkrunner.flink
 
-import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.SEE
 import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkEvent}
 import io.epiphanous.flinkrunner.util.StreamUtils._
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.TimeCharacteristic
-import org.apache.flink.streaming.api.datastream.DataStreamUtils
 import org.apache.flink.streaming.api.scala.DataStream
-
-import collection.JavaConverters._
 
 /**
   * An abstract flink job to transform on a stream of events from an algebraic data type (ADT).
@@ -18,8 +14,7 @@ import collection.JavaConverters._
   * @tparam OUT  The type of output stream elements
   */
 abstract class FlinkJob[IN <: FlinkEvent: TypeInformation, OUT <: FlinkEvent: TypeInformation]
-    extends BaseFlinkJob[DataStream[IN], OUT]
-    with LazyLogging {
+    extends BaseFlinkJob[DataStream[IN], OUT] {
 
   def getEventSourceName(implicit config: FlinkConfig) = config.getSourceNames.headOption.getOrElse("events")
 
@@ -29,9 +24,5 @@ abstract class FlinkJob[IN <: FlinkEvent: TypeInformation, OUT <: FlinkEvent: Ty
     */
   def source()(implicit config: FlinkConfig, env: SEE): DataStream[IN] =
     fromSource[IN](getEventSourceName) |# maybeAssignTimestampsAndWatermarks
-
-  def maybeAssignTimestampsAndWatermarks(in: DataStream[IN])(implicit config: FlinkConfig, env: SEE): Unit =
-    if (env.getStreamTimeCharacteristic == TimeCharacteristic.EventTime)
-      in.assignTimestampsAndWatermarks(boundedLatenessEventTime[IN]())
 
 }
