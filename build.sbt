@@ -23,21 +23,22 @@ Test / fork := true
 resolvers += "Local Maven Repository" at "file://" + Path.userHome.absolutePath + "/.m2/repository"
 
 val V = new {
-  val flink = "1.7.2"
+  val flink = "1.8.1"
   val logback = "1.2.3"
-  val log4jOverSlf4j = "1.7.25"
-  val scalaLogging = "3.9.0"
-  val scalaTest = "3.0.5"
+  val log4jOverSlf4j = "1.7.26"
+  val scalaLogging = "3.9.2"
+  val scalaTest = "3.0.8"
   val rocksdb = "5.17.2"
   val circe = "0.11.1"
-  val http4s = "0.20.0-M5"
+  val http4s = "0.20.10"
   val enumeratum = "1.5.13"
-  val typesafeConfig = "1.3.3"
-//  val guava = "27.0.1-jre"
+  val typesafeConfig = "1.3.4"
+  //  val guava = "27.0.1-jre"
   val guava = "24.1-jre"
   val squants = "1.3.0"
   val antlr4 = "4.7.1"
 }
+
 
 enablePlugins(Antlr4Plugin)
 antlr4Version in Antlr4 := V.antlr4
