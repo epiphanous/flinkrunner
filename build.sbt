@@ -23,7 +23,7 @@ Test / fork := true
 resolvers += "Local Maven Repository" at "file://" + Path.userHome.absolutePath + "/.m2/repository"
 
 val V = new {
-  val flink = "1.9.0"
+  val flink = "1.8.0"
   val logback = "1.2.3"
   val log4jOverSlf4j = "1.7.26"
   val scalaLogging = "3.9.2"
