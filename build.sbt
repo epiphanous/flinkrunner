@@ -23,12 +23,11 @@ Test / fork := true
 resolvers += "Local Maven Repository" at "file://" + Path.userHome.absolutePath + "/.m2/repository"
 
 val V = new {
-  val flink = "1.8.1"
+  val flink = "1.9.0"
   val logback = "1.2.3"
   val log4jOverSlf4j = "1.7.26"
   val scalaLogging = "3.9.2"
   val scalaTest = "3.0.8"
-//  val rocksdb = "5.17.2"
   val circe = "0.11.1"
   val http4s = "0.20.10"
   val enumeratum = "1.5.13"
@@ -63,16 +62,15 @@ val flinkDeps = (
     "org.apache.flink" %% s"flink-$a" % V.flink
   ) ++
   Seq(
-    "org.apache.flink" %% "flink-test-utils" % V.flink % Test,
-//    "org.rocksdb"      % "rocksdbjni"   % V.rocksdb
+    "org.apache.flink" %% "flink-test-utils" % V.flink % Test
   )
   ).map(
   _.excludeAll(ExclusionRule(organization = "log4j"), ExclusionRule(organization = "org.slf4j", name = "slf4j-log4j12"))
 )
 
-val loggingDeps = Seq("ch.qos.logback"             % "logback-core"     % V.logback % "provided",
-                      "ch.qos.logback"             % "logback-classic"  % V.logback % "provided",
-                      "org.slf4j"                  % "log4j-over-slf4j" % V.log4jOverSlf4j % "provided",
+val loggingDeps = Seq("ch.qos.logback"             % "logback-core"     % V.logback % Provided,
+                      "ch.qos.logback"             % "logback-classic"  % V.logback % Provided,
+                      "org.slf4j"                  % "log4j-over-slf4j" % V.log4jOverSlf4j % Provided,
                       "com.typesafe.scala-logging" %% "scala-logging"   % V.scalaLogging)
 
 val http4sDeps =
