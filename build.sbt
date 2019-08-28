@@ -28,7 +28,7 @@ val V = new {
   val log4jOverSlf4j = "1.7.26"
   val scalaLogging = "3.9.2"
   val scalaTest = "3.0.8"
-  val rocksdb = "5.17.2"
+//  val rocksdb = "5.17.2"
   val circe = "0.11.1"
   val http4s = "0.20.10"
   val enumeratum = "1.5.13"
@@ -64,7 +64,7 @@ val flinkDeps = (
   ) ++
   Seq(
     "org.apache.flink" %% "flink-test-utils" % V.flink % Test,
-    "org.rocksdb"      % "rocksdbjni"   % V.rocksdb
+//    "org.rocksdb"      % "rocksdbjni"   % V.rocksdb
   )
   ).map(
   _.excludeAll(ExclusionRule(organization = "log4j"), ExclusionRule(organization = "org.slf4j", name = "slf4j-log4j12"))
