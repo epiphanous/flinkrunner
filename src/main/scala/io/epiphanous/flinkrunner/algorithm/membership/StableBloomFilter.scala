@@ -29,7 +29,7 @@ case class StableBloomFilter[T](funnel: Funnel[T], m: Long, d: Int, FPR: Double)
   require(d > 0 && d <= STORAGE_BITS, s"d must be an integer in [1,$STORAGE_BITS]")
 
   /** number of bits used per unit storage */
-  val storedBits = STORAGE_BITS / d * d
+  val storedBits: Long = STORAGE_BITS.toLong / (d * d)
 
   /** total memory required */
   val M = m * d
@@ -41,7 +41,7 @@ case class StableBloomFilter[T](funnel: Funnel[T], m: Long, d: Int, FPR: Double)
   val Max = (1 << d) - 1
 
   /** number of longs used for storage */
-  val w = math.ceil(M / storedBits).toInt
+  val w = math.ceil(M.toDouble / storedBits).toInt
 
   /** number of hash functions used */
   val K = math.max(1, math.ceil(Max * LN2_SQUARED).toInt)
@@ -152,7 +152,7 @@ case class StableBloomFilter[T](funnel: Funnel[T], m: Long, d: Int, FPR: Double)
     // the cell covers d bits starting at b (within our total M bits)
     val b = (i - 1) * d
     // the b'th bit is stored in the x'th index of our storage array of longs
-    val x = math.floor(b / storedBits).toInt
+    val x = math.floor(b.toDouble / storedBits).toInt
     // from l, we're interested in d bits starting as LSB bit j
     val j = (b % storedBits).toInt
     // return l, x, and j

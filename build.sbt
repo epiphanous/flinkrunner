@@ -23,7 +23,7 @@ Test / fork := true
 resolvers += "Local Maven Repository" at "file://" + Path.userHome.absolutePath + "/.m2/repository"
 
 val V = new {
-  val flink = "1.8.0"
+  val flink = "1.8.2"
   val logback = "1.2.3"
   val log4jOverSlf4j = "1.7.26"
   val scalaLogging = "3.9.2"
@@ -85,6 +85,16 @@ val otherDeps = Seq("com.beachape"      %% "enumeratum" % V.enumeratum,
 
 lazy val flink_runner =
   (project in file(".")).settings(libraryDependencies ++= flinkDeps ++ loggingDeps ++ http4sDeps ++ otherDeps)
+
+scalacOptions ++= Seq(
+  "-encoding","utf8",
+  "-deprecation",
+  "-Xfuture",
+  "-Ywarn-dead-code",
+  "-Ywarn-numeric-widen",
+  "-Ywarn-unused",
+  "-Ywarn-value-discard"
+)
 
 // stays inside the sbt console when we press "ctrl-c" while a Flink programme executes with "run" or "runMain"
 Compile / run / fork := true

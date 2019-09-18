@@ -23,6 +23,6 @@ abstract class FlinkJob[IN <: FlinkEvent: TypeInformation, OUT <: FlinkEvent: Ty
     * @return input data stream
     */
   def source()(implicit config: FlinkConfig, env: SEE): DataStream[IN] =
-    fromSource[IN](getEventSourceName) |# maybeAssignTimestampsAndWatermarks
+    fromSource[IN](getEventSourceName) |> maybeAssignTimestampsAndWatermarks[IN]
 
 }

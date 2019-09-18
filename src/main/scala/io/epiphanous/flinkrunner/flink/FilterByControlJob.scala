@@ -62,7 +62,7 @@ abstract class FilterByControlJob[
         .map(DataOrControl.data[D, C], DataOrControl.control[D, C])
         .keyBy((e: DataOrControl[D, C]) => e.$key)
 
-    in.assignTimestampsAndWatermarks(boundedLatenessEventTime[DataOrControl[D, C]]())
+    in.assignTimestampsAndWatermarks(boundedLatenessEventTime[DataOrControl[D, C]])
       .keyBy((e: DataOrControl[D, C]) => e.$key)
       .filterWithState[(Long, Boolean)]((dc, lastControlOpt) => {
         if (dc.isData) {

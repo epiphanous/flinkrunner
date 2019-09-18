@@ -103,7 +103,7 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
     val builder = CacheBuilder
       .newBuilder()
       .concurrencyLevel(config.getInt(s"$configPrefix.cache.concurrency.level"))
-      .maximumSize(config.getInt(s"$configPrefix.cache.max.size"))
+      .maximumSize(config.getLong(s"$configPrefix.cache.max.size"))
       .expireAfterWrite(expireAfter.toMillis, TimeUnit.MILLISECONDS)
 //      .expireAfterWrite(expireAfter) // for guava 27
     if (!config.getBoolean(s"$configPrefix.cache.use.strong.keys"))
@@ -120,7 +120,7 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
   def getConfigPrefix = configPrefix
 
   override def asyncInvoke(in: IN, collector: ResultFuture[OUT]): Unit =
-    asyncInvokeF(in) map {
+    asyncInvokeF(in) foreach {
       case Failure(throwable) => {
         val sw = new StringWriter()
         throwable.printStackTrace(new PrintWriter(sw))

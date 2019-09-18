@@ -24,7 +24,7 @@ import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.
 import org.apache.flink.streaming.api.functions.timestamps.AscendingTimestampExtractor
 import org.apache.flink.streaming.api.functions.timestamps.AscendingTimestampExtractor.IgnoringHandler
 import org.apache.flink.streaming.api.scala._
-import org.apache.flink.streaming.connectors.kafka.{FlinkKafkaConsumer, FlinkKafkaProducer}
+import org.apache.flink.streaming.connectors.kafka.{FlinkKafkaConsumer, FlinkKafkaProducer, KafkaDeserializationSchema}
 import org.apache.flink.streaming.util.serialization.{KeyedDeserializationSchema, KeyedSerializationSchema}
 
 object StreamUtils extends LazyLogging {
@@ -92,9 +92,10 @@ object StreamUtils extends LazyLogging {
     in: DataStream[E]
   )(implicit config: FlinkConfig,
     env: SEE
-  ): Unit =
+  ) =
     if (env.getStreamTimeCharacteristic == TimeCharacteristic.EventTime)
       in.assignTimestampsAndWatermarks(boundedLatenessEventTime[E]())
+    else in
 
   /**
     * Configure stream source from configuration.
@@ -154,7 +155,7 @@ object StreamUtils extends LazyLogging {
   ): DataStream[E] = {
     val consumer =
       new FlinkKafkaConsumer[E](srcConfig.topic,
-                                config.getKeyedDeserializationSchema.asInstanceOf[KeyedDeserializationSchema[E]],
+                                config.getKafkaDeserializationSchema.asInstanceOf[KafkaDeserializationSchema[E]],
                                 srcConfig.properties)
     env
       .addSource(consumer)
@@ -247,7 +248,7 @@ object StreamUtils extends LazyLogging {
   implicit class EventStreamOps[E <: FlinkEvent: TypeInformation](stream: DataStream[E]) {
 
     def as[T <: FlinkEvent: TypeInformation]: DataStream[T] =
-      stream.filter((e: E) => e.isInstanceOf[T]).map((e: E) => e.asInstanceOf[T])
+      stream.filter((e: E) => e.isInstanceOf[T @unchecked]).map((e: E) => e.asInstanceOf[T @unchecked])
 
     def toSink(sinkName: String = "")(implicit config: FlinkConfig) =
       StreamUtils.toSink[E](stream, sinkName)

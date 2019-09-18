@@ -4,6 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.SEE
 import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkEvent}
 import io.epiphanous.flinkrunner.util.StreamUtils._
+import org.apache.flink.api.common.JobExecutionResult
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.TimeCharacteristic
 import org.apache.flink.streaming.api.datastream.DataStreamUtils
@@ -31,7 +32,7 @@ abstract class BaseFlinkJob[DS, OUT <: FlinkEvent: TypeInformation] extends Lazy
   def flow()(implicit config: FlinkConfig, env: SEE): DataStream[OUT] =
     source |> transform |# maybeSink
 
-  def run()(implicit config: FlinkConfig, env: SEE): Either[Iterator[OUT], Unit] = {
+  def run()(implicit config: FlinkConfig, env: SEE): Either[Iterator[OUT], JobExecutionResult] = {
 
     logger.info(s"\nSTARTING FLINK JOB: ${config.jobName} ${config.jobArgs.mkString(" ")}\n")
 
@@ -63,7 +64,7 @@ abstract class BaseFlinkJob[DS, OUT <: FlinkEvent: TypeInformation] extends Lazy
 
   /**
     * Writes the transformed data stream to configured output sinks.
-    **
+    *
     * @param out a transformed stream from [[transform()]]
     * @param config implicit flink job config
     */

@@ -21,7 +21,7 @@ case class HyperLogLog[T](funnel: Funnel[T], b: Int) {
   val m = 1 << b
 
   /** relativeError of cardinality estimates */
-  val relativeError = 1.04 / math.sqrt(m)
+  val relativeError = 1.04 / math.sqrt(m.toDouble)
 
   /** correction constant <code>alpha(m) * m**2</code> */
   val am2 = ALPHA_M * m * m
@@ -65,11 +65,11 @@ case class HyperLogLog[T](funnel: Funnel[T], b: Int) {
     * @return Long
     */
   private def estimateCardinality: Long = {
-    val E = am2 / M.map(i => 1 / math.pow(2, i)).sum
+    val E = am2 / M.map(i => 1 / math.pow(2d, i.toDouble)).sum
     // small range correction
     val Estar = if (E <= smallRange) {
       val V = M.count(_ == 0)
-      if (V != 0) m * math.log(m / V) else E
+      if (V != 0) m * math.log(m.toDouble / V) else E
     }
     // intermediate range = no correction
     else if (E <= intermediateRange) E

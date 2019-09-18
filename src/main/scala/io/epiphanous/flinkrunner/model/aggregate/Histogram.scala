@@ -42,7 +42,7 @@ final case class Histogram(
         val sign = math.signum(magnitude)
         val abs = math.abs(magnitude)
         val mag = sign * (abs - 1)
-        val pow = math.pow(10, mag)
+        val pow = math.pow(10, mag.toDouble)
         val min = math.floor(d / pow) * pow
         val max = math.ceil(d / pow) * pow
         val formatString = if (abs < 8) {
