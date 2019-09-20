@@ -13,9 +13,12 @@ trait ConfigToProps {
     def flatten(key: String, value: Object): Unit = {
       val pkey = if (key.isEmpty) key else s"$key."
       value match {
-        case map: JMap[String, Object] => map.asScala.foreach { case (k, v) => flatten(s"$pkey$k", v) }
-        case list: JList[Object]       => list.asScala.zipWithIndex.foreach { case (v, i) => flatten(s"$pkey$i", v) }
-        case v                         => p.put(key, v.toString)
+        case map: JMap[String, Object] @unchecked => map.asScala.foreach { case (k, v) => flatten(s"$pkey$k", v) }
+        case list: JList[Object] @unchecked =>
+          list.asScala.zipWithIndex.foreach { case (v, i) => flatten(s"$pkey$i", v) }
+        case v =>
+          p.put(key, v.toString)
+          () // explicitly return unit
       }
     }
     config match {

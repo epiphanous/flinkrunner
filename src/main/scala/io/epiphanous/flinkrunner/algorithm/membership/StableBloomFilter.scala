@@ -29,7 +29,7 @@ case class StableBloomFilter[T](funnel: Funnel[T], m: Long, d: Int, FPR: Double)
   require(d > 0 && d <= STORAGE_BITS, s"d must be an integer in [1,$STORAGE_BITS]")
 
   /** number of bits used per unit storage */
-  val storedBits = STORAGE_BITS / d * d
+  val storedBits: Long = STORAGE_BITS.toLong / (d * d)
 
   /** total memory required */
   val M = m * d
@@ -41,7 +41,7 @@ case class StableBloomFilter[T](funnel: Funnel[T], m: Long, d: Int, FPR: Double)
   val Max = (1 << d) - 1
 
   /** number of longs used for storage */
-  val w = math.ceil(M / storedBits).toInt
+  val w = math.ceil(M.toDouble / storedBits).toInt
 
   /** number of hash functions used */
   val K = math.max(1, math.ceil(Max * LN2_SQUARED).toInt)
@@ -91,7 +91,7 @@ case class StableBloomFilter[T](funnel: Funnel[T], m: Long, d: Int, FPR: Double)
   }
 
   /**
-    * Decrement [[P]] cells randomly. As recommended in the DR paper, we only generate a single random index, then
+    * Decrement P cells randomly. As recommended in the DR paper, we only generate a single random index, then
     * decrement that cell and the next <code>P-1</code> cells (wrapping around if needed).
     */
   private def decrementRandomCells(): Unit = {
@@ -121,7 +121,7 @@ case class StableBloomFilter[T](funnel: Funnel[T], m: Long, d: Int, FPR: Double)
   }
 
   /**
-    * Set a cell's value to [[Max]]
+    * Set a cell's value to Max
     * @param i the cell to set (in <code>[0,m)</code>)
     */
   private def set(i: Long): Unit = {
@@ -143,7 +143,7 @@ case class StableBloomFilter[T](funnel: Funnel[T], m: Long, d: Int, FPR: Double)
     * Converts a cell number into a tuple of <code>(x:Int, j:Int)</code>, allowing other methods to get and set
     * cell values.
     *
-    * <code>x</code> in the integer offset within [[storage]] that contains cell <code>i</code>.
+    * <code>x</code> in the integer offset within storage that contains cell <code>i</code>.
     * <code>j</code> is the relative offset (in [0,63]) of the LSB of cell <code>i</code> within <code>storage[x]</code>.
     * @param i the cell number in [0,m)
     * @return (Int, Int)
@@ -152,7 +152,7 @@ case class StableBloomFilter[T](funnel: Funnel[T], m: Long, d: Int, FPR: Double)
     // the cell covers d bits starting at b (within our total M bits)
     val b = (i - 1) * d
     // the b'th bit is stored in the x'th index of our storage array of longs
-    val x = math.floor(b / storedBits).toInt
+    val x = math.floor(b.toDouble / storedBits).toInt
     // from l, we're interested in d bits starting as LSB bit j
     val j = (b % storedBits).toInt
     // return l, x, and j
@@ -183,7 +183,7 @@ object StableBloomFilter {
   val LN2 = Math.log(2)
   val LN2_SQUARED = LN2 * LN2
 
-  /** Return a builder for constructing an instance of [[StableBloomFilter]][T] */
+  /** Return a builder for constructing an instance of StableBloomFilter[T] */
   def builder[T](funnel: Funnel[T]) = StableBloomFilterBuilder[T](funnel)
 
   /** Return the optimal number of cells to decrement each time a new item is inserted

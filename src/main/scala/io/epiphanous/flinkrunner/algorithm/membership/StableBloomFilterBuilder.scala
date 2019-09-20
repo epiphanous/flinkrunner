@@ -2,7 +2,7 @@ package io.epiphanous.flinkrunner.algorithm.membership
 import com.google.common.hash.Funnel
 
 /**
-  * A builder interface for creating [[StableBloomFilter]] instances.
+  * A builder interface for creating StableBloomFilter instances.
   *
   * @param funnel a guava funnel
   * @param numCells number of cells in the filter

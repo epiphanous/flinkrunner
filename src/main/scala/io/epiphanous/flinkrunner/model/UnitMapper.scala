@@ -32,7 +32,7 @@ trait UnitMapper extends LazyLogging {
 
   def createQuantity[A <: Quantity[A]](dimension: Dimension[A], value: Double, unit: String): Option[A] =
     dimension.symbolToUnit(unit).map(u => u(value)) match {
-      case Some(q: A) => Some(q)
+      case Some(q: A @unchecked) => Some(q)
       case None =>
         logger.error(s"Can't create quantity $dimension($value, $unit)")
         None

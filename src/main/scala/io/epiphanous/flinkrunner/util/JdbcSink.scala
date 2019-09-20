@@ -45,11 +45,9 @@ class JdbcSink[E <: FlinkEvent: TypeInformation](batchFunction: AddToJdbcBatchFu
     (for {
       _ <- Try(Class.forName(props.getProperty("driver.name")))
       conn <- Try(
-        DriverManager.getConnection(
-          props.getProperty("url"),
-          props.getProperty("username"),
-          props.getProperty("password")
-        ))
+               DriverManager
+                 .getConnection(props.getProperty("url"), props.getProperty("username"), props.getProperty("password"))
+             )
       stmt <- Try(conn.prepareStatement(props.getProperty("query")))
     } yield (conn, stmt)) match {
       case Success((cn, ps)) =>
@@ -57,6 +55,7 @@ class JdbcSink[E <: FlinkEvent: TypeInformation](batchFunction: AddToJdbcBatchFu
         statement = ps
       case Failure(ex) => throw ex
     }
+    if (connection.isClosed) {} // force usage of this to avoid never used warning
     super.open(parameters)
   }
 
@@ -65,7 +64,7 @@ class JdbcSink[E <: FlinkEvent: TypeInformation](batchFunction: AddToJdbcBatchFu
     if (pendingRows.size >= bufferSize) {
       pendingRows.foreach(row => batchFunction.addToBatch(row, statement))
       Try(statement.executeBatch()) match {
-        case Success(_) => pendingRows.clear()
+        case Success(_)  => pendingRows.clear()
         case Failure(ex) => throw ex
       }
     }
@@ -77,10 +76,7 @@ class JdbcSink[E <: FlinkEvent: TypeInformation](batchFunction: AddToJdbcBatchFu
   }
 
   override def initializeState(context: FunctionInitializationContext): Unit = {
-    val descriptor = new ListStateDescriptor[E](
-      "buffered-elements",
-      createTypeInformation[E]
-    )
+    val descriptor = new ListStateDescriptor[E]("buffered-elements", createTypeInformation[E])
     checkpointedState = context.getOperatorStateStore.getListState(descriptor)
 
     if (context.isRestored)
