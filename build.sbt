@@ -28,6 +28,7 @@ val V = new {
   val log4jOverSlf4j = "1.7.26"
   val scalaLogging = "3.9.2"
   val scalaTest = "3.0.8"
+  val scalaCheck = "1.14.0"
   val circe = "0.11.1"
   val http4s = "0.20.10"
   val enumeratum = "1.5.13"
@@ -35,13 +36,8 @@ val V = new {
   //  val guava = "27.0.1-jre"
   val guava = "24.1-jre"
   val squants = "1.3.0"
-  val antlr4 = "4.7.1"
 }
 
-
-enablePlugins(Antlr4Plugin)
-antlr4Version in Antlr4 := V.antlr4
-antlr4PackageName in Antlr4 := Some("io.epiphanous.antlr4")
 
 val withK = Seq("true","1","yes","y").exists(
   _.equalsIgnoreCase(System.getProperty("with.kinesis", "false"))
@@ -51,8 +47,9 @@ val maybeKinesis = if (withK) Seq("connector-kinesis") else Seq.empty[String]
 
 // post-process version to add k suffix if we're building with kinesis
 val versionSuffix = if (withK) "k" else ""
-version in ThisBuild ~= (v => v.replaceFirst("^(v?\\d(\\.\\d){2})(?=[^k])",s"$$1$versionSuffix") + versionSuffix)
-dynver in ThisBuild ~= (v => v.replaceFirst("^(v?\\d(\\.\\d){2})(?=[^k])",s"$$1$versionSuffix") + versionSuffix)
+def suffixedVersion(v:String) = v + versionSuffix
+version in ThisBuild ~= suffixedVersion
+dynver in ThisBuild ~= suffixedVersion
 
 val flinkDeps = (
   (Seq("scala", "streaming-scala", "cep-scala") ++ maybeKinesis).map(a =>
@@ -81,7 +78,9 @@ val otherDeps = Seq("com.beachape"      %% "enumeratum" % V.enumeratum,
                     "com.google.guava"  %  "guava"      % V.guava,
                     "org.typelevel"     %% "squants"    % V.squants,
                     "org.scalactic"     %% "scalactic"  % V.scalaTest % Test,
-                    "org.scalatest"     %% "scalatest"  % V.scalaTest % Test)
+                    "org.scalatest"     %% "scalatest"  % V.scalaTest % Test,
+                    "org.scalacheck"    %% "scalacheck" % V.scalaCheck % Test
+)
 
 lazy val flink_runner =
   (project in file(".")).settings(libraryDependencies ++= flinkDeps ++ loggingDeps ++ http4sDeps ++ otherDeps)

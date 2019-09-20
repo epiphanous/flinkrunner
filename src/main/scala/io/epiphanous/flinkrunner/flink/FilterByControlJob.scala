@@ -54,21 +54,22 @@ abstract class FilterByControlJob[
     */
   override def source()(implicit config: FlinkConfig, env: SEE): DataStream[D] = {
 
-    val controlLockoutDuration = config.getDuration("control.lockout.duration")
+    val controlLockoutDuration = config.getDuration("control.lockout.duration").toMillis
 
-    val in =
+    val in = maybeAssignTimestampsAndWatermarks(
       data
         .connect(control)
         .map(DataOrControl.data[D, C], DataOrControl.control[D, C])
-        .keyBy((e: DataOrControl[D, C]) => e.$key)
+        .name("data+control")
+        .uid("data+control")
+    )
 
-    in.assignTimestampsAndWatermarks(boundedLatenessEventTime[DataOrControl[D, C]])
-      .keyBy((e: DataOrControl[D, C]) => e.$key)
+    in.keyBy((e: DataOrControl[D, C]) => e.$key)
       .filterWithState[(Long, Boolean)]((dc, lastControlOpt) => {
         if (dc.isData) {
           val emit = lastControlOpt match {
             case Some((ts: Long, active: Boolean)) =>
-              active && ((dc.$timestamp - ts) >= controlLockoutDuration.toMillis)
+              active && ((dc.$timestamp - ts) >= controlLockoutDuration)
             case None => false
           }
           (emit, lastControlOpt)
@@ -80,7 +81,11 @@ abstract class FilterByControlJob[
           (false, if (update) Some((dc.$timestamp, dc.$active)) else lastControlOpt)
         }
       })
+      .name(s"filter:${in.name}")
+      .uid(s"filter:${in.name}")
       .map(_.data.get)
+      .name("filtered:data")
+      .uid("filtered:data")
   }
 
 }

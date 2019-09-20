@@ -6,11 +6,10 @@ import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkEvent}
 import io.epiphanous.flinkrunner.util.StreamUtils._
 import org.apache.flink.api.common.JobExecutionResult
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.streaming.api.TimeCharacteristic
 import org.apache.flink.streaming.api.datastream.DataStreamUtils
 import org.apache.flink.streaming.api.scala.DataStream
 
-import collection.JavaConverters._
+import scala.collection.JavaConverters._
 
 /**
   * An abstract flink job to transform on an input stream into an output stream.
@@ -48,6 +47,7 @@ abstract class BaseFlinkJob[DS, OUT <: FlinkEvent: TypeInformation] extends Lazy
 
   /**
     * Returns source data stream to pass into [[transform()]]. This must be overridden by subclasses.
+    *
     * @return input data stream
     */
   def source()(implicit config: FlinkConfig, env: SEE): DS
@@ -56,7 +56,7 @@ abstract class BaseFlinkJob[DS, OUT <: FlinkEvent: TypeInformation] extends Lazy
     * Primary method to transform the source data stream into the output data stream. The output of
     * this method is passed into [[sink()]]. This method must be overridden by subclasses.
     *
-    * @param in input data stream created by [[source()]]
+    * @param in     input data stream created by [[source()]]
     * @param config implicit flink job config
     * @return output data stream
     */
@@ -72,8 +72,8 @@ abstract class BaseFlinkJob[DS, OUT <: FlinkEvent: TypeInformation] extends Lazy
     config.getSinkNames.foreach(name => out.toSink(name))
 
   /**
-    * The output stream will only be passed to [[sink()]] if [[FlinkConfig.mockEdges]] evaluates
-    * to false (ie, you're not testing).
+    * The output stream will only be passed to [[sink()]]
+    * if [[FlinkConfig.mockEdges]] is false (ie, you're not testing).
     *
     * @param out the output data stream to pass into [[sink()]]
     * @param config implicit flink job config

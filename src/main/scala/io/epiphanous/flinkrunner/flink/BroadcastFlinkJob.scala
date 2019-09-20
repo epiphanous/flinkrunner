@@ -82,8 +82,10 @@ abstract class BroadcastFlinkJob[
     in: BroadcastConnectedStream[IN, BC]
   )(implicit config: FlinkConfig,
     env: SEE
-  ): DataStream[OUT] =
-    in.process(getBroadcastProcessFunction())
+  ): DataStream[OUT] = {
+    val name = s"processed:${getEventSourceName()}+${getBroadcastSourceName()}"
+    in.process(getBroadcastProcessFunction()).name(name).uid(name)
+  }
 
 }
 
