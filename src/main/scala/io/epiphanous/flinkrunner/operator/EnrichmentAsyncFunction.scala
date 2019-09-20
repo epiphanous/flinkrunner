@@ -14,29 +14,30 @@ import org.http4s.EntityDecoder
 import org.http4s.circe.jsonOf
 import org.http4s.client.blaze.BlazeClientBuilder
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 /**
   * An abstract asynchronous function to enrich a data stream with non-stream data. This
-  * class relies on guava's [[CacheBuilder]] to load and cache the enrichment data. The
+  * class relies on guava's CacheBuilder to load and cache the enrichment data. The
   * default cache loader assumes the cache key is a uri of a json api endpoint which it
   * loads asynchronously and converts to the cache value type (CV). You can provide your
   * own cache loader to load enrichment data in some other way. If you use the default
-  * loader, note you must implicitly provide a circe [[EntityDecoder]] to convert the
+  * loader, note you must implicitly provide a circe EntityDecoder to convert the
   * json api result body to the cache value type.
   *
   * The behavior of the function can be parameterized with flink config values for
+  * the following variables (relative to the configPrefix):
   *
-  *   - $configPrefix.num.threads (size of thread pool, Int)
-  *   - $configPrefix.cache.concurrency.level (Int)
-  *   - $configPrefix.cache.max.size (max number of records in cache, Int)
-  *   - $configPrefix.cache.expire.after (Duration)
+  *   - num.threads (size of thread pool, Int)
+  *   - cache.concurrency.level (Int)
+  *   - cache.max.size (max number of records in cache, Int)
+  *   - cache.expire.after (Duration)
   *
   * The cache always uses weak keys, allowing for aggressive garbage collection of
   * unused values.
   *
-  * Subclasses must implement the [[getCacheKey()]] and [[enrichEvent()]] methods.
+  * Subclasses must implement the getCacheKey() and enrichEvent() methods.
   *
   * @param configPrefix for extracting configuration information
   * @param cacheLoaderOpt an optional CacheLoader for loading the enrichment data
@@ -59,7 +60,7 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
   lazy implicit val entityDecoder: EntityDecoder[IO, CV] = jsonOf[IO, CV]
 
   @transient
-  lazy implicit val ec = directExecutionContext()
+  lazy implicit val ec: ExecutionContext = directExecutionContext()
 
   @transient
   lazy implicit val cs: ContextShift[IO] = IO.contextShift(ec)
@@ -114,7 +115,7 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
   }
 
   /**
-    * Getter for $configPrefix value
+    * Getter for configPrefix value
     * @return
     */
   def getConfigPrefix = configPrefix
@@ -131,7 +132,7 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
     }
 
   /**
-    * A helper method to enable testing of [[asyncInvoke()]] without needing to construct a flink [[ResultFuture]] collector.
+    * A helper method to enable testing of asyncInvoke() without needing to construct a flink ResultFuture collector.
     * @param in the input event
     * @return
     */
@@ -146,7 +147,7 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
   /**
     * Generate the cache key from the input event. For the default cache loader implementation,
     * this should be a json api endpoint uri. If you provide your own cache loader implementation,
-    * this should be whatever is appropriate, however, it must be a [[String]].
+    * this should be whatever is appropriate, however, it must be a String.
     * @param in the input event
     * @return
     */

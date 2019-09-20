@@ -8,7 +8,7 @@ class IdentityJob[E <: FlinkEvent: TypeInformation] extends FlinkJob[E, E] {
 
   /**
     * Does the identity transform (passes the stream through unchanged).
-    * @param in     input data stream created by [[source()]]
+    * @param in     input data stream created by source()
     * @param config implicit flink job config
     * @param env streaming execution environment
     * @return output data stream

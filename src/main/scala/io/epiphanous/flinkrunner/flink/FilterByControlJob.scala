@@ -46,7 +46,7 @@ abstract class FilterByControlJob[
     * Generate a stream of data records filtered by the control stream.
     * This method does not generally need to be overridden
     * in subclasses. It interleaves the data and control streams to produce a single stream of
-    * [[DataOrControl]] objects and then uses a flat map with state to determine when to emit
+    * DataOrControl objects and then uses a flat map with state to determine when to emit
     * the data records. It remembers the last control time and state and updates it when the state changes.
     **
     * @param config implicit flink config

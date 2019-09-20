@@ -19,7 +19,7 @@ abstract class FlinkJob[IN <: FlinkEvent: TypeInformation, OUT <: FlinkEvent: Ty
   def getEventSourceName(implicit config: FlinkConfig) = config.getSourceNames.headOption.getOrElse("events")
 
   /**
-    * Returns source data stream to pass into [[transform()]]. This can be overridden by subclasses.
+    * Returns source data stream to pass into transform(). This can be overridden by subclasses.
     * @return input data stream
     */
   def source()(implicit config: FlinkConfig, env: SEE): DataStream[IN] =

@@ -20,9 +20,9 @@ import scala.collection.JavaConverters._
 abstract class BaseFlinkJob[DS, OUT <: FlinkEvent: TypeInformation] extends LazyLogging {
 
   /**
-    * A pipeline for transforming a single stream. Passes the output of [[source()]]
-    * through [[transform()]] and the result of that into [[maybeSink()]], which may pass it
-    * into [[sink()]] if we're not testing. Ultimately, returns the output data stream to
+    * A pipeline for transforming a single stream. Passes the output of source()
+    * through transform() and the result of that into maybeSink(), which may pass it
+    * into sink() if we're not testing. Ultimately, returns the output data stream to
     * facilitate testing.
     *
     * @param config implicit flink job config
@@ -46,7 +46,7 @@ abstract class BaseFlinkJob[DS, OUT <: FlinkEvent: TypeInformation] extends Lazy
   }
 
   /**
-    * Returns source data stream to pass into [[transform()]]. This must be overridden by subclasses.
+    * Returns source data stream to pass into transform(). This must be overridden by subclasses.
     *
     * @return input data stream
     */
@@ -54,9 +54,9 @@ abstract class BaseFlinkJob[DS, OUT <: FlinkEvent: TypeInformation] extends Lazy
 
   /**
     * Primary method to transform the source data stream into the output data stream. The output of
-    * this method is passed into [[sink()]]. This method must be overridden by subclasses.
+    * this method is passed into sink(). This method must be overridden by subclasses.
     *
-    * @param in     input data stream created by [[source()]]
+    * @param in     input data stream created by source()
     * @param config implicit flink job config
     * @return output data stream
     */
@@ -65,17 +65,17 @@ abstract class BaseFlinkJob[DS, OUT <: FlinkEvent: TypeInformation] extends Lazy
   /**
     * Writes the transformed data stream to configured output sinks.
     *
-    * @param out a transformed stream from [[transform()]]
+    * @param out a transformed stream from transform()
     * @param config implicit flink job config
     */
   def sink(out: DataStream[OUT])(implicit config: FlinkConfig, env: SEE): Unit =
     config.getSinkNames.foreach(name => out.toSink(name))
 
   /**
-    * The output stream will only be passed to [[sink()]]
-    * if [[FlinkConfig.mockEdges]] is false (ie, you're not testing).
+    * The output stream will only be passed to BaseFlinkJob.sink
+    * if FlinkConfig.mockEdges is false (ie, you're not testing).
     *
-    * @param out the output data stream to pass into [[sink()]]
+    * @param out the output data stream to pass into BaseFlinkJob.sink)
     * @param config implicit flink job config
     */
   def maybeSink(out: DataStream[OUT])(implicit config: FlinkConfig, env: SEE): Unit =

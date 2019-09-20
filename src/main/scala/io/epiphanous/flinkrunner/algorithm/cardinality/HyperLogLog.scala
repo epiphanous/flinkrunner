@@ -82,7 +82,7 @@ case class HyperLogLog[T](funnel: Funnel[T], b: Int) {
   }
 
   /**
-    * Merge another HyperLogLog[T] instance into this instance. Note the other instance must have the same [[b]]
+    * Merge another HyperLogLog[T] instance into this instance. Note the other instance must have the same b
     * parameter as this instance.
     * @param another the other HyperLogLog[T] instance
     */

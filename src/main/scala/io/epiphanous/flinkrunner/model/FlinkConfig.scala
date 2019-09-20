@@ -206,7 +206,7 @@ class FlinkConfig(
         new FsStateBackend(checkpointUrl)
       }
       /* this deprecation is annoying; its due to rocksdb's state backend
-         extending [[AbstractStateBackend]] which is deprecated */
+         extending AbstractStateBackend which is deprecated */
       env.setStateBackend(backend)
     }
 

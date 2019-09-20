@@ -70,10 +70,10 @@ abstract class BroadcastFlinkJob[
       .connect(broadcastSource)
 
   /**
-    * Applies the process function returned by [[getBroadcastProcessFunction()]] to the connected stream (broadcast + events)
-    * created by [[source()]].
+    * Applies the process function returned by getBroadcastProcessFunction to the connected stream (broadcast + events)
+    * created by source().
     *
-    * @param in connected broadcast + data stream created by [[source()]]
+    * @param in connected broadcast + data stream created by source()
     * @param config implicit flink job config
     * @param env implicit streaming execution environment
     * @return output data stream
