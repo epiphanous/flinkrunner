@@ -17,7 +17,7 @@ import scala.collection.JavaConverters._
   * @tparam DS   The type of the input stream
   * @tparam OUT  The type of output stream elements
   */
-abstract class BaseFlinkJob[DS, OUT <: FlinkEvent: TypeInformation] extends LazyLogging {
+abstract class BaseFlinkJob[DS: TypeInformation, OUT <: FlinkEvent: TypeInformation] extends LazyLogging {
 
   /**
     * A pipeline for transforming a single stream. Passes the output of source()

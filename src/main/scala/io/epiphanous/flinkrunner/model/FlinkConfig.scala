@@ -26,10 +26,11 @@ class FlinkConfig(
 
   val (jobName, jobArgs, jobParams) = {
     val (n, a) = args match {
-      case Array("help", _*)     => ("help", Array.empty[String])
-      case Array(jn, "help", _*) => (jn, Array("--help"))
-      case Array(jn, _*)         => (jn, args.tail)
-      case _                     => ("help", Array.empty[String])
+      case Array(opt, _*) if opt.startsWith("-") => ("help", args)
+      case Array("help", _*)                     => ("help", args.tail)
+      case Array(jn, "help", _*)                 => (jn, Array("--help") ++ args.tail)
+      case Array(jn, _*)                         => (jn, args.tail)
+      case _                                     => ("help", args)
     }
     (n, a, ParameterTool.fromArgs(a))
   }
