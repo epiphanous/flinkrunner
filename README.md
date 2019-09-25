@@ -16,7 +16,7 @@
 </a>
 <!-- maven central -->
 <a href="https://mvnrepository.com/artifact/io.epiphanous/flinkrunner">
-  <img src="https://img.shields.io/maven-central/v/io.epiphanous/flinkrunner.svg" alt="maven" />
+  <img src="https://img.shields.io/maven-central/v/io.epiphanous/flinkrunner_2.11.svg" alt="maven" />
 </a>
 <!-- last commit -->
 <a href="https://github.com/epiphanous/flinkrunner/commits" title="Last Commit">
@@ -40,10 +40,10 @@
 
 ## Maven Dependency
 
-`Flinkrunner` `v1.6.5` is now on maven central, built against Flink 1.7.2 with Scala 2.11 and JDK 8.
+`Flinkrunner` `v2.0.1` is now on maven central, built against Flink 1.8.2 with Scala 2.11 and JDK 8.
 
 ```sbtshell
-libraryDependencies += "io.epiphanous" %% "flinkrunner" % "1.6.5"
+libraryDependencies += "io.epiphanous" %% "flinkrunner" % "2.0.1"
 ```
 
 >The apache flink project doesn't include its AWS Kinesis connector on maven
@@ -55,10 +55,10 @@ In order to use Kinesis with `FlinkRunner`, please follow the instructions in th
 Due to licensing restrictions, if you want to use AWS Kinesis with `FlinkRunner` you have to build it (and the
 Flink kinesis connector) from source. To do so,
 
-* First, you'll need to build a local copy of Flink's kinesis connector. See 
+* First, you'll need to build a local copy of Flink's kinesis connector. See
   [these instructions](https://ci.apache.org/projects/flink/flink-docs-stable/dev/connectors/kinesis.html)
   for details on how to accomplish that.
-  
+
   > Note that building Flink with Kinesis can take over 30 minutes! It's a very big project.
 
 * Clone the `FlinkRunner` repo:
@@ -68,21 +68,21 @@ Flink kinesis connector) from source. To do so,
     ```
 
 * Checkout the tag of `FlinkRunner` you want to build. The most recent stable version is
-  `v1.6.5`, but you can ensure you have the most recent tags with `git fetch --tags` and 
+  `v2.0.1`, but you can ensure you have the most recent tags with `git fetch --tags` and
   list tags with `git tag -l`, then
-  
-    ```bash
-    git checkout tags/v1.6.5 -b my-build-v1.6.5
-    ```
-    
-   This will create a new local branch `my-build-v1.6.5` based on the `v1.6.5` tag release.
-      
-* Build `FlinkRunner` and install it locally, using the `--with.kinesis=true` option
 
     ```bash
-    sbt --with.kinesis=true publishLocal
+    git checkout tags/v2.0.1 -b my-build-v2.0.1
     ```
-    
+
+   This will create a new local branch `my-build-v2.0.1` based on the `v2.0.1` tag release.
+
+* Build `FlinkRunner` and install it locally, using the `-Dwith.kinesis=true` option
+
+    ```bash
+    sbt -Dwith.kinesis=true publishLocal
+    ```
+
   This will install `FlinkRunner` with kinesis support in your local repo.
 
 * In your project's build file, add a resolver to your local repo and add the local
@@ -90,12 +90,12 @@ Flink kinesis connector) from source. To do so,
 
     ```sbtshell
     resolvers += "Local Maven Repository" at "file://" +
-        Path.userHome.absolutePath + "/.m2/repository" 
+        Path.userHome.absolutePath + "/.m2/repository"
     ...
-    libraryDependencies += "io.epiphanous" %% "flinkrunner" % "1.6.5k"
+    libraryDependencies += "io.epiphanous" %% "flinkrunner" % "2.0.1k"
                                       // notice no v here  ---^^    ^^---k for kinesis
     ```
- 
+
 
 ## What is FlinkRunner?
 
@@ -227,42 +227,111 @@ you don't have to write any code at all to setup sources and sinks, as these are
 grokked by `FlinkRunner` from the config.
 
 * Write your jobs! This is the fun part. You job will inherit from one of `FlinkRunner`'s
-job classes. The top level `FlinkRunner` job class is called `FlinkJob` and has the
+job classes. The top level `FlinkRunner` job class is called `BaseFlinkJob` and has the
 following interface:
 
-  ```scala
-  abstract class FlinkJob[IN <: FlinkEvent: TypeInformation, OUT <: FlinkEvent: TypeInformation] extends LazyLogging {
+```scala
+/**
+  * An abstract flink job to transform on an input stream into an output stream.
+  *
+  * @tparam DS   The type of the input stream
+  * @tparam OUT  The type of output stream elements
+  */
+abstract class BaseFlinkJob[DS, OUT <: FlinkEvent: TypeInformation] extends LazyLogging {
 
-    // the entry point called by flink runner; invokes the flow
-    // and if mock.edges is true, returns an iterator of results
-    def run():Either[Iterator[OUT],Unit]
+  /**
+    * A pipeline for transforming a single stream. Passes the output of [[source()]]
+    * through [[transform()]] and the result of that into [[maybeSink()]], which may pass it
+    * into [[sink()]] if we're not testing. Ultimately, returns the output data stream to
+    * facilitate testing.
+    *
+    * @param config implicit flink job config
+    * @return data output stream
+    */
+  def flow()(implicit config: FlinkConfig, env: SEE): DataStream[OUT] =
+    source |> transform |# maybeSink
 
-    // this is its actual code...sets up the execution plan
-    def flow():DataStream[OUT] =
-      source |> transform |# maybeSink
+  def run()(implicit config: FlinkConfig, env: SEE): Either[Iterator[OUT], Unit] = {
 
-    // reads from first configured sink and assigns timestamps
-    // and watermarks if needed
-    def source():DataStream[IN]
+    logger.info(s"\nSTARTING FLINK JOB: ${config.jobName} ${config.jobArgs.mkString(" ")}\n")
 
-    // called by source(), uses configuration to do its thing
-    def maybeAssignTimestampsAndWatermarks(in: DataStream[IN]):Unit
+    val stream = flow
 
-    // writes to first configured sink
-    def sink(out:DataStream[OUT]):Unit
+    if (config.showPlan) logger.info(s"PLAN:\n${env.getExecutionPlan}\n")
 
-    // only adds the sink to the execution plan of mock.edges is fals
-    def maybeSink():Unit
-
-    // no implementation provided...
-    // this is what your job implements
-    def transform(in:DataStream[IN]):DataStream[OUT]
+    if (config.mockEdges)
+      Left(DataStreamUtils.collect(stream.javaStream).asScala)
+    else
+      Right(env.execute(config.jobName))
   }
-  ```
 
-  While you're free to override any of these methods in your job,
-  usually you just need to provide a `transform()` method that
-  converts your `DataStream[IN]` to a `DataStream[OUT]`.
+  /**
+    * Returns source data stream to pass into [[transform()]]. This must be overridden by subclasses.
+    * @return input data stream
+    */
+  def source()(implicit config: FlinkConfig, env: SEE): DS
+
+  /**
+    * Primary method to transform the source data stream into the output data stream. The output of
+    * this method is passed into [[sink()]]. This method must be overridden by subclasses.
+    *
+    * @param in input data stream created by [[source()]]
+    * @param config implicit flink job config
+    * @return output data stream
+    */
+  def transform(in: DS)(implicit config: FlinkConfig, env: SEE): DataStream[OUT]
+
+  /**
+    * Writes the transformed data stream to configured output sinks.
+    * 
+    * @param out a transformed stream from [[transform()]]
+    * @param config implicit flink job config
+    */
+  def sink(out: DataStream[OUT])(implicit config: FlinkConfig, env: SEE): Unit =
+    config.getSinkNames.foreach(name => out.toSink(name))
+
+  /**
+    * The output stream will only be passed to [[sink()]] if [[FlinkConfig.mockEdges]] evaluates
+    * to false (ie, you're not testing).
+    *
+    * @param out the output data stream to pass into [[sink()]]
+    * @param config implicit flink job config
+    */
+  def maybeSink(out: DataStream[OUT])(implicit config: FlinkConfig, env: SEE): Unit =
+    if (!config.mockEdges) sink(out)
+
+}
+```
+
+More commonly you'll extend from `FlinkJob[IN,OUT]` where `IN` and `OUT` are classes in your ADT.
+
+```scala
+/**
+  * An abstract flink job to transform on a stream of events from an algebraic data type (ADT).
+  *
+  * @tparam IN   The type of input stream elements
+  * @tparam OUT  The type of output stream elements
+  */
+abstract class FlinkJob[IN <: FlinkEvent: TypeInformation, OUT <: FlinkEvent: TypeInformation]
+    extends BaseFlinkJob[DataStream[IN], OUT] {
+
+  def getEventSourceName(implicit config: FlinkConfig) = config.getSourceNames.headOption.getOrElse("events")
+
+  /**
+    * Returns source data stream to pass into [[transform()]]. This can be overridden by subclasses.
+    * @return input data stream
+    */
+  def source()(implicit config: FlinkConfig, env: SEE): DataStream[IN] =
+    fromSource[IN](getEventSourceName) |# maybeAssignTimestampsAndWatermarks
+
+}
+```
+
+Where as `FlinkJob` requires your input stream to be a `DataStream[IN]`, `BaseFlinkJob` let's you set the type of 
+input stream, allowing you to use other, more complicated stream types in Flink, such as `ConnectedStreams[IN1,IN2]` or `BroadcastStream[B,D]`.
+
+While you're free to override any of these methods in your job, usually you just need extend `FlinkJob` and provide a `transform()` 
+method that converts your `DataStream[IN]` to a `DataStream[OUT]`.
 
 > TODO: Finish README.
 

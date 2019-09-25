@@ -23,27 +23,22 @@ Test / fork := true
 resolvers += "Local Maven Repository" at "file://" + Path.userHome.absolutePath + "/.m2/repository"
 
 val V = new {
-  val flink = "1.7.2"
+  val flink = "1.8.2"
   val logback = "1.2.3"
-  val log4jOverSlf4j = "1.7.25"
-  val scalaLogging = "3.9.0"
-  val scalaTest = "3.0.5"
-  val rocksdb = "5.17.2"
+  val log4jOverSlf4j = "1.7.26"
+  val scalaLogging = "3.9.2"
+  val scalaTest = "3.0.8"
+  val scalaCheck = "1.14.0"
   val circe = "0.11.1"
-  val http4s = "0.20.0-M5"
+  val http4s = "0.20.10"
   val enumeratum = "1.5.13"
-  val typesafeConfig = "1.3.3"
-//  val guava = "27.0.1-jre"
+  val typesafeConfig = "1.3.4"
   val guava = "24.1-jre"
   val squants = "1.3.0"
-  val antlr4 = "4.7.1"
   val avro = "1.9.0"
   val avro4s = "3.0.0-RC2"
 }
 
-enablePlugins(Antlr4Plugin)
-antlr4Version in Antlr4 := V.antlr4
-antlr4PackageName in Antlr4 := Some("io.epiphanous.antlr4")
 
 val withK = Seq("true","1","yes","y").exists(
   _.equalsIgnoreCase(System.getProperty("with.kinesis", "false"))
@@ -53,8 +48,9 @@ val maybeKinesis = if (withK) Seq("connector-kinesis") else Seq.empty[String]
 
 // post-process version to add k suffix if we're building with kinesis
 val versionSuffix = if (withK) "k" else ""
-version in ThisBuild ~= (v => v.replaceFirst("^(v?\\d(\\.\\d){2})(?=[^k])",s"$$1$versionSuffix") + versionSuffix)
-dynver in ThisBuild ~= (v => v.replaceFirst("^(v?\\d(\\.\\d){2})(?=[^k])",s"$$1$versionSuffix") + versionSuffix)
+def suffixedVersion(v:String) = v + versionSuffix
+version in ThisBuild ~= suffixedVersion
+dynver in ThisBuild ~= suffixedVersion
 
 val flinkDeps = (
   (Seq("scala", "streaming-scala", "cep-scala") ++ maybeKinesis).map(a =>
@@ -64,32 +60,51 @@ val flinkDeps = (
     "org.apache.flink" %% s"flink-$a" % V.flink
   ) ++
   Seq(
-    "org.apache.flink" %% "flink-test-utils" % V.flink % Test,
-    "org.rocksdb"      % "rocksdbjni"   % V.rocksdb
+    "org.apache.flink" %% "flink-test-utils" % V.flink % Test
   )
   ).map(
   _.excludeAll(ExclusionRule(organization = "log4j"), ExclusionRule(organization = "org.slf4j", name = "slf4j-log4j12"))
 )
 
-val loggingDeps = Seq("ch.qos.logback"             % "logback-core"     % V.logback % "provided",
-                      "ch.qos.logback"             % "logback-classic"  % V.logback % "provided",
-                      "org.slf4j"                  % "log4j-over-slf4j" % V.log4jOverSlf4j % "provided",
+val loggingDeps = Seq("ch.qos.logback"             % "logback-core"     % V.logback % Provided,
+                      "ch.qos.logback"             % "logback-classic"  % V.logback % Provided,
+                      "org.slf4j"                  % "log4j-over-slf4j" % V.log4jOverSlf4j % Provided,
                       "com.typesafe.scala-logging" %% "scala-logging"   % V.scalaLogging)
 
 val http4sDeps =
   Seq("http4s-dsl", "http4s-client", "http4s-blaze-client", "http4s-circe").map("org.http4s" %% _ % V.http4s)
 
-val otherDeps = Seq("com.beachape"      %% "enumeratum" % V.enumeratum,
-                    "org.apache.avro"  % "avro" % V.avro,
+val circeDeps = Seq(
+  "circe-core",
+  "circe-generic",
+  "circe-generic-extras",
+  "circe-java8",
+  "circe-parser"
+).map("io.circe" %% _ % V.circe)
+
+val otherDeps = Seq("com.beachape"        %% "enumeratum"  % V.enumeratum,
+                    "org.apache.avro"     %  "avro"        % V.avro,
                     "com.sksamuel.avro4s" %% "avro4s-core" % V.avro4s,
-                    "com.typesafe"      %  "config"     % V.typesafeConfig,
-                    "com.google.guava"  %  "guava"      % V.guava,
-                    "org.typelevel"     %% "squants"    % V.squants,
-                    "org.scalactic"     %% "scalactic"  % V.scalaTest % Test,
-                    "org.scalatest"     %% "scalatest"  % V.scalaTest % Test)
+                    "com.typesafe"        %  "config"      % V.typesafeConfig,
+                    "com.google.guava"    %  "guava"       % V.guava,
+                    "org.typelevel"       %% "squants"     % V.squants,
+                    "org.scalactic"       %% "scalactic"   % V.scalaTest % Test,
+                    "org.scalatest"       %% "scalatest"   % V.scalaTest % Test,
+                    "org.scalacheck"      %% "scalacheck"  % V.scalaCheck % Test
+)
 
 lazy val flink_runner =
-  (project in file(".")).settings(libraryDependencies ++= flinkDeps ++ loggingDeps ++ http4sDeps ++ otherDeps)
+  (project in file(".")).settings(libraryDependencies ++= flinkDeps ++ loggingDeps ++ http4sDeps ++ circeDeps ++ otherDeps)
+
+scalacOptions ++= Seq(
+  "-encoding","utf8",
+  "-deprecation",
+  "-Xfuture",
+  "-Ywarn-dead-code",
+  "-Ywarn-numeric-widen",
+  "-Ywarn-unused",
+  "-Ywarn-value-discard"
+)
 
 // stays inside the sbt console when we press "ctrl-c" while a Flink programme executes with "run" or "runMain"
 Compile / run / fork := true
