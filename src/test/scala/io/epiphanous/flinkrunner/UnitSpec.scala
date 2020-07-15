@@ -1,5 +1,5 @@
 package io.epiphanous.flinkrunner
 
-import org.scalatest._
+import org.scalatest.flatspec.AnyFlatSpec
 
-trait UnitSpec extends FlatSpec with BaseSpec
+trait UnitSpec extends AnyFlatSpec with BaseSpec

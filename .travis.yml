@@ -1,11 +1,12 @@
 language: scala
 scala:
-  - 2.11.12
+  - 2.12.12
 
-dist: trusty
+dist: precise
 
 jdk:
-  oraclejdk8
+  - oraclejdk8
+  - openjdk11
 
 stages:
   - name: test

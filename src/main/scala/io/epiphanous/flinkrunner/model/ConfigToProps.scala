@@ -18,7 +18,7 @@ trait ConfigToProps {
           list.asScala.zipWithIndex.foreach { case (v, i) => flatten(s"$pkey$i", v) }
         case v =>
           p.put(key, v.toString)
-          () // explicitly return unit
+          () // force unit return
       }
     }
     config match {

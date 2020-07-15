@@ -1,7 +1,5 @@
 package io.epiphanous.flinkrunner.avro
 
-import io.epiphanous.flinkrunner.model.FlinkEvent
-
 import scala.util.Try
 
 trait AvroSchemaRegistryClient {

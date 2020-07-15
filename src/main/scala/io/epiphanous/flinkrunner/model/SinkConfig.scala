@@ -19,8 +19,6 @@ object SinkConfig {
         connector match {
           case Kafka =>
             KafkaSinkConfig(connector, name, config.getString(s"$p.topic"), config.getProperties(s"$p.config"))
-          case KeyedKafka =>
-            KeyedKafkaSinkConfig(connector, name, config.getString(s"$p.topic"), config.getProperties(s"$p.config"))
           case Kinesis =>
             KinesisSinkConfig(connector, name, config.getString(s"$p.stream"), config.getProperties(s"$p.config"))
           case File =>
@@ -42,12 +40,6 @@ object SinkConfig {
 }
 
 final case class KafkaSinkConfig(
-  connector: FlinkConnectorName = Kafka,
-  name: String,
-  topic: String,
-  properties: Properties)
-    extends SinkConfig
-final case class KeyedKafkaSinkConfig(
   connector: FlinkConnectorName = Kafka,
   name: String,
   topic: String,

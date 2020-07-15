@@ -1,9 +1,9 @@
 package io.epiphanous.flinkrunner.avro
 
 import com.typesafe.scalalogging.LazyLogging
-import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.syntax._
+import io.circe.{Decoder, Encoder}
 
 sealed trait ConfluentAvroSchemaRegistryResponse {
   def schema: String

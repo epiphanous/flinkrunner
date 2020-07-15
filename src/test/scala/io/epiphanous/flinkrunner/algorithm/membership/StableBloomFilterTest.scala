@@ -2,9 +2,10 @@ package io.epiphanous.flinkrunner.algorithm.membership
 import java.nio.charset.StandardCharsets
 
 import com.google.common.hash.Funnels
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-class StableBloomFilterTest extends FlatSpec with Matchers {
+class StableBloomFilterTest extends AnyFlatSpec with Matchers {
 
   val bf = StableBloomFilterBuilder(Funnels.stringFunnel(StandardCharsets.UTF_8)).build()
 

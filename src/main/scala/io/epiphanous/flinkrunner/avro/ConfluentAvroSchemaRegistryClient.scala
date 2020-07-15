@@ -6,7 +6,7 @@ import cats.effect.{ContextShift, IO, Timer}
 import com.google.common.cache.{CacheBuilder, CacheLoader}
 import com.typesafe.scalalogging.LazyLogging
 import io.circe.Decoder
-import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkEvent}
+import io.epiphanous.flinkrunner.model.FlinkConfig
 import io.epiphanous.flinkrunner.util.StringUtils
 import org.apache.avro.Schema.Parser
 import org.apache.flink.runtime.concurrent.Executors.directExecutionContext

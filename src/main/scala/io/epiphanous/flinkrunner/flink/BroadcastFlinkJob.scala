@@ -66,7 +66,7 @@ abstract class BroadcastFlinkJob[
     */
   override def source()(implicit config: FlinkConfig, env: SEE): BroadcastConnectedStream[IN, BC] =
     (fromSource[IN](getEventSourceName) |> maybeAssignTimestampsAndWatermarks[IN])
-      .keyBy(in => in.$key)
+      .keyBy((in: IN) => in.$key)
       .connect(broadcastSource)
 
   /**

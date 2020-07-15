@@ -83,7 +83,7 @@ abstract class FilterByControlJob[
       })
       .name(s"filter:${in.name}")
       .uid(s"filter:${in.name}")
-      .map(_.data.get)
+      .map((x: DataOrControl[D, C]) => x.data.get)
       .name("filtered:data")
       .uid("filtered:data")
   }

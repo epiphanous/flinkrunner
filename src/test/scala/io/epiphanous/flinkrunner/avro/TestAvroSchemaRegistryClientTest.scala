@@ -2,9 +2,11 @@ package io.epiphanous.flinkrunner.avro
 
 import com.sksamuel.avro4s.AvroSchema
 import com.typesafe.scalalogging.LazyLogging
-import org.scalatest.{FlatSpec, Matchers, TryValues}
+import org.scalatest.TryValues
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-class TestAvroSchemaRegistryClientTest extends FlatSpec with Matchers with TryValues with LazyLogging {
+class TestAvroSchemaRegistryClientTest extends AnyFlatSpec with Matchers with TryValues with LazyLogging {
 
   val registry = new TestAvroSchemaRegistryClient()
   val testObj = TestAvroClass1.obj1

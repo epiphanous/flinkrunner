@@ -7,6 +7,7 @@ import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.SEE
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.operator.AddToJdbcBatchFunction
+import org.apache.flink.api.common.eventtime.WatermarkStrategy
 import org.apache.flink.api.common.serialization.{DeserializationSchema, Encoder, SerializationSchema}
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.core.fs.Path
@@ -21,11 +22,15 @@ import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.
   OnCheckpointRollingPolicy
 }
 import org.apache.flink.streaming.api.functions.sink.filesystem.{BucketAssigner, StreamingFileSink}
-import org.apache.flink.streaming.api.functions.timestamps.AscendingTimestampExtractor
-import org.apache.flink.streaming.api.functions.timestamps.AscendingTimestampExtractor.IgnoringHandler
 import org.apache.flink.streaming.api.scala._
-import org.apache.flink.streaming.connectors.kafka.{FlinkKafkaConsumer, FlinkKafkaProducer, KafkaDeserializationSchema}
-import org.apache.flink.streaming.util.serialization.KeyedSerializationSchema
+import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer.Semantic
+import org.apache.flink.streaming.connectors.kafka.{
+  FlinkKafkaConsumer,
+  FlinkKafkaProducer,
+  KafkaDeserializationSchema,
+  KafkaSerializationSchema
+}
+import org.apache.flink.streaming.connectors.kinesis.{FlinkKinesisConsumer, FlinkKinesisProducer}
 
 object StreamUtils extends LazyLogging {
 
@@ -58,44 +63,53 @@ object StreamUtils extends LazyLogging {
     def |#(e: A => Unit): A = { e(v); v }
   }
 
+//  /**
+//    * Generates a timestamp and watermark assigner for a stream with a given type of element that limits
+//    * how late an element is allowed to arrive in event time.
+//    *
+//    * @param config implicitly provided job config
+//    * @tparam E the type of stream element
+//    * @return BoundedLatenessGenerator[E]
+//    */
+//  def boundedLatenessEventTime[E <: FlinkEvent: TypeInformation](
+//    streamID: String
+//  )(implicit config: FlinkConfig
+//  ): BoundedLatenessGenerator[E] =
+//    new BoundedLatenessGenerator[E](config.maxLateness.toMillis, streamID)
+
   /**
-    * Generates a timestamp and watermark assigner for a stream with a given type of element that limits
-    * how late an element is allowed to arrive in event time.
-    *
+    * Applies a bounded of order watermarking strategy with idleness checking
     * @param config implicitly provided job config
     * @tparam E the type of stream element
     * @return BoundedLatenessGenerator[E]
     */
-  def boundedLatenessEventTime[E <: FlinkEvent: TypeInformation](
-    streamID: String
-  )(implicit config: FlinkConfig
-  ): BoundedLatenessGenerator[E] =
-    new BoundedLatenessGenerator[E](config.maxLateness.toMillis, streamID)
+  def boundedOutofOrderness[E <: FlinkEvent: TypeInformation]()(implicit config: FlinkConfig): WatermarkStrategy[E] =
+    WatermarkStrategy.forBoundedOutOfOrderness(config.maxLateness).withIdleness(config.maxIdleness)
 
-  /**
-    * Creates an ascending timestamp extractor.
-    * @tparam E type of stream element
-    * @return AscendingTimestampExtractor[E]
-    */
-  def ascendingTimestampExtractor[E <: FlinkEvent: TypeInformation](): AscendingTimestampExtractor[E] = {
-    val extractor: AscendingTimestampExtractor[E] = new AscendingTimestampExtractor[E] {
-      var lastTimestamp = Long.MinValue
-      def extractAscendingTimestamp(event: E) = {
-        lastTimestamp = event.$timestamp
-        lastTimestamp
-      }
-    }
-    extractor.withViolationHandler(new IgnoringHandler())
-    extractor
-  }
+//  /**
+//    * Creates an ascending timestamp extractor.
+//    * @tparam E type of stream element
+//    * @return AscendingTimestampExtractor[E]
+//    */
+//  def ascendingTimestampExtractor[E <: FlinkEvent: TypeInformation](): AscendingTimestampExtractor[E] = {
+//    val extractor: AscendingTimestampExtractor[E] = new AscendingTimestampExtractor[E] {
+//      var lastTimestamp = Long.MinValue
+//      def extractAscendingTimestamp(event: E) = {
+//        lastTimestamp = event.$timestamp
+//        lastTimestamp
+//      }
+//    }
+//    extractor.withViolationHandler(new IgnoringHandler())
+//    extractor
+//  }
 
   def maybeAssignTimestampsAndWatermarks[E <: FlinkEvent: TypeInformation](
     in: DataStream[E]
   )(implicit config: FlinkConfig,
     env: SEE
-  ) =
+  ): DataStream[E] =
     if (env.getStreamTimeCharacteristic == TimeCharacteristic.EventTime)
-      in.assignTimestampsAndWatermarks(boundedLatenessEventTime[E](in.name))
+      in.assignTimestampsAndWatermarks(boundedOutofOrderness[E]())
         .name(s"wm:${in.name}")
         .uid(s"wm:${in.name}")
     else in
@@ -116,7 +130,6 @@ object StreamUtils extends LazyLogging {
     val uid = src.label
     (src match {
       case src: KafkaSourceConfig      => fromKafka(src)
-      case src: KeyedKafkaSourceConfig => fromKeyedKafka(src)
       case src: KinesisSourceConfig    => KinesisStreamUtils.fromKinesis(src)
       case src: FileSourceConfig       => fromFile(src)
       case src: SocketSourceConfig     => fromSocket(src)
@@ -139,30 +152,31 @@ object StreamUtils extends LazyLogging {
   ): DataStream[E] = {
     val consumer =
       new FlinkKafkaConsumer[E](srcConfig.topic,
-                                config.getDeserializationSchema.asInstanceOf[DeserializationSchema[E]],
+                                config.getKafkaDeserializationSchema.asInstanceOf[KafkaDeserializationSchema[E]],
                                 srcConfig.properties)
     env
       .addSource(consumer)
   }
 
   /**
-    * Configure stream from keyed kafka source.
+    * Configure stream from kinesis.
     * @param srcConfig a source config
     * @param config implicitly provided job config
     * @tparam E stream element type
     * @return DataStream[E]
     */
-  def fromKeyedKafka[E <: FlinkEvent: TypeInformation](
-    srcConfig: KeyedKafkaSourceConfig
+  def fromKinesis[E <: FlinkEvent: TypeInformation](
+    srcConfig: KinesisSourceConfig
   )(implicit config: FlinkConfig,
     env: SEE
   ): DataStream[E] = {
     val consumer =
-      new FlinkKafkaConsumer[E](srcConfig.topic,
-                                config.getKafkaDeserializationSchema.asInstanceOf[KafkaDeserializationSchema[E]],
-                                srcConfig.properties)
+      new FlinkKinesisConsumer[E](srcConfig.stream,
+                                  config.getDeserializationSchema.asInstanceOf[DeserializationSchema[E]],
+                                  srcConfig.properties)
     env
       .addSource(consumer)
+      .name(srcConfig.label)
   }
 
   /**
@@ -286,13 +300,12 @@ object StreamUtils extends LazyLogging {
     val src = config.getSinkConfig(name)
     val label = src.label
     (src match {
-      case s: KafkaSinkConfig      => toKafka[E](stream, s)
-      case s: KeyedKafkaSinkConfig => toKeyedKafka[E](stream, s)
-      case s: KinesisSinkConfig    => KinesisStreamUtils.toKinesis[E](stream, s)
-      case s: FileSinkConfig       => toFile[E](stream, s)
-      case s: SocketSinkConfig     => toSocket[E](stream, s)
-      case s: JdbcSinkConfig       => toJdbc[E](stream, s)
-      case s                       => throw new IllegalArgumentException(s"unsupported source connector: ${s.connector}")
+      case s: KafkaSinkConfig   => toKafka[E](stream, s)
+      case s: KinesisSinkConfig => KinesisStreamUtils.toKinesis[E](stream, s)
+      case s: FileSinkConfig    => toFile[E](stream, s)
+      case s: SocketSinkConfig  => toSocket[E](stream, s)
+      case s: JdbcSinkConfig    => toJdbc[E](stream, s)
+      case s                    => throw new IllegalArgumentException(s"unsupported source connector: ${s.connector}")
     }).name(label).uid(label)
   }
 
@@ -312,29 +325,35 @@ object StreamUtils extends LazyLogging {
     stream
       .addSink(
         new FlinkKafkaProducer[E](sinkConfig.topic,
-                                  config.getSerializationSchema.asInstanceOf[SerializationSchema[E]],
-                                  sinkConfig.properties)
+                                  config.getKafkaSerializationSchema.asInstanceOf[KafkaSerializationSchema[E]],
+                                  sinkConfig.properties,
+                                  Semantic.AT_LEAST_ONCE)
       )
 
   /**
-    * Send stream to a keyed kafka sink.
+    * Send stream to a kinesis sink.
     * @param stream the data stream
     * @param sinkConfig a sink configuration
     * @param config implicit job args
     * @tparam E stream element type
     * @return DataStreamSink[E]
     */
-  def toKeyedKafka[E <: FlinkEvent: TypeInformation](
+  def toKinesis[E <: FlinkEvent: TypeInformation](
     stream: DataStream[E],
-    sinkConfig: KeyedKafkaSinkConfig
+    sinkConfig: KinesisSinkConfig
   )(implicit config: FlinkConfig
   ): DataStreamSink[E] =
     stream
-      .addSink(
-        new FlinkKafkaProducer[E](sinkConfig.topic,
-                                  config.getKeyedSerializationSchema.asInstanceOf[KeyedSerializationSchema[E]],
-                                  sinkConfig.properties)
-      )
+      .addSink({
+        val sink =
+          new FlinkKinesisProducer[E](config.getSerializationSchema.asInstanceOf[SerializationSchema[E]],
+                                      sinkConfig.properties)
+        sink.setDefaultStream(sinkConfig.stream)
+        sink.setFailOnError(true)
+        sink.setDefaultPartition("0")
+        sink
+      })
+      .name(sinkConfig.label)
 
   /**
     * Send stream to a socket sink.
@@ -381,11 +400,10 @@ object StreamUtils extends LazyLogging {
     val sink = encoderFormat match {
       case "row" =>
         val builder = StreamingFileSink.forRowFormat(new Path(path), config.getEncoder.asInstanceOf[Encoder[E]])
-
         val rollingPolicy = p.getProperty("bucket.rolling.policy", "default") match {
           case "default" =>
             DefaultRollingPolicy
-              .create()
+              .builder()
               .withInactivityInterval(p.getProperty("bucket.rolling.policy.inactivity.interval", s"${60000}").toLong)
               .withMaxPartSize(p.getProperty("bucket.rolling.policy.max.part.size", s"${128 * 1024 * 1024}").toLong)
               .withRolloverInterval(
@@ -396,7 +414,8 @@ object StreamUtils extends LazyLogging {
           case policy       => throw new IllegalArgumentException(s"Unknown bucket rolling policy type: '$policy'")
         }
         builder
-          .withBucketAssignerAndPolicy(bucketAssigner, rollingPolicy)
+          .withBucketAssigner(bucketAssigner)
+          .withRollingPolicy(rollingPolicy)
           .withBucketCheckInterval(bucketCheckInterval)
           .build()
       case "bulk" =>
