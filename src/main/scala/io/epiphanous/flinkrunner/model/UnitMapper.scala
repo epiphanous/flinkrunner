@@ -5,8 +5,7 @@ import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.aggregate.Aggregate
 import squants.energy.{Energy, Power}
 import squants.information.{DataRate, Information}
-import squants.market.Money
-import squants.mass.{AreaDensity, ChemicalAmount, Density, Mass, MomentOfInertia}
+import squants.mass._
 import squants.motion._
 import squants.photo._
 import squants.radio._

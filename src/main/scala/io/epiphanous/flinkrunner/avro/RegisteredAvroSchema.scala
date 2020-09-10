@@ -5,11 +5,10 @@ import java.nio.ByteBuffer
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
-import com.sksamuel.avro4s.{AvroSchema, Decoder, Encoder, RecordFormat, SchemaFor}
-import org.apache.avro.LogicalTypes.LogicalTypeFactory
-import org.apache.avro.{LogicalTypes, Schema}
+import com.sksamuel.avro4s._
 import org.apache.avro.file.{DataFileReader, DataFileWriter, SeekableByteArrayInput}
 import org.apache.avro.generic.{GenericDatumReader, GenericDatumWriter, GenericRecord}
+import org.apache.avro.{LogicalTypes, Schema}
 
 import scala.util.Try
 

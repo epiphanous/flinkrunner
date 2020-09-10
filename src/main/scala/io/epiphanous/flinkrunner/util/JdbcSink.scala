@@ -12,6 +12,7 @@ import org.apache.flink.configuration.Configuration
 import org.apache.flink.runtime.state.{FunctionInitializationContext, FunctionSnapshotContext}
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction
+import org.apache.flink.streaming.api.functions.sink.SinkFunction.Context
 import org.apache.flink.streaming.api.scala._
 
 import scala.collection.JavaConverters._
@@ -59,7 +60,7 @@ class JdbcSink[E <: FlinkEvent: TypeInformation](batchFunction: AddToJdbcBatchFu
     super.open(parameters)
   }
 
-  override def invoke(value: E): Unit = {
+  override def invoke(value: E, context: Context[_]): Unit = {
     pendingRows += value
     if (pendingRows.size >= bufferSize) {
       pendingRows.foreach(row => batchFunction.addToBatch(row, statement))

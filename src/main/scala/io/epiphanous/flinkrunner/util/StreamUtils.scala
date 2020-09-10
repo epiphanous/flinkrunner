@@ -1,6 +1,7 @@
 package io.epiphanous.flinkrunner.util
 
 import java.io.{File, FileNotFoundException}
+import java.net.URL
 import java.nio.charset.StandardCharsets
 
 import com.typesafe.scalalogging.LazyLogging
@@ -8,11 +9,11 @@ import io.epiphanous.flinkrunner.SEE
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.operator.AddToJdbcBatchFunction
 import org.apache.flink.api.common.eventtime.WatermarkStrategy
+import org.apache.flink.api.common.functions.RuntimeContext
 import org.apache.flink.api.common.serialization.{DeserializationSchema, Encoder, SerializationSchema}
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.core.fs.Path
 import org.apache.flink.streaming.api.TimeCharacteristic
-import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.{
   BasePathBucketAssigner,
   DateTimeBucketAssigner
@@ -23,6 +24,9 @@ import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.
 }
 import org.apache.flink.streaming.api.functions.sink.filesystem.{BucketAssigner, StreamingFileSink}
 import org.apache.flink.streaming.api.scala._
+import org.apache.flink.streaming.connectors.cassandra.CassandraSink
+import org.apache.flink.streaming.connectors.elasticsearch.{ElasticsearchSinkFunction, RequestIndexer}
+import org.apache.flink.streaming.connectors.elasticsearch7.ElasticsearchSink
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer.Semantic
 import org.apache.flink.streaming.connectors.kafka.{
   FlinkKafkaConsumer,
@@ -31,6 +35,10 @@ import org.apache.flink.streaming.connectors.kafka.{
   KafkaSerializationSchema
 }
 import org.apache.flink.streaming.connectors.kinesis.{FlinkKinesisConsumer, FlinkKinesisProducer}
+import org.apache.http.HttpHost
+import org.elasticsearch.client.Requests
+
+import scala.collection.JavaConverters._
 
 object StreamUtils extends LazyLogging {
 
@@ -130,7 +138,7 @@ object StreamUtils extends LazyLogging {
     val uid = src.label
     (src match {
       case src: KafkaSourceConfig      => fromKafka(src)
-      case src: KinesisSourceConfig    => KinesisStreamUtils.fromKinesis(src)
+      case src: KinesisSourceConfig    => fromKinesis(src)
       case src: FileSourceConfig       => fromFile(src)
       case src: SocketSourceConfig     => fromSocket(src)
       case src: CollectionSourceConfig => fromCollection(src)
@@ -295,18 +303,19 @@ object StreamUtils extends LazyLogging {
     stream: DataStream[E],
     sinkName: String = ""
   )(implicit config: FlinkConfig
-  ): DataStreamSink[E] = {
+  ) = {
     val name = if (sinkName.isEmpty) config.getSinkNames.head else sinkName
     val src = config.getSinkConfig(name)
-    val label = src.label
     (src match {
-      case s: KafkaSinkConfig   => toKafka[E](stream, s)
-      case s: KinesisSinkConfig => KinesisStreamUtils.toKinesis[E](stream, s)
-      case s: FileSinkConfig    => toFile[E](stream, s)
-      case s: SocketSinkConfig  => toSocket[E](stream, s)
-      case s: JdbcSinkConfig    => toJdbc[E](stream, s)
-      case s                    => throw new IllegalArgumentException(s"unsupported source connector: ${s.connector}")
-    }).name(label).uid(label)
+      case s: KafkaSinkConfig         => toKafka[E](stream, s)
+      case s: KinesisSinkConfig       => toKinesis[E](stream, s)
+      case s: FileSinkConfig          => toFile[E](stream, s)
+      case s: SocketSinkConfig        => toSocket[E](stream, s)
+      case s: JdbcSinkConfig          => toJdbc[E](stream, s)
+      case s: CassandraSinkConfig     => toCassandraSink[E](stream, s)
+      case s: ElasticsearchSinkConfig => toElasticsearchSink[E](stream, s)
+      case s                          => throw new IllegalArgumentException(s"unsupported source connector: ${s.connector}")
+    })
   }
 
   /**
@@ -321,7 +330,7 @@ object StreamUtils extends LazyLogging {
     stream: DataStream[E],
     sinkConfig: KafkaSinkConfig
   )(implicit config: FlinkConfig
-  ): DataStreamSink[E] =
+  ) =
     stream
       .addSink(
         new FlinkKafkaProducer[E](sinkConfig.topic,
@@ -329,6 +338,8 @@ object StreamUtils extends LazyLogging {
                                   sinkConfig.properties,
                                   Semantic.AT_LEAST_ONCE)
       )
+      .uid(sinkConfig.label)
+      .name(sinkConfig.label)
 
   /**
     * Send stream to a kinesis sink.
@@ -342,7 +353,7 @@ object StreamUtils extends LazyLogging {
     stream: DataStream[E],
     sinkConfig: KinesisSinkConfig
   )(implicit config: FlinkConfig
-  ): DataStreamSink[E] =
+  ) =
     stream
       .addSink({
         val sink =
@@ -353,6 +364,7 @@ object StreamUtils extends LazyLogging {
         sink.setDefaultPartition("0")
         sink
       })
+      .uid(sinkConfig.label)
       .name(sinkConfig.label)
 
   /**
@@ -367,11 +379,13 @@ object StreamUtils extends LazyLogging {
     stream: DataStream[E],
     sinkConfig: JdbcSinkConfig
   )(implicit config: FlinkConfig
-  ): DataStreamSink[E] =
+  ) =
     stream
       .addSink(
         new JdbcSink(config.getAddToJdbcBatchFunction.asInstanceOf[AddToJdbcBatchFunction[E]], sinkConfig.properties)
       )
+      .uid(sinkConfig.label)
+      .name(sinkConfig.label)
 
   /**
     * Send stream to a rolling file sink.
@@ -385,7 +399,7 @@ object StreamUtils extends LazyLogging {
     stream: DataStream[E],
     sinkConfig: FileSinkConfig
   )(implicit config: FlinkConfig
-  ): DataStreamSink[E] = {
+  ) = {
     val path = sinkConfig.path
     val p = sinkConfig.properties
     val bucketCheckInterval = p.getProperty("bucket.check.interval", s"${60000}").toLong
@@ -423,7 +437,7 @@ object StreamUtils extends LazyLogging {
 
       case _ => throw new IllegalArgumentException(s"Unknown file sink encoder format: '$encoderFormat'")
     }
-    stream.addSink(sink)
+    stream.addSink(sink).uid(sinkConfig.label).name(sinkConfig.label)
   }
 
   /**
@@ -438,9 +452,58 @@ object StreamUtils extends LazyLogging {
     stream: DataStream[E],
     sinkConfig: SocketSinkConfig
   )(implicit config: FlinkConfig
-  ): DataStreamSink[E] =
-    stream.writeToSocket(sinkConfig.host,
-                         sinkConfig.port,
-                         config.getSerializationSchema.asInstanceOf[SerializationSchema[E]])
+  ) =
+    stream
+      .writeToSocket(sinkConfig.host,
+                     sinkConfig.port,
+                     config.getSerializationSchema.asInstanceOf[SerializationSchema[E]])
+      .uid(sinkConfig.label)
+      .name(sinkConfig.label)
+
+  /**
+    * Send stream to a cassandra sink.
+    * @param stream the data stream
+    * @param sinkConfig a sink configuration
+    * @tparam E stream element type
+    * @return DataStreamSink[E]
+    */
+  def toCassandraSink[E <: FlinkEvent: TypeInformation](stream: DataStream[E], sinkConfig: CassandraSinkConfig) =
+    CassandraSink
+      .addSink(stream)
+      .setHost(sinkConfig.host)
+      .setQuery(sinkConfig.query)
+      .build()
+      .uid(sinkConfig.label)
+      .name(sinkConfig.label)
+
+  /**
+    * Send stream to an elasticsearch sink.
+    * @param stream the data stream
+    * @param sinkConfig a sink configuration
+    * @tparam E stream element type
+    * @return DataStreamSink[E]
+    */
+  def toElasticsearchSink[E <: FlinkEvent: TypeInformation](
+    stream: DataStream[E],
+    sinkConfig: ElasticsearchSinkConfig
+  ) = {
+    val hosts = sinkConfig.transports
+      .map(s => {
+        val url = new URL(s"https://${s}")
+        val hostname = url.getHost
+        val port = if (url.getPort < 0) 9200 else url.getPort
+        new HttpHost(hostname, port, "https")
+      })
+      .asJava
+    val esSink = new ElasticsearchSink.Builder[E](hosts, new ElasticsearchSinkFunction[E] {
+      override def process(element: E, ctx: RuntimeContext, indexer: RequestIndexer): Unit = {
+        val values = element.productIterator
+        val data = element.getClass.getDeclaredFields.map(_.getName -> values.next).toMap.asJava
+        val req = Requests.indexRequest(sinkConfig.index).`type`(sinkConfig.`type`).source(data)
+        indexer.add(req)
+      }
+    }).build()
+    stream.addSink(esSink).uid(sinkConfig.label).name(sinkConfig.label)
+  }
 
 }

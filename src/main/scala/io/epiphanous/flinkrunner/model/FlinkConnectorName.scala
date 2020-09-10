@@ -9,7 +9,8 @@ object FlinkConnectorName extends Enum[FlinkConnectorName] {
   case object Kafka extends FlinkConnectorName
   case object File extends FlinkConnectorName
   case object Socket extends FlinkConnectorName
-  case object Cassandra extends FlinkConnectorName
+  case object CassandraSink extends FlinkConnectorName
+  case object ElasticsearchSink extends FlinkConnectorName
   case object Jdbc extends FlinkConnectorName
   case object Collection extends FlinkConnectorName
 }
