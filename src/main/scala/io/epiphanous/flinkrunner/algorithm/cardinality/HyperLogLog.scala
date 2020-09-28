@@ -2,8 +2,6 @@ package io.epiphanous.flinkrunner.algorithm.cardinality
 import com.google.common.hash.Funnel
 import com.google.common.hash.Hashing.murmur3_128
 
-import scala.collection.mutable.ArrayBuffer
-
 /**
   * Implements hyperloglog cardinality estimate based on paper by
   * P. Flajolet, È. Fusy, O. Gandouet, F. Meiunier.

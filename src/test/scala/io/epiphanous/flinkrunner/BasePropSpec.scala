@@ -1,6 +1,5 @@
 package io.epiphanous.flinkrunner
 
-import org.scalatest._
-import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.propspec.AnyPropSpec
 
-class BasePropSpec extends PropSpec with BaseSpec with ScalaCheckDrivenPropertyChecks with PropGenerators {}
+class BasePropSpec extends AnyPropSpec with BaseSpec with PropGenerators {}

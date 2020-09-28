@@ -1,16 +1,17 @@
 language: scala
 scala:
-  - 2.11.12
+  - 2.12.12
 
-dist: trusty
+dist: precise
 
 jdk:
-  oraclejdk8
+  - oraclejdk8
+  - openjdk11
 
 stages:
   - name: test
   - name: release
-    if: (branch = master AND type = push) OR (tag IS present)
+    if: ((branch = master AND type = push) OR (tag IS present)) AND NOT fork
 
 jobs:
   include:

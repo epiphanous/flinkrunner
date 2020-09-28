@@ -18,8 +18,6 @@ object SourceConfig {
         connector match {
           case Kafka =>
             KafkaSourceConfig(connector, name, config.getString(s"$p.topic"), config.getProperties(s"$p.config"))
-          case KeyedKafka =>
-            KeyedKafkaSourceConfig(connector, name, config.getString(s"$p.topic"), config.getProperties(s"$p.config"))
           case Kinesis =>
             KinesisSourceConfig(connector, name, config.getString(s"$p.stream"), config.getProperties(s"$p.config"))
           case File =>
@@ -41,12 +39,6 @@ object SourceConfig {
 
 final case class KafkaSourceConfig(
   connector: FlinkConnectorName = Kafka,
-  name: String,
-  topic: String,
-  properties: Properties)
-    extends SourceConfig
-final case class KeyedKafkaSourceConfig(
-  connector: FlinkConnectorName = KeyedKafka,
   name: String,
   topic: String,
   properties: Properties)

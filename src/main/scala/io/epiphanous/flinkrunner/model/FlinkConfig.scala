@@ -139,18 +139,16 @@ class FlinkConfig(
     p
   }
 
-  def _classInstance[T](path: String): T = Class.forName(getString(path)).newInstance().asInstanceOf[T]
+  def _classInstance[T](path: String): T =
+    Class.forName(getString(path)).getDeclaredConstructor().newInstance().asInstanceOf[T]
 
   def getJobInstance = factory.getJobInstance(jobName)
   def getDeserializationSchema = factory.getDeserializationSchema
-  def getKafkaDeserializationSchema =
-    factory.getKafkaDeserializationSchema
+  def getKafkaDeserializationSchema = factory.getKafkaDeserializationSchema
   def getSerializationSchema = factory.getSerializationSchema
-  def getKeyedSerializationSchema =
-    factory.getKeyedSerializationSchema
+  def getKafkaSerializationSchema = factory.getKafkaSerializationSchema
   def getEncoder = factory.getEncoder
-  def getAddToJdbcBatchFunction =
-    factory.getAddToJdbcBatchFunction
+  def getAddToJdbcBatchFunction = factory.getAddToJdbcBatchFunction
   def getBucketAssigner(p: Properties) = factory.getBucketAssigner(p)
 
   def getSourceConfig(name: String): SourceConfig = SourceConfig(name, this)
@@ -237,5 +235,6 @@ class FlinkConfig(
   lazy val showPlan = getBoolean("show.plan")
   lazy val mockEdges = isDev && getBoolean("mock.edges")
   lazy val maxLateness = getDuration("max.lateness")
+  lazy val maxIdleness = getDuration("max.idleness")
 
 }

@@ -19,8 +19,6 @@ object SinkConfig {
         connector match {
           case Kafka =>
             KafkaSinkConfig(connector, name, config.getString(s"$p.topic"), config.getProperties(s"$p.config"))
-          case KeyedKafka =>
-            KeyedKafkaSinkConfig(connector, name, config.getString(s"$p.topic"), config.getProperties(s"$p.config"))
           case Kinesis =>
             KinesisSinkConfig(connector, name, config.getString(s"$p.stream"), config.getProperties(s"$p.config"))
           case File =>
@@ -33,6 +31,20 @@ object SinkConfig {
                              config.getProperties(s"$p.config"))
           case Jdbc =>
             JdbcSinkConfig(connector, name, config.getString(s"$p.query"), config.getProperties(s"$p.config"))
+          case CassandraSink =>
+            CassandraSinkConfig(connector,
+                                name,
+                                config.getString(s"$p.host"),
+                                config.getString(s"$p.query"),
+                                config.getProperties(s"$p.config"))
+          case ElasticsearchSink =>
+            ElasticsearchSinkConfig(connector,
+                                    name,
+                                    config.getStringList(s"$p.transports"),
+                                    config.getString(s"$p.index"),
+                                    config.getString(s"$p.type"),
+                                    config.getProperties(s"$p.config"))
+
           case other => throw new RuntimeException(s"$other $name connector not valid sink (job ${config.jobName}")
 
         }
@@ -42,12 +54,6 @@ object SinkConfig {
 }
 
 final case class KafkaSinkConfig(
-  connector: FlinkConnectorName = Kafka,
-  name: String,
-  topic: String,
-  properties: Properties)
-    extends SinkConfig
-final case class KeyedKafkaSinkConfig(
   connector: FlinkConnectorName = Kafka,
   name: String,
   topic: String,
@@ -86,5 +92,20 @@ final case class JdbcSinkConfig(
   connector: FlinkConnectorName = Jdbc,
   name: String,
   query: String,
+  properties: Properties)
+    extends SinkConfig
+final case class CassandraSinkConfig(
+  connector: FlinkConnectorName = CassandraSink,
+  name: String,
+  host: String,
+  query: String,
+  properties: Properties)
+    extends SinkConfig
+final case class ElasticsearchSinkConfig(
+  connector: FlinkConnectorName = ElasticsearchSink,
+  name: String,
+  transports: List[String],
+  index: String,
+  `type`: String,
   properties: Properties)
     extends SinkConfig

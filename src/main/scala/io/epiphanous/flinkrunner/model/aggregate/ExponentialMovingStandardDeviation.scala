@@ -1,7 +1,6 @@
 package io.epiphanous.flinkrunner.model.aggregate
 import java.time.Instant
 
-import io.epiphanous.flinkrunner.model.UnitMapper
 import squants.Quantity
 
 final case class ExponentialMovingStandardDeviation(

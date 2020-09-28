@@ -1,7 +1,7 @@
 package io.epiphanous.flinkrunner.model.aggregate
 import java.time.Instant
 
-import squants.{Quantity, UnitOfMeasure}
+import squants.Quantity
 
 final case class ExponentialMovingAverage(
   dimension: String,

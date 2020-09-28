@@ -3,10 +3,11 @@ package io.epiphanous.flinkrunner.model.aggregate
 import java.time.Instant
 
 import com.typesafe.scalalogging.LazyLogging
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import squants.time.{Seconds, Time}
 
-class PercentageTest extends FlatSpec with Matchers with LazyLogging {
+class PercentageTest extends AnyFlatSpec with Matchers with LazyLogging {
   behavior of "PercentageTest"
 
   val p = Percentage(Time.name, Seconds.symbol, 86400d)
