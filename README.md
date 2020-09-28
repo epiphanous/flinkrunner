@@ -40,10 +40,10 @@
 
 ## Maven Dependency
 
-`Flinkrunner` `v3.0.0` is now on maven central, built against Flink 1.11.0 with Scala 2.12 and JDK 11.
+`Flinkrunner 3` is now on maven central, built against Flink 1.11 with Scala 2.12 and JDK 11.
 
 ```sbtshell
-libraryDependencies += "io.epiphanous" %% "flinkrunner" % "2.1.0"
+libraryDependencies += "io.epiphanous" %% "flinkrunner" % "3.0.0"
 ```
 
 ## What is FlinkRunner?
