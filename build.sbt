@@ -2,7 +2,7 @@ name := "flinkrunner"
 
 lazy val scala212 = "2.12.12"
 lazy val scala211 = "2.11.12"
-lazy val supportedScalaVersions = List(scala212, scala211)
+lazy val supportedScalaVersions = List(scala212)
 
 inThisBuild(
   List(organization := "io.epiphanous",
