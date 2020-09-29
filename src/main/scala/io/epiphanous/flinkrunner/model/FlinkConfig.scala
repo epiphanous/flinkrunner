@@ -143,12 +143,13 @@ class FlinkConfig(
     Class.forName(getString(path)).getDeclaredConstructor().newInstance().asInstanceOf[T]
 
   def getJobInstance = factory.getJobInstance(jobName)
-  def getDeserializationSchema = factory.getDeserializationSchema
-  def getKafkaDeserializationSchema = factory.getKafkaDeserializationSchema
-  def getSerializationSchema = factory.getSerializationSchema
-  def getKafkaSerializationSchema = factory.getKafkaSerializationSchema
-  def getEncoder = factory.getEncoder
-  def getAddToJdbcBatchFunction = factory.getAddToJdbcBatchFunction
+  def getDeserializationSchema(sourceConfig: SourceConfig) = factory.getDeserializationSchema(sourceConfig)
+  def getKafkaDeserializationSchema(sourceConfig: KafkaSourceConfig) =
+    factory.getKafkaDeserializationSchema(sourceConfig)
+  def getSerializationSchema(sinkConfig: SinkConfig) = factory.getSerializationSchema(sinkConfig)
+  def getKafkaSerializationSchema(sinkConfig: KafkaSinkConfig) = factory.getKafkaSerializationSchema(sinkConfig)
+  def getEncoder(sinkConfig: SinkConfig) = factory.getEncoder(sinkConfig)
+  def getAddToJdbcBatchFunction(sinkConfig: SinkConfig) = factory.getAddToJdbcBatchFunction(sinkConfig)
   def getBucketAssigner(p: Properties) = factory.getBucketAssigner(p)
 
   def getSourceConfig(name: String): SourceConfig = SourceConfig(name, this)

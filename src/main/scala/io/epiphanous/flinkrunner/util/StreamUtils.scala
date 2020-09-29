@@ -159,9 +159,11 @@ object StreamUtils extends LazyLogging {
     env: SEE
   ): DataStream[E] = {
     val consumer =
-      new FlinkKafkaConsumer[E](srcConfig.topic,
-                                config.getKafkaDeserializationSchema.asInstanceOf[KafkaDeserializationSchema[E]],
-                                srcConfig.properties)
+      new FlinkKafkaConsumer[E](
+        srcConfig.topic,
+        config.getKafkaDeserializationSchema(srcConfig).asInstanceOf[KafkaDeserializationSchema[E]],
+        srcConfig.properties
+      )
     env
       .addSource(consumer)
   }
@@ -180,7 +182,7 @@ object StreamUtils extends LazyLogging {
   ): DataStream[E] = {
     val consumer =
       new FlinkKinesisConsumer[E](srcConfig.stream,
-                                  config.getDeserializationSchema.asInstanceOf[DeserializationSchema[E]],
+                                  config.getDeserializationSchema(srcConfig).asInstanceOf[DeserializationSchema[E]],
                                   srcConfig.properties)
     env
       .addSource(consumer)
@@ -203,7 +205,7 @@ object StreamUtils extends LazyLogging {
       case RESOURCE_PATTERN(p) => getSourceFilePath(p)
       case other               => other
     }
-    val ds = config.getDeserializationSchema.asInstanceOf[DeserializationSchema[E]]
+    val ds = config.getDeserializationSchema(srcConfig).asInstanceOf[DeserializationSchema[E]]
     env
       .readTextFile(path)
       .name(s"raw:${srcConfig.label}")
@@ -229,7 +231,8 @@ object StreamUtils extends LazyLogging {
       .uid(s"raw:${srcConfig.label}")
       .map(
         line =>
-          config.getDeserializationSchema
+          config
+            .getDeserializationSchema(srcConfig)
             .asInstanceOf[DeserializationSchema[E]]
             .deserialize(line.getBytes(StandardCharsets.UTF_8))
       )
@@ -250,7 +253,9 @@ object StreamUtils extends LazyLogging {
       .fromCollection[Array[Byte]](config.getCollectionSource(srcConfig.topic))
       .name(s"raw:${srcConfig.label}")
       .uid(s"raw:${srcConfig.label}")
-      .map(bytes => config.getDeserializationSchema.asInstanceOf[DeserializationSchema[E]].deserialize(bytes))
+      .map(
+        bytes => config.getDeserializationSchema(srcConfig).asInstanceOf[DeserializationSchema[E]].deserialize(bytes)
+      )
 
   /**
     * Returns the actual path to a resource file named filename or filename.gz.
@@ -334,7 +339,9 @@ object StreamUtils extends LazyLogging {
     stream
       .addSink(
         new FlinkKafkaProducer[E](sinkConfig.topic,
-                                  config.getKafkaSerializationSchema.asInstanceOf[KafkaSerializationSchema[E]],
+                                  config
+                                    .getKafkaSerializationSchema(sinkConfig)
+                                    .asInstanceOf[KafkaSerializationSchema[E]],
                                   sinkConfig.properties,
                                   Semantic.AT_LEAST_ONCE)
       )
@@ -357,7 +364,7 @@ object StreamUtils extends LazyLogging {
     stream
       .addSink({
         val sink =
-          new FlinkKinesisProducer[E](config.getSerializationSchema.asInstanceOf[SerializationSchema[E]],
+          new FlinkKinesisProducer[E](config.getSerializationSchema(sinkConfig).asInstanceOf[SerializationSchema[E]],
                                       sinkConfig.properties)
         sink.setDefaultStream(sinkConfig.stream)
         sink.setFailOnError(true)
@@ -382,7 +389,8 @@ object StreamUtils extends LazyLogging {
   ) =
     stream
       .addSink(
-        new JdbcSink(config.getAddToJdbcBatchFunction.asInstanceOf[AddToJdbcBatchFunction[E]], sinkConfig.properties)
+        new JdbcSink(config.getAddToJdbcBatchFunction(sinkConfig).asInstanceOf[AddToJdbcBatchFunction[E]],
+                     sinkConfig.properties)
       )
       .uid(sinkConfig.label)
       .name(sinkConfig.label)
@@ -413,7 +421,8 @@ object StreamUtils extends LazyLogging {
     val encoderFormat = p.getProperty("encoder.format", "row")
     val sink = encoderFormat match {
       case "row" =>
-        val builder = StreamingFileSink.forRowFormat(new Path(path), config.getEncoder.asInstanceOf[Encoder[E]])
+        val builder =
+          StreamingFileSink.forRowFormat(new Path(path), config.getEncoder(sinkConfig).asInstanceOf[Encoder[E]])
         val rollingPolicy = p.getProperty("bucket.rolling.policy", "default") match {
           case "default" =>
             DefaultRollingPolicy
@@ -456,7 +465,7 @@ object StreamUtils extends LazyLogging {
     stream
       .writeToSocket(sinkConfig.host,
                      sinkConfig.port,
-                     config.getSerializationSchema.asInstanceOf[SerializationSchema[E]])
+                     config.getSerializationSchema(sinkConfig).asInstanceOf[SerializationSchema[E]])
       .uid(sinkConfig.label)
       .name(sinkConfig.label)
 
