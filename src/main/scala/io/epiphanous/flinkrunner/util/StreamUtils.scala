@@ -498,7 +498,7 @@ object StreamUtils extends LazyLogging {
   ) = {
     val hosts = sinkConfig.transports
       .map(s => {
-        val url = new URL(s)
+        val url = new URL(if (s.startsWith("http")) s else s"http://${s}")
         val hostname = url.getHost
         val port = if (url.getPort < 0) 9200 else url.getPort
         new HttpHost(hostname, port, url.getProtocol)
