@@ -43,7 +43,7 @@
 `Flinkrunner 3` is now on maven central, built against Flink 1.11 with Scala 2.12 and JDK 11.
 
 ```sbtshell
-libraryDependencies += "io.epiphanous" %% "flinkrunner" % "3.0.3"
+libraryDependencies += "io.epiphanous" %% "flinkrunner" % "3.0.4"
 ```
 
 ## What is FlinkRunner?
@@ -53,7 +53,7 @@ data event types. `Flinkrunner` helps you build one application to run
 those related jobs and coordinate the types. It also simplifies setting
 up common sources and sinks to the point where you control them purely
 with configuration and not code. `Flinkrunner` supports a variety of sources
-and sinks out of the box, including `kafka`, `kinesis`, `jdbc`, `elasticsearch 7+` (sink only), 
+and sinks out of the box, including `kafka`, `kinesis`, `jdbc`, `elasticsearch 7+` (sink only),
 `cassandra` (sink only),  `filesystems` (including `s3`) and `sockets`. It also has many common
 operators to help you in writing your own transformation logic. Finally, `FlinkRunner`
 makes it easy to test your transformation logic with property-based testing.
@@ -232,7 +232,7 @@ abstract class BaseFlinkJob[DS, OUT <: FlinkEvent: TypeInformation] extends Lazy
 
   /**
     * Writes the transformed data stream to configured output sinks.
-    * 
+    *
     * @param out a transformed stream from [[transform()]]
     * @param config implicit flink job config
     */
@@ -276,10 +276,10 @@ abstract class FlinkJob[IN <: FlinkEvent: TypeInformation, OUT <: FlinkEvent: Ty
 }
 ```
 
-Where as `FlinkJob` requires your input stream to be a `DataStream[IN]`, `BaseFlinkJob` let's you set the type of 
+Where as `FlinkJob` requires your input stream to be a `DataStream[IN]`, `BaseFlinkJob` let's you set the type of
 input stream, allowing you to use other, more complicated stream types in Flink, such as `ConnectedStreams[IN1,IN2]` or `BroadcastStream[B,D]`.
 
-While you're free to override any of these methods in your job, usually you just need extend `FlinkJob` and provide a `transform()` 
+While you're free to override any of these methods in your job, usually you just need extend `FlinkJob` and provide a `transform()`
 method that converts your `DataStream[IN]` to a `DataStream[OUT]`.
 
 > TODO: Finish README.
