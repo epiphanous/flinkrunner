@@ -14,26 +14,15 @@ import org.apache.flink.api.common.serialization.{DeserializationSchema, Encoder
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.core.fs.Path
 import org.apache.flink.streaming.api.TimeCharacteristic
-import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.{
-  BasePathBucketAssigner,
-  DateTimeBucketAssigner
-}
-import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.{
-  DefaultRollingPolicy,
-  OnCheckpointRollingPolicy
-}
+import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.{BasePathBucketAssigner, DateTimeBucketAssigner}
+import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.{DefaultRollingPolicy, OnCheckpointRollingPolicy}
 import org.apache.flink.streaming.api.functions.sink.filesystem.{BucketAssigner, StreamingFileSink}
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.streaming.connectors.cassandra.CassandraSink
 import org.apache.flink.streaming.connectors.elasticsearch.{ElasticsearchSinkFunction, RequestIndexer}
 import org.apache.flink.streaming.connectors.elasticsearch7.ElasticsearchSink
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer.Semantic
-import org.apache.flink.streaming.connectors.kafka.{
-  FlinkKafkaConsumer,
-  FlinkKafkaProducer,
-  KafkaDeserializationSchema,
-  KafkaSerializationSchema
-}
+import org.apache.flink.streaming.connectors.kafka.{FlinkKafkaConsumer, FlinkKafkaProducer, KafkaDeserializationSchema, KafkaSerializationSchema}
 import org.apache.flink.streaming.connectors.kinesis.{FlinkKinesisConsumer, FlinkKinesisProducer}
 import org.apache.http.HttpHost
 import org.elasticsearch.client.Requests
@@ -506,9 +495,18 @@ object StreamUtils extends LazyLogging {
       .asJava
     val esSink = new ElasticsearchSink.Builder[E](hosts, new ElasticsearchSinkFunction[E] {
       override def process(element: E, ctx: RuntimeContext, indexer: RequestIndexer): Unit = {
-        val values = element.productIterator
-        val data = element.getClass.getDeclaredFields.map(_.getName -> values.next).toMap.asJava
-        val req = Requests.indexRequest(sinkConfig.index).`type`(sinkConfig.`type`).source(data)
+        val data = (element.getClass.getDeclaredFields
+          .filterNot(f => Seq("$id","$key","$timestamp","$action").contains(f.getName)).foldLeft(Map.empty[String,Any]) {
+          case (a, f) =>
+            f.setAccessible(true)
+            val name = f.getName
+            f.get(element) match {
+              case Some(v: Any) => a + (name -> v)
+              case None => a
+              case v: Any => a + (name -> v)
+            }
+        }).asJava
+        val req = Requests.indexRequest(sinkConfig.index).source(data)
         indexer.add(req)
       }
     }).build()
