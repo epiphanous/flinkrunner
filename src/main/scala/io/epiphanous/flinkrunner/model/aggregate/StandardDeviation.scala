@@ -16,8 +16,10 @@ final case class StandardDeviation(
     extends Aggregate {
 
   override def updateQuantity[A <: Quantity[A]](current: A, quantity: A, depAggs: Map[String, Aggregate]) = {
-    val updatedVariance = depAggs("Variance")
-    current.unit(Math.sqrt(updatedVariance.value))
+    if (count == 0) current else {
+      val updatedVariance = depAggs("Variance")
+      current.unit(Math.sqrt(updatedVariance.value))
+    }
   }
 
   override def getDependents = {

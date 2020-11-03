@@ -2,7 +2,7 @@ package io.epiphanous.flinkrunner.model.aggregate
 import java.time.Instant
 
 import io.epiphanous.flinkrunner.model.UnitMapper
-import squants.Each
+import squants.{Dimensionless, Each, Quantity}
 
 final case class Count(
   dimension: String,
@@ -19,11 +19,11 @@ final case class Count(
 
   override def outUnit: String = Each.symbol
 
-  override def update(
-    value: Double,
-    unit: String,
-    aggLU: Instant,
-    unitMapper: UnitMapper = UnitMapper.defaultUnitMapper
-  ) =
-    Some(copy(value = this.value + 1, unit = outUnit, count = count + 1, aggregatedLastUpdated = aggLU))
+  override def updateQuantity[A <: Quantity[A]](current: A, quantity: A, depAggs: Map[String, Aggregate]) =
+    current + current.unit(1)
+
+}
+
+object Count {
+  def apply(): Count = new Count(Dimensionless.name, Each.symbol)
 }

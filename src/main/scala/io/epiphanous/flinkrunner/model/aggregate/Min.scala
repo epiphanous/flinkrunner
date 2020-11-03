@@ -15,6 +15,6 @@ final case class Min(
     extends Aggregate {
 
   override def updateQuantity[A <: Quantity[A]](current: A, quantity: A, depAggs: Map[String, Aggregate]) =
-    current.min(quantity)
+    if (count == 0) quantity else current.min(quantity)
 
 }
