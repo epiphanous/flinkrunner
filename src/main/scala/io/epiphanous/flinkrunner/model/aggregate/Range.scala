@@ -21,5 +21,5 @@ final case class Range(
   }
 
   override def updateQuantity[A <: Quantity[A]](current: A, quantity: A, depAggs: Map[String, Aggregate]) =
-    current.unit(depAggs("Max").value - depAggs("Min").value)
+    if (count == 0) current else current.unit(depAggs("Max").value - depAggs("Min").value)
 }

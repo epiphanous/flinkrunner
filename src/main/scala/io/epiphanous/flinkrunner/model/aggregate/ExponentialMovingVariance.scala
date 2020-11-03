@@ -23,10 +23,12 @@ final case class ExponentialMovingVariance(
   }
 
   override def updateQuantity[A <: Quantity[A]](current: A, quantity: A, depAggs: Map[String, Aggregate]) = {
-    val currentEma = getDependents("ExponentialMovingAverage")
-    val q = quantity in current.unit
-    val delta = q - current.unit(currentEma.value)
-    (1 - alpha) * (current + delta * delta.value * alpha)
+    if (count == 0) quantity.unit(0d) else {
+      val currentEma = getDependents("ExponentialMovingAverage")
+      val q          = quantity in current.unit
+      val delta      = q - current.unit(currentEma.value)
+      (1 - alpha) * (current + delta * delta.value * alpha)
+    }
   }
 
 }

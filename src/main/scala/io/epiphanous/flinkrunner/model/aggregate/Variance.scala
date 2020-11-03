@@ -21,8 +21,10 @@ final case class Variance(
   }
 
   override def updateQuantity[A <: Quantity[A]](current: A, quantity: A, depAggs: Map[String, Aggregate]) = {
-    val k = count.doubleValue()
-    val s = current.unit(depAggs("SumOfSquaredDeviations").value)
-    s / (k - 1)
+    if (count < 2) current else {
+      val k = count.doubleValue()
+      val s = current.unit(depAggs("SumOfSquaredDeviations").value)
+      s / k
+    }
   }
 }

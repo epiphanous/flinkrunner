@@ -17,7 +17,7 @@ final case class ExponentialMovingAverage(
   def alpha: Double = params.getOrElse("alpha", ExponentialMovingAverage.defaultAlpha).toDouble
 
   override def updateQuantity[A <: Quantity[A]](current: A, quantity: A, depAggs: Map[String, Aggregate]) =
-    current * (1 - alpha) + quantity * alpha
+    if (count == 0) quantity else current * (1 - alpha) + quantity * alpha
 
 }
 
