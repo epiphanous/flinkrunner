@@ -8,6 +8,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.nio.ByteBuffer
+import java.time.temporal.{ChronoField, ChronoUnit}
 
 class RegisteredAvroSchemaTest extends AnyFlatSpec with Matchers with TryValues with LazyLogging {
   behavior of "RegisteredAvroSchemaTest"
@@ -43,7 +44,7 @@ class RegisteredAvroSchemaTest extends AnyFlatSpec with Matchers with TryValues 
       .flatMap[TestAvroClass1](bytes => regSchema.decode[TestAvroClass1](ByteBuffer.wrap(bytes)))
     logger.debug(roundTrip.toString)
     roundTrip.isSuccess shouldBe true
-    roundTrip.success.value.shouldEqual(testObj)
+    roundTrip.success.value.shouldEqual(testObj.copy(t = testObj.t.truncatedTo(ChronoUnit.MILLIS)))
   }
 
 }

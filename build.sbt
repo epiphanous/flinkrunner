@@ -19,7 +19,6 @@ resolvers += "Local Maven Repository" at "file://" + Path.userHome.absolutePath 
 val V = new {
   val flink = "1.11.3"
   val logback = "1.2.3"
-  val log4jOverSlf4j = "1.7.30"
   val scalaLogging = "3.9.2"
   val scalaTest = "3.2.2"
   val scalaCheck = "1.14.3"
@@ -43,7 +42,6 @@ val flinkDeps = (
 )
 
 val loggingDeps = Seq("ch.qos.logback"             % "logback-classic"  % V.logback % Provided,
-                      "org.slf4j"                  % "log4j-over-slf4j" % V.log4jOverSlf4j % Provided,
                       "com.typesafe.scala-logging" %% "scala-logging"   % V.scalaLogging)
 
 val http4sDeps =
