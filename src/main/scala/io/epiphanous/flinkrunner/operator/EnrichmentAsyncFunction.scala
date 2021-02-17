@@ -1,8 +1,5 @@
 package io.epiphanous.flinkrunner.operator
 
-import java.io.{PrintWriter, StringWriter}
-import java.util.concurrent.TimeUnit
-
 import cats.effect.{ContextShift, IO, Timer}
 import com.google.common.cache.{CacheBuilder, CacheLoader}
 import com.typesafe.scalalogging.LazyLogging
@@ -14,6 +11,8 @@ import org.http4s.EntityDecoder
 import org.http4s.circe.jsonOf
 import org.http4s.client.blaze.BlazeClientBuilder
 
+import java.io.{PrintWriter, StringWriter}
+import java.util.concurrent.TimeUnit
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -39,21 +38,21 @@ import scala.util.{Failure, Success, Try}
   *
   * Subclasses must implement the getCacheKey() and enrichEvent() methods.
   *
-  * @param configPrefix for extracting configuration information
+  * @param configPrefix   for extracting configuration information
   * @param cacheLoaderOpt an optional CacheLoader for loading the enrichment data
-  * @param config implicit flink config
-  * @param decoder implicit entity decoder for converting the body of the api call to the cache value type
-  * @tparam IN the input stream element type
+  * @param config         implicit flink config
+  * @param decoder        implicit entity decoder for converting the body of the api call to the cache value type
+  * @tparam IN  the input stream element type
   * @tparam OUT the enriched stream output element type
-  * @tparam CV the cache value type
+  * @tparam CV  the cache value type
   */
 abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
-  configPrefix: String,
-  cacheLoaderOpt: Option[CacheLoader[String, Option[CV]]] = None,
-  preloaded: Map[String, CV] = Map.empty[String, CV]
-)(implicit config: FlinkConfig,
-  decoder: Decoder[CV])
-    extends AsyncFunction[IN, OUT]
+                                                               configPrefix: String,
+                                                               cacheLoaderOpt: Option[CacheLoader[String, Option[CV]]] = None,
+                                                               preloaded: Map[String, CV] = Map.empty[String, CV]
+                                                             )(implicit config: FlinkConfig,
+                                                               decoder: Decoder[CV])
+  extends AsyncFunction[IN, OUT]
     with LazyLogging {
 
   @transient
@@ -106,7 +105,7 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
       .concurrencyLevel(config.getInt(s"$configPrefix.cache.concurrency.level"))
       .maximumSize(config.getLong(s"$configPrefix.cache.max.size"))
       .expireAfterWrite(expireAfter.toMillis, TimeUnit.MILLISECONDS)
-//      .expireAfterWrite(expireAfter) // for guava 27
+    //      .expireAfterWrite(expireAfter) // for guava 27
     if (!config.getBoolean(s"$configPrefix.cache.use.strong.keys"))
       builder.weakKeys()
     if (config.getBoolean(s"$configPrefix.cache.record.stats"))
@@ -116,6 +115,7 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
 
   /**
     * Getter for configPrefix value
+    *
     * @return
     */
   def getConfigPrefix = configPrefix
@@ -133,6 +133,7 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
 
   /**
     * A helper method to enable testing of asyncInvoke() without needing to construct a flink ResultFuture collector.
+    *
     * @param in the input event
     * @return
     */
@@ -148,6 +149,7 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
     * Generate the cache key from the input event. For the default cache loader implementation,
     * this should be a json api endpoint uri. If you provide your own cache loader implementation,
     * this should be whatever is appropriate, however, it must be a String.
+    *
     * @param in the input event
     * @return
     */
@@ -155,7 +157,8 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
 
   /**
     * Construct a sequence of zero or more enriched output events using the input event and the api results.
-    * @param in input event
+    *
+    * @param in   input event
     * @param data some api results (or none if api call failed)
     * @return
     */

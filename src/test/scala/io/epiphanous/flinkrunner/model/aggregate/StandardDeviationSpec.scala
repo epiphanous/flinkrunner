@@ -1,11 +1,11 @@
 package io.epiphanous.flinkrunner.model.aggregate
 
 import io.epiphanous.flinkrunner.BasePropSpec
+import io.epiphanous.flinkrunner.model.UnitMapper
 import squants.Kilograms
 import squants.mass.Mass
-import java.time.Instant
 
-import io.epiphanous.flinkrunner.model.UnitMapper
+import java.time.Instant
 
 class StandardDeviationSpec extends BasePropSpec {
 
@@ -19,7 +19,7 @@ class StandardDeviationSpec extends BasePropSpec {
       s3 <- s2.update(Kilograms(30), t, u)
       s4 <- s3.update(Kilograms(40), t, u)
     } yield s4.value
-    q.value shouldBe(Math.sqrt(166 + 2d/3))
+    q.value shouldBe (Math.sqrt(166 + 2d / 3))
   }
 
 }

@@ -14,10 +14,10 @@ import scala.collection.JavaConverters._
 /**
   * An abstract flink job to transform on an input stream into an output stream.
   *
-  * @tparam DS   The type of the input stream
-  * @tparam OUT  The type of output stream elements
+  * @tparam DS  The type of the input stream
+  * @tparam OUT The type of output stream elements
   */
-abstract class BaseFlinkJob[DS: TypeInformation, OUT <: FlinkEvent: TypeInformation] extends LazyLogging {
+abstract class BaseFlinkJob[DS: TypeInformation, OUT <: FlinkEvent : TypeInformation] extends LazyLogging {
 
   /**
     * A pipeline for transforming a single stream. Passes the output of source()
@@ -65,7 +65,7 @@ abstract class BaseFlinkJob[DS: TypeInformation, OUT <: FlinkEvent: TypeInformat
   /**
     * Writes the transformed data stream to configured output sinks.
     *
-    * @param out a transformed stream from transform()
+    * @param out    a transformed stream from transform()
     * @param config implicit flink job config
     */
   def sink(out: DataStream[OUT])(implicit config: FlinkConfig, env: SEE): Unit =
@@ -75,7 +75,7 @@ abstract class BaseFlinkJob[DS: TypeInformation, OUT <: FlinkEvent: TypeInformat
     * The output stream will only be passed to BaseFlinkJob.sink
     * if FlinkConfig.mockEdges is false (ie, you're not testing).
     *
-    * @param out the output data stream to pass into BaseFlinkJob.sink)
+    * @param out    the output data stream to pass into BaseFlinkJob.sink)
     * @param config implicit flink job config
     */
   def maybeSink(out: DataStream[OUT])(implicit config: FlinkConfig, env: SEE): Unit =

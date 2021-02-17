@@ -1,7 +1,5 @@
 package io.epiphanous.flinkrunner.avro
 
-import java.util.concurrent.TimeUnit
-
 import cats.effect.{ContextShift, IO, Timer}
 import com.google.common.cache.{CacheBuilder, CacheLoader}
 import com.typesafe.scalalogging.LazyLogging
@@ -14,14 +12,15 @@ import org.http4s.EntityDecoder
 import org.http4s.circe.jsonOf
 import org.http4s.client.blaze.BlazeClientBuilder
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
 class ConfluentAvroSchemaRegistryClient(
-  preloaded: Map[String, RegisteredAvroSchema] = Map.empty
-)(implicit config: FlinkConfig,
-  decoder: Decoder[ConfluentAvroSchemaRegistryResponse])
-    extends AvroSchemaRegistryClient
+                                         preloaded: Map[String, RegisteredAvroSchema] = Map.empty
+                                       )(implicit config: FlinkConfig,
+                                         decoder: Decoder[ConfluentAvroSchemaRegistryResponse])
+  extends AvroSchemaRegistryClient
     with StringUtils
     with LazyLogging {
 
@@ -73,9 +72,9 @@ class ConfluentAvroSchemaRegistryClient(
                   val schema = parser.parse(bySubjectVersion.schema)
                   Success(
                     RegisteredAvroSchema(bySubjectVersion.id,
-                                         schema,
-                                         bySubjectVersion.subject,
-                                         bySubjectVersion.version)
+                      schema,
+                      bySubjectVersion.subject,
+                      bySubjectVersion.version)
                   )
               }
           }
@@ -102,6 +101,7 @@ class ConfluentAvroSchemaRegistryClient(
 
   /**
     * Gets a schema from the registry by id.
+    *
     * @param id the id of the scheme to fetch
     * @return the registered schema wrapped in a Try
     */
@@ -112,6 +112,7 @@ class ConfluentAvroSchemaRegistryClient(
     * Gets the latest schema from the registry based on its subject.
     * If retrieved successfully, also ensures the schema is installed
     * in the cache by its unique id.
+    *
     * @param subject the name of the schema
     * @return the registered schema wrapped in a Try
     */
@@ -122,6 +123,7 @@ class ConfluentAvroSchemaRegistryClient(
     * Get a the most recent schema associated with the specified event.
     * If retrieved successfully, also ensures the schema is installed
     * in the cache by its unique id.
+    *
     * @param event the event
     * @param isKey indicates whether you want the key or value schema
     * @tparam E the event class
@@ -133,6 +135,7 @@ class ConfluentAvroSchemaRegistryClient(
   /**
     * Return the registry subject name of the schema associated with
     * the provided event instance.
+    *
     * @param event an instance of E
     * @param isKey if true add '_key' else '_value' suffix
     * @tparam E event class
@@ -148,6 +151,7 @@ class ConfluentAvroSchemaRegistryClient(
   /**
     * Ensure the schema is installed in the cache under its id. Used by
     * some get() methods which are name based.
+    *
     * @param schema a registered avro schema instance
     * @return the schema sent in
     */
@@ -158,6 +162,7 @@ class ConfluentAvroSchemaRegistryClient(
 
   /**
     * Return the api endpoint used to retrieve a schema by id
+    *
     * @param id the id of the schema to retrieve
     * @return the endpoint url
     */
@@ -166,6 +171,7 @@ class ConfluentAvroSchemaRegistryClient(
   /**
     * Return the api endpoint used to retrieve a schema by its subject
     * name and version string.
+    *
     * @param subject the full name of the schema
     * @param version the version to retrieve (defaults to "latest")
     * @return

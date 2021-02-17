@@ -1,11 +1,11 @@
 package io.epiphanous.flinkrunner.model.aggregate
 
 import io.epiphanous.flinkrunner.BasePropSpec
+import io.epiphanous.flinkrunner.model.UnitMapper
 import squants.Kilograms
 import squants.mass.Mass
-import java.time.Instant
 
-import io.epiphanous.flinkrunner.model.UnitMapper
+import java.time.Instant
 
 class RangeSpec extends BasePropSpec {
 
@@ -16,7 +16,7 @@ class RangeSpec extends BasePropSpec {
       r3 <- r2.update(Kilograms(30), Instant.now(), UnitMapper.defaultUnitMapper)
       r4 <- r2.update(Kilograms(37), Instant.now(), UnitMapper.defaultUnitMapper)
     } yield r4.labeledValue
-    q.value shouldBe("Range: 27.000000 kg")
+    q.value shouldBe ("Range: 27.000000 kg")
   }
 
 }

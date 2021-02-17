@@ -1,4 +1,5 @@
 package io.epiphanous.flinkrunner.algorithm.cardinality
+
 import com.google.common.hash.Funnel
 import com.google.common.hash.Hashing.murmur3_128
 
@@ -15,7 +16,7 @@ case class HyperLogLog[T](funnel: Funnel[T], b: Int) {
 
   import HyperLogLog._
 
-  /** number of registers <code>m = 2**b</code>*/
+  /** number of registers <code>m = 2**b</code> */
   val m = 1 << b
 
   /** relativeError of cardinality estimates */
@@ -47,6 +48,7 @@ case class HyperLogLog[T](funnel: Funnel[T], b: Int) {
 
   /**
     * Incorporates an item into the registers, updates the cardinality estimate and returns it.
+    *
     * @param item the item to add
     * @return Long
     */
@@ -60,6 +62,7 @@ case class HyperLogLog[T](funnel: Funnel[T], b: Int) {
 
   /**
     * Compute the current distinct cardinality estimate.
+    *
     * @return Long
     */
   private def estimateCardinality: Long = {
@@ -82,6 +85,7 @@ case class HyperLogLog[T](funnel: Funnel[T], b: Int) {
   /**
     * Merge another HyperLogLog[T] instance into this instance. Note the other instance must have the same b
     * parameter as this instance.
+    *
     * @param another the other HyperLogLog[T] instance
     */
   def merge(another: HyperLogLog[T]) = {
@@ -95,6 +99,7 @@ case class HyperLogLog[T](funnel: Funnel[T], b: Int) {
 
   /**
     * Computes positive integer hash of item
+    *
     * @param item item to hash
     * @return Int
     */
@@ -105,6 +110,7 @@ case class HyperLogLog[T](funnel: Funnel[T], b: Int) {
 
   /**
     * Computes most significant set bit of an integer, where returned bit in [0,32].
+    *
     * @param i the non-negative Int to examine
     * @return Int
     */

@@ -1,9 +1,9 @@
 package io.epiphanous.flinkrunner.algorithm.membership
-import java.nio.ByteBuffer
 
 import com.google.common.hash.Funnel
 import com.google.common.hash.Hashing.murmur3_128
 
+import java.nio.ByteBuffer
 import scala.util.Random
 
 /**
@@ -16,10 +16,10 @@ import scala.util.Random
   * This implies <code>M=m*d</code> can be set as high as about 125 giga-bits.
   *
   * @param funnel a Guava funnel for taking input
-  * @param m number of cells (see the paper, <code>m</code> is a <code>Long</code> but <code>m/floor(63/d)</code>
-  *          must fit in a 32-bit <code>Int</code>)
-  * @param d bits per cell (see the paper, should lie in [1,63] but often set to 1, 2 or 3)
-  * @param FPR expected false positive rate (should lie in (0,1))
+  * @param m      number of cells (see the paper, <code>m</code> is a <code>Long</code> but <code>m/floor(63/d)</code>
+  *               must fit in a 32-bit <code>Int</code>)
+  * @param d      bits per cell (see the paper, should lie in [1,63] but often set to 1, 2 or 3)
+  * @param FPR    expected false positive rate (should lie in (0,1))
   * @tparam T the type of funnel used
   */
 case class StableBloomFilter[T](funnel: Funnel[T], m: Long, d: Int, FPR: Double) {
@@ -60,6 +60,7 @@ case class StableBloomFilter[T](funnel: Funnel[T], m: Long, d: Int, FPR: Double)
 
   /**
     * Insert a stream element into the filter.
+    *
     * @param item the item to insert
     * @return
     */
@@ -73,6 +74,7 @@ case class StableBloomFilter[T](funnel: Funnel[T], m: Long, d: Int, FPR: Double)
 
   /**
     * Return true if this SBF might contain the requested item.
+    *
     * @param item the item to check
     * @return
     */
@@ -81,6 +83,7 @@ case class StableBloomFilter[T](funnel: Funnel[T], m: Long, d: Int, FPR: Double)
 
   /**
     * Merge another filter into this filter.
+    *
     * @param another the other filter
     * @return
     */
@@ -101,6 +104,7 @@ case class StableBloomFilter[T](funnel: Funnel[T], m: Long, d: Int, FPR: Double)
 
   /**
     * Gets the current value of the <code>i</code>'th cell.
+    *
     * @param i the cell to get (in <code>[0, m)</code>)
     * @return
     */
@@ -111,6 +115,7 @@ case class StableBloomFilter[T](funnel: Funnel[T], m: Long, d: Int, FPR: Double)
 
   /**
     * Decrement a cell by one.
+    *
     * @param i the cell to decrement (in <code>[0,m)</code>)
     */
   private def decrement(i: Long): Unit = {
@@ -122,6 +127,7 @@ case class StableBloomFilter[T](funnel: Funnel[T], m: Long, d: Int, FPR: Double)
 
   /**
     * Set a cell's value to Max
+    *
     * @param i the cell to set (in <code>[0,m)</code>)
     */
   private def set(i: Long): Unit = {
@@ -132,6 +138,7 @@ case class StableBloomFilter[T](funnel: Funnel[T], m: Long, d: Int, FPR: Double)
   /**
     * Extract the Int value of <code>d</code> bits (bits <code>j</code> to <code>j+d-1</code>) from stored element
     * <code>x</code>.
+    *
     * @param x the index into storage
     * @param j the LSB to start from
     * @return Int
@@ -145,6 +152,7 @@ case class StableBloomFilter[T](funnel: Funnel[T], m: Long, d: Int, FPR: Double)
     *
     * <code>x</code> in the integer offset within storage that contains cell <code>i</code>.
     * <code>j</code> is the relative offset (in [0,63]) of the LSB of cell <code>i</code> within <code>storage[x]</code>.
+    *
     * @param i the cell number in [0,m)
     * @return (Int, Int)
     */
@@ -160,6 +168,7 @@ case class StableBloomFilter[T](funnel: Funnel[T], m: Long, d: Int, FPR: Double)
   }
 
   /** Computes <code>K</code> hash functions of a filter item.
+    *
     * @param item the item to hash
     * @return
     */
@@ -171,7 +180,7 @@ case class StableBloomFilter[T](funnel: Funnel[T], m: Long, d: Int, FPR: Double)
       i =>
         (hash1 + i * hash2 match {
           case combined if combined < 0 => ~combined
-          case combined                 => combined
+          case combined => combined
         }) % m
     )
   }
@@ -188,9 +197,10 @@ object StableBloomFilter {
 
   /** Return the optimal number of cells to decrement each time a new item is inserted
     * in the filter. This quantity is represented by the symbol <code>P</code> in the DR paper (eqn 17).
-    * @param m number of cells in the SBF
-    * @param K number of hash functions
-    * @param d bits per cell (<code>Max = 2**d - 1</code>)
+    *
+    * @param m   number of cells in the SBF
+    * @param K   number of hash functions
+    * @param d   bits per cell (<code>Max = 2**d - 1</code>)
     * @param FPS false positive rate
     * @return P optimal number of cells to decrement
     */
@@ -206,7 +216,7 @@ object StableBloomFilter {
 
     (1d / (denom1 * denom2)).toInt match {
       case x if x <= 0 => 1
-      case x           => x
+      case x => x
     }
   }
 }

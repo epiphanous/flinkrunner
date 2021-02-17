@@ -1,42 +1,50 @@
 package io.epiphanous.flinkrunner.model.aggregate
 
-import java.time.Instant
-
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.UnitMapper
 import squants.Quantity
+
+import java.time.Instant
 
 trait Aggregate extends Product with Serializable with LazyLogging {
 
   def name: String = getClass.getSimpleName
 
   def dimension: String
+
   def unit: String
+
   def value: Double
+
   def count: BigInt
+
   def aggregatedLastUpdated: Instant
+
   def lastUpdated: Instant
+
   def dependentAggregations: Map[String, Aggregate]
+
   def params: Map[String, String]
 
   def isDimensionless: Boolean = false
+
   def outUnit: String = unit
 
   // a copy constructor
   private def _copy(
-    newValue: Double,
-    aggregatedLastUpdated: Instant,
-    dependentAggregations: Map[String, Aggregate]
-  ): Aggregate =
+                     newValue: Double,
+                     aggregatedLastUpdated: Instant,
+                     dependentAggregations: Map[String, Aggregate]
+                   ): Aggregate =
     Aggregate(name,
-              dimension,
-              outUnit,
-              newValue,
-              count + 1,
-              aggregatedLastUpdated,
-              Instant.now(),
-              dependentAggregations,
-              params)
+      dimension,
+      outUnit,
+      newValue,
+      count + 1,
+      aggregatedLastUpdated,
+      Instant.now(),
+      dependentAggregations,
+      params)
 
   /**
     * Used by some subclasses to update the underlying aggregate value as a Quantity.
@@ -44,7 +52,7 @@ trait Aggregate extends Product with Serializable with LazyLogging {
     * the depAggs parameter. You can find the previous dependent aggregations in
     * `this.dependentAggregations` if you need them.
     *
-    * @param current Quantity value of the aggregate
+    * @param current  Quantity value of the aggregate
     * @param quantity Quantity the new quantity to incorporate into the aggregate
     * @param depAggs  dependent aggregations already updated with the new quantity
     * @tparam A the dimension of the quantity
@@ -54,8 +62,9 @@ trait Aggregate extends Product with Serializable with LazyLogging {
 
   /**
     * Update dependent aggregations.
-    * @param q the quantity being added to the aggregations
-    * @param aggLU the instant associated with the new quantity
+    *
+    * @param q          the quantity being added to the aggregations
+    * @param aggLU      the instant associated with the new quantity
     * @param unitMapper a unit mapper
     * @tparam A the type of the quantity
     * @return
@@ -70,7 +79,8 @@ trait Aggregate extends Product with Serializable with LazyLogging {
 
   /**
     * Update the aggregate with a Quantity.
-    * @param q Quantity[A]
+    *
+    * @param q     Quantity[A]
     * @param aggLU event timestamp of quantity
     * @tparam A dimension of Quantity
     * @return Aggregate
@@ -101,24 +111,28 @@ trait Aggregate extends Product with Serializable with LazyLogging {
   /**
     * Most common entry point for updating aggregates.
     *
-    * @param value Double value of quantity to update aggregate with
-    * @param unit String unit of quantity to update aggregate with
-    * @param aggLU event timestamp of value
+    * @param value      Double value of quantity to update aggregate with
+    * @param unit       String unit of quantity to update aggregate with
+    * @param aggLU      event timestamp of value
     * @param unitMapper allows caller to customize unit system mappings
     * @return
     */
   def update(
-    value: Double,
-    unit: String,
-    aggLU: Instant,
-    unitMapper: UnitMapper = UnitMapper.defaultUnitMapper
-  ): Option[Aggregate] =
+              value: Double,
+              unit: String,
+              aggLU: Instant,
+              unitMapper: UnitMapper = UnitMapper.defaultUnitMapper
+            ): Option[Aggregate] =
     unitMapper.updateAggregateWith(this, value, unit, aggLU)
 
   def isEmpty: Boolean = count == BigInt(0)
+
   def isDefined: Boolean = !isEmpty
+
   def nonEmpty: Boolean = !isEmpty
+
   override def toString = f"$value%f $outUnit"
+
   def labeledValue = s"$name: $toString"
 }
 
@@ -129,16 +143,16 @@ object Aggregate extends LazyLogging {
   }
 
   def apply(
-    name: String,
-    dimension: String,
-    unit: String,
-    value: Double = 0,
-    count: BigInt = BigInt(0),
-    aggregatedLastUpdated: Instant = Instant.EPOCH,
-    lastUpdated: Instant = Instant.now(),
-    dependentAggregations: Map[String, Aggregate] = Map.empty[String, Aggregate],
-    params: Map[String, String] = Map.empty[String, String]
-  ): Aggregate = {
+             name: String,
+             dimension: String,
+             unit: String,
+             value: Double = 0,
+             count: BigInt = BigInt(0),
+             aggregatedLastUpdated: Instant = Instant.EPOCH,
+             lastUpdated: Instant = Instant.now(),
+             dependentAggregations: Map[String, Aggregate] = Map.empty[String, Aggregate],
+             params: Map[String, String] = Map.empty[String, String]
+           ): Aggregate = {
     val normalizedName = name.normalize
     val initValue = if (normalizedName == "min" && count == 0 && value == 0) Double.MaxValue else value
     normalizedName match {
@@ -148,35 +162,35 @@ object Aggregate extends LazyLogging {
         Count(dimension, unit, value, count, aggregatedLastUpdated, lastUpdated)
       case "exponentialmovingaverage" =>
         ExponentialMovingAverage(dimension,
-                                 unit,
-                                 value,
-                                 count,
-                                 aggregatedLastUpdated,
-                                 lastUpdated,
-                                 dependentAggregations,
-                                 maybeUpdateParams(params, "alpha", ExponentialMovingAverage.defaultAlpha))
+          unit,
+          value,
+          count,
+          aggregatedLastUpdated,
+          lastUpdated,
+          dependentAggregations,
+          maybeUpdateParams(params, "alpha", ExponentialMovingAverage.defaultAlpha))
 
       case "exponentialmovingstandarddeviation" =>
         ExponentialMovingStandardDeviation(dimension,
-                                           unit,
-                                           value,
-                                           count,
-                                           aggregatedLastUpdated,
-                                           lastUpdated,
-                                           dependentAggregations,
-                                           maybeUpdateParams(params,
-                                                             "alpha",
-                                                             ExponentialMovingStandardDeviation.defaultAlpha))
+          unit,
+          value,
+          count,
+          aggregatedLastUpdated,
+          lastUpdated,
+          dependentAggregations,
+          maybeUpdateParams(params,
+            "alpha",
+            ExponentialMovingStandardDeviation.defaultAlpha))
 
       case "exponentialmovingvariance" =>
         ExponentialMovingVariance(dimension,
-                                  unit,
-                                  value,
-                                  count,
-                                  aggregatedLastUpdated,
-                                  lastUpdated,
-                                  dependentAggregations,
-                                  maybeUpdateParams(params, "alpha", ExponentialMovingVariance.defaultAlpha))
+          unit,
+          value,
+          count,
+          aggregatedLastUpdated,
+          lastUpdated,
+          dependentAggregations,
+          maybeUpdateParams(params, "alpha", ExponentialMovingVariance.defaultAlpha))
 
       case "histogram" =>
         Histogram(dimension, unit, value, count, aggregatedLastUpdated, lastUpdated, dependentAggregations)
@@ -203,13 +217,13 @@ object Aggregate extends LazyLogging {
         SumOfSquaredDeviations(dimension, unit, value, count, aggregatedLastUpdated, lastUpdated, dependentAggregations)
       case "percentage" =>
         Percentage(dimension,
-                   unit,
-                   value,
-                   count,
-                   aggregatedLastUpdated,
-                   lastUpdated,
-                   dependentAggregations,
-                   maybeUpdateParams(params, "base", Percentage.defaultBase))
+          unit,
+          value,
+          count,
+          aggregatedLastUpdated,
+          lastUpdated,
+          dependentAggregations,
+          maybeUpdateParams(params, "base", Percentage.defaultBase))
 
       case _ =>
         val message = s"Unknown aggregation type '$name'"

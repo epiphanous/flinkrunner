@@ -1,14 +1,14 @@
 package io.epiphanous.flinkrunner.util
 
-import java.time.Instant
-
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.FlinkEvent
 import org.apache.flink.streaming.api.functions.AssignerWithPeriodicWatermarks
 import org.apache.flink.streaming.api.watermark.Watermark
 
+import java.time.Instant
+
 class BoundedLatenessGenerator[E <: FlinkEvent](val maxAllowedLateness: Long, val streamID: String)
-    extends AssignerWithPeriodicWatermarks[E]
+  extends AssignerWithPeriodicWatermarks[E]
     with LazyLogging {
 
   var firstTimestamp = 0L

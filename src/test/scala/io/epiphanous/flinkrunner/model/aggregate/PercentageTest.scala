@@ -1,11 +1,11 @@
 package io.epiphanous.flinkrunner.model.aggregate
 
-import java.time.Instant
-
 import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import squants.time.{Seconds, Time}
+
+import java.time.Instant
 
 class PercentageTest extends AnyFlatSpec with Matchers with LazyLogging {
   behavior of "PercentageTest"

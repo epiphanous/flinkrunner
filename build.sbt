@@ -17,9 +17,8 @@ Test / fork := true
 resolvers += "Local Maven Repository" at "file://" + Path.userHome.absolutePath + "/.m2/repository"
 
 val V = new {
-  val flink = "1.11.2"
+  val flink = "1.11.3"
   val logback = "1.2.3"
-  val log4jOverSlf4j = "1.7.30"
   val scalaLogging = "3.9.2"
   val scalaTest = "3.2.2"
   val scalaCheck = "1.14.3"
@@ -29,9 +28,8 @@ val V = new {
   val typesafeConfig = "1.4.0"
   val guava = "29.0-jre"
   val squants = "1.7.0"
-  val avro = "1.10.0"
-  val avro4s = "4.0.0"
-  val avro4s_211 = "3.0.0-RC2"
+  val avro = "1.10.1"
+  val avro4s = "4.0.4"
 }
 
 val flinkDeps = (
@@ -41,13 +39,9 @@ val flinkDeps = (
     Seq("connector-kafka", "connector-kinesis", "connector-cassandra",
       "connector-elasticsearch7", "statebackend-rocksdb").map(a => "org.apache.flink" %% s"flink-$a" % V.flink) ++
     Seq("org.apache.flink" %% "flink-test-utils" % V.flink % Test)
-).map(
-  _.excludeAll(ExclusionRule(organization = "log4j"), ExclusionRule(organization = "org.slf4j", name = "slf4j-log4j12"))
 )
 
-val loggingDeps = Seq("ch.qos.logback"             % "logback-core"     % V.logback % Provided,
-                      "ch.qos.logback"             % "logback-classic"  % V.logback % Provided,
-                      "org.slf4j"                  % "log4j-over-slf4j" % V.log4jOverSlf4j % Provided,
+val loggingDeps = Seq("ch.qos.logback"             % "logback-classic"  % V.logback % Provided,
                       "com.typesafe.scala-logging" %% "scala-logging"   % V.scalaLogging)
 
 val http4sDeps =
@@ -62,20 +56,33 @@ val otherDeps = Seq("com.beachape"        %% "enumeratum"  % V.enumeratum,
                     "com.typesafe"        % "config"       % V.typesafeConfig,
                     "com.google.guava"    % "guava"        % V.guava,
                     "org.typelevel"       %% "squants"     % V.squants,
+                    "com.sksamuel.avro4s" %% "avro4s-core" % V.avro4s,
                     "org.scalactic"       %% "scalactic"   % V.scalaTest % Test,
                     "org.scalatest"       %% "scalatest"   % V.scalaTest % Test,
                     "org.scalacheck"      %% "scalacheck"  % V.scalaCheck % Test)
+
+/**
+  * Exclude any transitive deps using log4j
+  * @param m
+  *   the module
+  * @return
+  *   module with deps excluded
+  */
+def excludeLog4j(m: ModuleID) = m.excludeAll(
+  ExclusionRule(
+    organization = "org.apache.logging.log4j",
+    name = "*"
+  ),
+  ExclusionRule(organization = "org.slf4j", name = "*")
+)
 
 lazy val flink_runner =
   (project in file("."))
     .settings(crossScalaVersions := supportedScalaVersions,
               libraryDependencies ++=
-                flinkDeps ++ loggingDeps ++ http4sDeps ++ circeDeps ++ otherDeps ++ {
-                  CrossVersion.partialVersion(scalaVersion.value) match {
-                    case Some((2, scalaMinor)) if scalaMinor == 11 => Seq("com.sksamuel.avro4s" %% "avro4s-core" % V.avro4s_211)
-                    case _ => Seq("com.sksamuel.avro4s" %% "avro4s-core" % V.avro4s)
-                  }
-                })
+                (flinkDeps ++ http4sDeps ++ circeDeps ++ otherDeps).map(excludeLog4j)
+                ++ loggingDeps
+    )
 
 scalacOptions ++= Seq("-encoding",
                       "utf8",

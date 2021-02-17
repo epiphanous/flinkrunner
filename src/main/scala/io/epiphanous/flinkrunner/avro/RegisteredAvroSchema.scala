@@ -1,15 +1,14 @@
 package io.epiphanous.flinkrunner.avro
 
-import java.io.ByteArrayOutputStream
-import java.nio.ByteBuffer
-import java.time.Instant
-import java.time.temporal.ChronoUnit
-
 import com.sksamuel.avro4s._
 import org.apache.avro.file.{DataFileReader, DataFileWriter, SeekableByteArrayInput}
 import org.apache.avro.generic.{GenericDatumReader, GenericDatumWriter, GenericRecord}
 import org.apache.avro.{LogicalTypes, Schema}
 
+import java.io.ByteArrayOutputStream
+import java.nio.ByteBuffer
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import scala.util.Try
 
 case class RegisteredAvroSchema(id: Int, schema: Schema, subject: String = "", version: Int = 0) {
@@ -18,7 +17,7 @@ case class RegisteredAvroSchema(id: Int, schema: Schema, subject: String = "", v
 
   def name = if (subject.isEmpty) schema.getFullName else subject
 
-  def decode[E: Encoder: Decoder](buffer: ByteBuffer): Try[E] =
+  def decode[E: Encoder : Decoder](buffer: ByteBuffer): Try[E] =
     Try({
       val is = new SeekableByteArrayInput(buffer.array().slice(buffer.position(), buffer.limit()))
       val dataFileReader = new DataFileReader[GenericRecord](is, datumReader)
@@ -27,7 +26,7 @@ case class RegisteredAvroSchema(id: Int, schema: Schema, subject: String = "", v
       RecordFormat[E].from(datum)
     })
 
-  def encode[E: Encoder: Decoder](event: E, addMagic: Boolean = true): Try[Array[Byte]] =
+  def encode[E: Encoder : Decoder](event: E, addMagic: Boolean = true): Try[Array[Byte]] =
     Try({
       val os = new ByteArrayOutputStream()
       val dataFileWriter = new DataFileWriter[GenericRecord](datumWriter)

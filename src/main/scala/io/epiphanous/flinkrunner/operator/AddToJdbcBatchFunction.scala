@@ -1,7 +1,8 @@
 package io.epiphanous.flinkrunner.operator
-import java.sql.PreparedStatement
 
 import io.epiphanous.flinkrunner.model.FlinkEvent
+
+import java.sql.PreparedStatement
 
 abstract class AddToJdbcBatchFunction[E <: FlinkEvent] {
 

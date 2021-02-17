@@ -39,6 +39,7 @@ class TestAvroSchemaRegistryClientTest extends AnyFlatSpec with Matchers with Tr
       getByObj.success.value shouldEqual regSchema
       registry.clear()
     }
+
     runScenario(false)
     runScenario(true)
   }

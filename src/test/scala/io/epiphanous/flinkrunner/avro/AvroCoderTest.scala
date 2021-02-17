@@ -2,10 +2,11 @@ package io.epiphanous.flinkrunner.avro
 
 import com.sksamuel.avro4s.AvroSchema
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.avro.RegisteredAvroSchema._
 import org.scalatest.TryValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+
+import java.time.temporal.ChronoUnit
 
 class AvroCoderTest extends AnyFlatSpec with Matchers with TryValues with LazyLogging {
   behavior of "AvroCoderTest"
@@ -24,7 +25,7 @@ class AvroCoderTest extends AnyFlatSpec with Matchers with TryValues with LazyLo
     result.isSuccess shouldBe true
     logger.debug(s"$obj")
     logger.debug(s"${result.success.value}")
-    result.success.value shouldEqual obj
+    result.success.value shouldEqual obj.copy(t = obj.t.truncatedTo(ChronoUnit.MILLIS))
   }
 
 }
