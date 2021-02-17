@@ -2,7 +2,6 @@ package io.epiphanous.flinkrunner.avro
 
 import com.sksamuel.avro4s.AvroSchema
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.avro.RegisteredAvroSchema._
 import org.scalatest.TryValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

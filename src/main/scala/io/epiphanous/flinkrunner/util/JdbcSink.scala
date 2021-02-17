@@ -1,8 +1,5 @@
 package io.epiphanous.flinkrunner.util
 
-import java.sql.{Connection, DriverManager, PreparedStatement}
-import java.util.Properties
-
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.FlinkEvent
 import io.epiphanous.flinkrunner.operator.AddToJdbcBatchFunction
@@ -15,6 +12,8 @@ import org.apache.flink.streaming.api.functions.sink.RichSinkFunction
 import org.apache.flink.streaming.api.functions.sink.SinkFunction.Context
 import org.apache.flink.streaming.api.scala._
 
+import java.sql.{Connection, DriverManager, PreparedStatement}
+import java.util.Properties
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try}
@@ -31,8 +30,8 @@ import scala.util.{Failure, Success, Try}
   * @param props the properties used to configure the sink
   * @tparam E the class of sink elements.
   */
-class JdbcSink[E <: FlinkEvent: TypeInformation](batchFunction: AddToJdbcBatchFunction[E], props: Properties)
-    extends RichSinkFunction[E]
+class JdbcSink[E <: FlinkEvent : TypeInformation](batchFunction: AddToJdbcBatchFunction[E], props: Properties)
+  extends RichSinkFunction[E]
     with CheckpointedFunction
     with LazyLogging {
 
@@ -46,9 +45,9 @@ class JdbcSink[E <: FlinkEvent: TypeInformation](batchFunction: AddToJdbcBatchFu
     (for {
       _ <- Try(Class.forName(props.getProperty("driver.name")))
       conn <- Try(
-               DriverManager
-                 .getConnection(props.getProperty("url"), props.getProperty("username"), props.getProperty("password"))
-             )
+        DriverManager
+          .getConnection(props.getProperty("url"), props.getProperty("username"), props.getProperty("password"))
+      )
       stmt <- Try(conn.prepareStatement(props.getProperty("query")))
     } yield (conn, stmt)) match {
       case Success((cn, ps)) =>
@@ -65,7 +64,7 @@ class JdbcSink[E <: FlinkEvent: TypeInformation](batchFunction: AddToJdbcBatchFu
     if (pendingRows.size >= bufferSize) {
       pendingRows.foreach(row => batchFunction.addToBatch(row, statement))
       Try(statement.executeBatch()) match {
-        case Success(_)  => pendingRows.clear()
+        case Success(_) => pendingRows.clear()
         case Failure(ex) => throw ex
       }
     }

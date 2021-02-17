@@ -1,15 +1,13 @@
 package io.epiphanous.flinkrunner.model
 
-import java.net.URL
-import java.util.Properties
-
 import io.epiphanous.flinkrunner.BasePropSpec
 import org.apache.http.HttpHost
 
+import java.net.URL
 import scala.collection.JavaConverters._
 
 class ElasticsearchSinkConfigSpec extends BasePropSpec {
-  def getHosts(transports:List[String]) = transports
+  def getHosts(transports: List[String]) = transports
     .map(s => {
       val url = new URL(if (s.startsWith("http")) s else s"http://${s}")
       val hostname = url.getHost

@@ -1,11 +1,11 @@
 package io.epiphanous.flinkrunner.model.aggregate
 
 import io.epiphanous.flinkrunner.BasePropSpec
+import io.epiphanous.flinkrunner.model.UnitMapper
 import squants.Kilograms
 import squants.mass.Mass
-import java.time.Instant
 
-import io.epiphanous.flinkrunner.model.UnitMapper
+import java.time.Instant
 
 class MaxSpec extends BasePropSpec {
 
@@ -17,5 +17,6 @@ class MaxSpec extends BasePropSpec {
       m1 <- m.update(Kilograms(10), t, u)
       m2 <- m1.update(Kilograms(16), t, u)
     } yield m2.value
-    q.value shouldBe(16)
-  }}
+    q.value shouldBe (16)
+  }
+}

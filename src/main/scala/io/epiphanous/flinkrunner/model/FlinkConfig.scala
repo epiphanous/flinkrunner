@@ -1,9 +1,5 @@
 package io.epiphanous.flinkrunner.model
 
-import java.io.File
-import java.time.Duration
-import java.util.{Properties, List => JList, Map => JMap}
-
 import com.typesafe.config.{ConfigFactory, ConfigObject}
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.{FlinkRunnerFactory, SEE}
@@ -13,24 +9,28 @@ import org.apache.flink.runtime.state.filesystem.FsStateBackend
 import org.apache.flink.streaming.api.TimeCharacteristic
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 
+import java.io.File
+import java.time.Duration
+import java.util.{Properties, List => JList, Map => JMap}
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
+
 @SerialVersionUID(1544548116L)
 class FlinkConfig(
-  args: Array[String],
-  factory: FlinkRunnerFactory[_],
-  sources: Map[String, Seq[Array[Byte]]] = Map.empty,
-  optConfig: Option[String] = None)
-    extends LazyLogging
+                   args: Array[String],
+                   factory: FlinkRunnerFactory[_],
+                   sources: Map[String, Seq[Array[Byte]]] = Map.empty,
+                   optConfig: Option[String] = None)
+  extends LazyLogging
     with Serializable {
 
   val (jobName, jobArgs, jobParams) = {
     val (n, a) = args match {
       case Array(opt, _*) if opt.startsWith("-") => ("help", args)
-      case Array("help", _*)                     => ("help", args.tail)
-      case Array(jn, "help", _*)                 => (jn, Array("--help") ++ args.tail)
-      case Array(jn, _*)                         => (jn, args.tail)
-      case _                                     => ("help", args)
+      case Array("help", _*) => ("help", args.tail)
+      case Array(jn, "help", _*) => (jn, Array("--help") ++ args.tail)
+      case Array(jn, _*) => (jn, args.tail)
+      case _ => ("help", args)
     }
     (n, a, ParameterTool.fromArgs(a))
   }
@@ -77,64 +77,66 @@ class FlinkConfig(
   def getString(path: String): String =
     _s(path) match {
       case ("a", p) => jobParams.get(p)
-      case (_, p)   => _config.getString(p)
+      case (_, p) => _config.getString(p)
     }
 
   def getStringList(path: String): List[String] =
     _s(path) match {
       case ("a", p) => jobParams.get(p).split("[, ]+").toList
-      case (_, p)   => _config.getStringList(p).asScala.toList
+      case (_, p) => _config.getStringList(p).asScala.toList
     }
 
   def getInt(path: String): Int =
     _s(path) match {
       case ("a", p) => jobParams.getInt(p)
-      case (_, p)   => _config.getInt(p)
+      case (_, p) => _config.getInt(p)
     }
 
   def getLong(path: String): Long =
     _s(path) match {
       case ("a", p) => jobParams.getLong(p)
-      case (_, p)   => _config.getLong(p)
+      case (_, p) => _config.getLong(p)
     }
 
   def getBoolean(path: String): Boolean =
     _s(path) match {
       case ("a", p) => jobParams.getBoolean(p)
-      case (_, p)   => _config.getBoolean(p)
+      case (_, p) => _config.getBoolean(p)
     }
 
   def getDouble(path: String): Double =
     _s(path) match {
       case ("a", p) => jobParams.getDouble(p)
-      case (_, p)   => _config.getDouble(p)
+      case (_, p) => _config.getDouble(p)
     }
 
   def getDuration(path: String): Duration =
     _s(path) match {
       case ("a", p) => ConfigFactory.parseString(s"$p = ${jobParams.get(p)}").getDuration(p)
-      case (_, p)   => _config.getDuration(p)
+      case (_, p) => _config.getDuration(p)
     }
 
   def getProperties(path: String): Properties = {
     val p = new Properties()
+
     def flatten(key: String, value: Object): Unit = {
       val pkey = if (key.isEmpty) key else s"$key."
       value match {
-        case map: JMap[String, Object] @unchecked => map.asScala.foreach { case (k, v) => flatten(s"$pkey$k", v) }
-        case list: JList[Object] @unchecked =>
+        case map: JMap[String, Object]@unchecked => map.asScala.foreach { case (k, v) => flatten(s"$pkey$k", v) }
+        case list: JList[Object]@unchecked =>
           list.asScala.zipWithIndex.foreach { case (v, i) => flatten(s"$pkey$i", v) }
         case v =>
           p.put(key, v.toString)
           () // force unit return
       }
     }
+
     (_s(path) match {
       case ("a", p) => Some(ConfigFactory.parseString(s"$p = ${jobParams.get(p)}").getObject(p))
-      case (_, p)   => if (_config.hasPath(p)) Some(_config.getObject(p)) else None
+      case (_, p) => if (_config.hasPath(p)) Some(_config.getObject(p)) else None
     }) match {
       case Some(c) => flatten("", c.unwrapped())
-      case None    => // noop
+      case None => // noop
     }
     p
   }
@@ -143,16 +145,24 @@ class FlinkConfig(
     Class.forName(getString(path)).getDeclaredConstructor().newInstance().asInstanceOf[T]
 
   def getJobInstance = factory.getJobInstance(jobName)
+
   def getDeserializationSchema(sourceConfig: SourceConfig) = factory.getDeserializationSchema(sourceConfig)
+
   def getKafkaDeserializationSchema(sourceConfig: KafkaSourceConfig) =
     factory.getKafkaDeserializationSchema(sourceConfig)
+
   def getSerializationSchema(sinkConfig: SinkConfig) = factory.getSerializationSchema(sinkConfig)
+
   def getKafkaSerializationSchema(sinkConfig: KafkaSinkConfig) = factory.getKafkaSerializationSchema(sinkConfig)
+
   def getEncoder(sinkConfig: SinkConfig) = factory.getEncoder(sinkConfig)
+
   def getAddToJdbcBatchFunction(sinkConfig: SinkConfig) = factory.getAddToJdbcBatchFunction(sinkConfig)
+
   def getBucketAssigner(p: Properties) = factory.getBucketAssigner(p)
 
   def getSourceConfig(name: String): SourceConfig = SourceConfig(name, this)
+
   def getSinkConfig(name: String): SinkConfig = SinkConfig(name, this)
 
   def getSourceNames: Seq[String] =
@@ -160,13 +170,13 @@ class FlinkConfig(
     else
       Try(getStringList("source.names")) match {
         case Success(sn) => sn
-        case Failure(_)  => getObject("sources").unwrapped().keySet().asScala.toSeq
+        case Failure(_) => getObject("sources").unwrapped().keySet().asScala.toSeq
       }
 
   def getSinkNames: Seq[String] =
     Try(getStringList("sink.names")) match {
       case Success(sn) => sn
-      case Failure(_)  => getObject("sinks").unwrapped().keySet().asScala.toSeq
+      case Failure(_) => getObject("sinks").unwrapped().keySet().asScala.toSeq
     }
 
   lazy val environment = getString("environment")
@@ -215,10 +225,10 @@ class FlinkConfig(
 
   lazy val timeCharacteristic = {
     getString("time.characteristic").toLowerCase.replaceFirst("\\s*time$", "") match {
-      case "event"      => TimeCharacteristic.EventTime
+      case "event" => TimeCharacteristic.EventTime
       case "processing" => TimeCharacteristic.ProcessingTime
-      case "ingestion"  => TimeCharacteristic.IngestionTime
-      case unknown      => throw new RuntimeException(s"Unknown time.characteristic setting: '$unknown'")
+      case "ingestion" => TimeCharacteristic.IngestionTime
+      case unknown => throw new RuntimeException(s"Unknown time.characteristic setting: '$unknown'")
     }
   }
 

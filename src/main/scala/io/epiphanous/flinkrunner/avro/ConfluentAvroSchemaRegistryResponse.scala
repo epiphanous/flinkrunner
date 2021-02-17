@@ -10,13 +10,14 @@ sealed trait ConfluentAvroSchemaRegistryResponse {
 }
 
 case class ConfluentAvroSchemaRegistryResponseById(schema: String) extends ConfluentAvroSchemaRegistryResponse
+
 object ConfluentAvroSchemaRegistryResponseById {
   implicit val encoder = deriveEncoder[ConfluentAvroSchemaRegistryResponseById]
   implicit val decoder = deriveDecoder[ConfluentAvroSchemaRegistryResponseById]
 }
 
 case class ConfluentAvroSchemaRegistryResponseBySubjectVersion(subject: String, id: Int, version: Int, schema: String)
-    extends ConfluentAvroSchemaRegistryResponse
+  extends ConfluentAvroSchemaRegistryResponse
 
 object ConfluentAvroSchemaRegistryResponseBySubjectVersion {
   implicit val encoder = deriveEncoder[ConfluentAvroSchemaRegistryResponseBySubjectVersion]
@@ -24,12 +25,13 @@ object ConfluentAvroSchemaRegistryResponseBySubjectVersion {
 }
 
 object ConfluentAvroSchemaRegistryResponse extends LazyLogging {
+
   import cats.syntax.functor._
 
   implicit val encoder: Encoder[ConfluentAvroSchemaRegistryResponse] = Encoder.instance {
-    case byId: ConfluentAvroSchemaRegistryResponseById                         => byId.asJson
+    case byId: ConfluentAvroSchemaRegistryResponseById => byId.asJson
     case bySubjectVersion: ConfluentAvroSchemaRegistryResponseBySubjectVersion => bySubjectVersion.asJson
-    case _                                                                     => throw new AvroCodingException("Unknown schema registry response")
+    case _ => throw new AvroCodingException("Unknown schema registry response")
   }
 
   implicit val decoder: Decoder[ConfluentAvroSchemaRegistryResponse] =

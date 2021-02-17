@@ -1,11 +1,11 @@
 package io.epiphanous.flinkrunner.model.aggregate
 
-import java.time.Instant
-
 import io.epiphanous.flinkrunner.BasePropSpec
 import io.epiphanous.flinkrunner.model.UnitMapper
 import squants.Kilograms
 import squants.mass.Mass
+
+import java.time.Instant
 
 class VarianceSpec extends BasePropSpec {
 
@@ -19,7 +19,7 @@ class VarianceSpec extends BasePropSpec {
       v3 <- v2.update(Kilograms(30), t, u)
       v4 <- v3.update(Kilograms(40), t, u)
     } yield v4.value
-    q.value shouldBe(166 + 2d/3)
+    q.value shouldBe (166 + 2d / 3)
   }
 
 }

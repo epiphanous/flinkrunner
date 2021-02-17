@@ -1,9 +1,5 @@
 package io.epiphanous.flinkrunner.util
 
-import java.io.{File, FileNotFoundException}
-import java.net.URL
-import java.nio.charset.StandardCharsets
-
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.SEE
 import io.epiphanous.flinkrunner.model._
@@ -27,6 +23,9 @@ import org.apache.flink.streaming.connectors.kinesis.{FlinkKinesisConsumer, Flin
 import org.apache.http.HttpHost
 import org.elasticsearch.client.Requests
 
+import java.io.{File, FileNotFoundException}
+import java.net.URL
+import java.nio.charset.StandardCharsets
 import scala.collection.JavaConverters._
 
 object StreamUtils extends LazyLogging {
@@ -57,54 +56,57 @@ object StreamUtils extends LazyLogging {
     def |>[B](t: A => B) = t(v)
 
     // side effect op
-    def |#(e: A => Unit): A = { e(v); v }
+    def |#(e: A => Unit): A = {
+      e(v); v
+    }
   }
 
-//  /**
-//    * Generates a timestamp and watermark assigner for a stream with a given type of element that limits
-//    * how late an element is allowed to arrive in event time.
-//    *
-//    * @param config implicitly provided job config
-//    * @tparam E the type of stream element
-//    * @return BoundedLatenessGenerator[E]
-//    */
-//  def boundedLatenessEventTime[E <: FlinkEvent: TypeInformation](
-//    streamID: String
-//  )(implicit config: FlinkConfig
-//  ): BoundedLatenessGenerator[E] =
-//    new BoundedLatenessGenerator[E](config.maxLateness.toMillis, streamID)
+  //  /**
+  //    * Generates a timestamp and watermark assigner for a stream with a given type of element that limits
+  //    * how late an element is allowed to arrive in event time.
+  //    *
+  //    * @param config implicitly provided job config
+  //    * @tparam E the type of stream element
+  //    * @return BoundedLatenessGenerator[E]
+  //    */
+  //  def boundedLatenessEventTime[E <: FlinkEvent: TypeInformation](
+  //    streamID: String
+  //  )(implicit config: FlinkConfig
+  //  ): BoundedLatenessGenerator[E] =
+  //    new BoundedLatenessGenerator[E](config.maxLateness.toMillis, streamID)
 
   /**
     * Applies a bounded of order watermarking strategy with idleness checking
+    *
     * @param config implicitly provided job config
     * @tparam E the type of stream element
     * @return BoundedLatenessGenerator[E]
     */
-  def boundedOutofOrderness[E <: FlinkEvent: TypeInformation]()(implicit config: FlinkConfig): WatermarkStrategy[E] =
+  def boundedOutofOrderness[E <: FlinkEvent : TypeInformation]()(implicit config: FlinkConfig): WatermarkStrategy[E] =
     WatermarkStrategy.forBoundedOutOfOrderness(config.maxLateness).withIdleness(config.maxIdleness)
 
-//  /**
-//    * Creates an ascending timestamp extractor.
-//    * @tparam E type of stream element
-//    * @return AscendingTimestampExtractor[E]
-//    */
-//  def ascendingTimestampExtractor[E <: FlinkEvent: TypeInformation](): AscendingTimestampExtractor[E] = {
-//    val extractor: AscendingTimestampExtractor[E] = new AscendingTimestampExtractor[E] {
-//      var lastTimestamp = Long.MinValue
-//      def extractAscendingTimestamp(event: E) = {
-//        lastTimestamp = event.$timestamp
-//        lastTimestamp
-//      }
-//    }
-//    extractor.withViolationHandler(new IgnoringHandler())
-//    extractor
-//  }
+  //  /**
+  //    * Creates an ascending timestamp extractor.
+  //    * @tparam E type of stream element
+  //    * @return AscendingTimestampExtractor[E]
+  //    */
+  //  def ascendingTimestampExtractor[E <: FlinkEvent: TypeInformation](): AscendingTimestampExtractor[E] = {
+  //    val extractor: AscendingTimestampExtractor[E] = new AscendingTimestampExtractor[E] {
+  //      var lastTimestamp = Long.MinValue
+  //      def extractAscendingTimestamp(event: E) = {
+  //        lastTimestamp = event.$timestamp
+  //        lastTimestamp
+  //      }
+  //    }
+  //    extractor.withViolationHandler(new IgnoringHandler())
+  //    extractor
+  //  }
 
-  def maybeAssignTimestampsAndWatermarks[E <: FlinkEvent: TypeInformation](
-    in: DataStream[E]
-  )(implicit config: FlinkConfig,
-    env: SEE
-  ): DataStream[E] =
+  def maybeAssignTimestampsAndWatermarks[E <: FlinkEvent : TypeInformation](
+                                                                             in: DataStream[E]
+                                                                           )(implicit config: FlinkConfig,
+                                                                             env: SEE
+                                                                           ): DataStream[E] =
     if (env.getStreamTimeCharacteristic == TimeCharacteristic.EventTime)
       in.assignTimestampsAndWatermarks(boundedOutofOrderness[E]())
         .name(s"wm:${in.name}")
@@ -113,40 +115,42 @@ object StreamUtils extends LazyLogging {
 
   /**
     * Configure stream source from configuration.
+    *
     * @param sourceName the name of the source to get its configuration
     * @tparam E stream element type
     * @return DataStream[E]
     */
-  def fromSource[E <: FlinkEvent: TypeInformation](
-    sourceName: String = ""
-  )(implicit config: FlinkConfig,
-    env: SEE
-  ): DataStream[E] = {
+  def fromSource[E <: FlinkEvent : TypeInformation](
+                                                     sourceName: String = ""
+                                                   )(implicit config: FlinkConfig,
+                                                     env: SEE
+                                                   ): DataStream[E] = {
     val name = if (sourceName.isEmpty) config.getSourceNames.head else sourceName
     val src = config.getSourceConfig(name)
     val uid = src.label
     (src match {
-      case src: KafkaSourceConfig      => fromKafka(src)
-      case src: KinesisSourceConfig    => fromKinesis(src)
-      case src: FileSourceConfig       => fromFile(src)
-      case src: SocketSourceConfig     => fromSocket(src)
+      case src: KafkaSourceConfig => fromKafka(src)
+      case src: KinesisSourceConfig => fromKinesis(src)
+      case src: FileSourceConfig => fromFile(src)
+      case src: SocketSourceConfig => fromSocket(src)
       case src: CollectionSourceConfig => fromCollection(src)
-      case src                         => throw new IllegalArgumentException(s"unsupported source connector: ${src.connector}")
+      case src => throw new IllegalArgumentException(s"unsupported source connector: ${src.connector}")
     }).name(uid).uid(uid)
   }
 
   /**
     * Configure stream from kafka source.
+    *
     * @param srcConfig a source config
-    * @param config implicitly provided job config
+    * @param config    implicitly provided job config
     * @tparam E stream element type
     * @return DataStream[E]
     */
-  def fromKafka[E <: FlinkEvent: TypeInformation](
-    srcConfig: KafkaSourceConfig
-  )(implicit config: FlinkConfig,
-    env: SEE
-  ): DataStream[E] = {
+  def fromKafka[E <: FlinkEvent : TypeInformation](
+                                                    srcConfig: KafkaSourceConfig
+                                                  )(implicit config: FlinkConfig,
+                                                    env: SEE
+                                                  ): DataStream[E] = {
     val consumer =
       new FlinkKafkaConsumer[E](
         srcConfig.topic,
@@ -159,20 +163,21 @@ object StreamUtils extends LazyLogging {
 
   /**
     * Configure stream from kinesis.
+    *
     * @param srcConfig a source config
-    * @param config implicitly provided job config
+    * @param config    implicitly provided job config
     * @tparam E stream element type
     * @return DataStream[E]
     */
-  def fromKinesis[E <: FlinkEvent: TypeInformation](
-    srcConfig: KinesisSourceConfig
-  )(implicit config: FlinkConfig,
-    env: SEE
-  ): DataStream[E] = {
+  def fromKinesis[E <: FlinkEvent : TypeInformation](
+                                                      srcConfig: KinesisSourceConfig
+                                                    )(implicit config: FlinkConfig,
+                                                      env: SEE
+                                                    ): DataStream[E] = {
     val consumer =
       new FlinkKinesisConsumer[E](srcConfig.stream,
-                                  config.getDeserializationSchema(srcConfig).asInstanceOf[DeserializationSchema[E]],
-                                  srcConfig.properties)
+        config.getDeserializationSchema(srcConfig).asInstanceOf[DeserializationSchema[E]],
+        srcConfig.properties)
     env
       .addSource(consumer)
       .name(srcConfig.label)
@@ -180,19 +185,20 @@ object StreamUtils extends LazyLogging {
 
   /**
     * Configure stream from file source.
+    *
     * @param srcConfig a source config
-    * @param config implicitly provided job config
+    * @param config    implicitly provided job config
     * @tparam E stream element type
     * @return DataStream[E]
     */
-  def fromFile[E <: FlinkEvent: TypeInformation](
-    srcConfig: FileSourceConfig
-  )(implicit config: FlinkConfig,
-    env: SEE
-  ): DataStream[E] = {
+  def fromFile[E <: FlinkEvent : TypeInformation](
+                                                   srcConfig: FileSourceConfig
+                                                 )(implicit config: FlinkConfig,
+                                                   env: SEE
+                                                 ): DataStream[E] = {
     val path = srcConfig.path match {
       case RESOURCE_PATTERN(p) => getSourceFilePath(p)
-      case other               => other
+      case other => other
     }
     val ds = config.getDeserializationSchema(srcConfig).asInstanceOf[DeserializationSchema[E]]
     env
@@ -204,16 +210,17 @@ object StreamUtils extends LazyLogging {
 
   /**
     * Configure stream from socket source.
+    *
     * @param srcConfig a source config
-    * @param config implicitly provided job config
+    * @param config    implicitly provided job config
     * @tparam E stream element type
     * @return DataStream[E]
     */
-  def fromSocket[E <: FlinkEvent: TypeInformation](
-    srcConfig: SocketSourceConfig
-  )(implicit config: FlinkConfig,
-    env: SEE
-  ): DataStream[E] =
+  def fromSocket[E <: FlinkEvent : TypeInformation](
+                                                     srcConfig: SocketSourceConfig
+                                                   )(implicit config: FlinkConfig,
+                                                     env: SEE
+                                                   ): DataStream[E] =
     env
       .socketTextStream(srcConfig.host, srcConfig.port)
       .name(s"raw:${srcConfig.label}")
@@ -228,16 +235,17 @@ object StreamUtils extends LazyLogging {
 
   /**
     * Configure stream from collection source.
+    *
     * @param srcConfig a source config
-    * @param config implicitly provided job config
+    * @param config    implicitly provided job config
     * @tparam E stream element type
     * @return DataStream[E]
     */
-  def fromCollection[E <: FlinkEvent: TypeInformation](
-    srcConfig: CollectionSourceConfig
-  )(implicit config: FlinkConfig,
-    env: SEE
-  ): DataStream[E] =
+  def fromCollection[E <: FlinkEvent : TypeInformation](
+                                                         srcConfig: CollectionSourceConfig
+                                                       )(implicit config: FlinkConfig,
+                                                         env: SEE
+                                                       ): DataStream[E] =
     env
       .fromCollection[Array[Byte]](config.getCollectionSource(srcConfig.topic))
       .name(s"raw:${srcConfig.label}")
@@ -260,22 +268,22 @@ object StreamUtils extends LazyLogging {
       case None =>
         Option(loader.getResource(s"$filename.gz")) match {
           case Some(value) => value.toURI
-          case None        => throw new FileNotFoundException(s"can't load resource $filename")
+          case None => throw new FileNotFoundException(s"can't load resource $filename")
         }
     }
     val file = new File(resource)
     file.getAbsolutePath
   }
 
-  implicit class EventStreamOps[E <: FlinkEvent: TypeInformation](stream: DataStream[E]) {
+  implicit class EventStreamOps[E <: FlinkEvent : TypeInformation](stream: DataStream[E]) {
 
-    def as[T <: FlinkEvent: TypeInformation]: DataStream[T] = {
+    def as[T <: FlinkEvent : TypeInformation]: DataStream[T] = {
       val name = stream.name
       stream
-        .filter((e: E) => e.isInstanceOf[T @unchecked])
+        .filter((e: E) => e.isInstanceOf[T@unchecked])
         .name(s"filter types $name")
         .uid(s"filter types $name")
-        .map((e: E) => e.asInstanceOf[T @unchecked])
+        .map((e: E) => e.asInstanceOf[T@unchecked])
         .name(s"cast types $name")
         .uid(s"cast types $name")
     }
@@ -287,74 +295,77 @@ object StreamUtils extends LazyLogging {
 
   /**
     * Configure stream sink from configuration.
-    * @param stream the data stream to send to sink
+    *
+    * @param stream   the data stream to send to sink
     * @param sinkName a sink name to obtain configuration
-    * @param config implicit flink job args
+    * @param config   implicit flink job args
     * @tparam E stream element type
     * @return DataStream[E]
     */
-  def toSink[E <: FlinkEvent: TypeInformation](
-    stream: DataStream[E],
-    sinkName: String = ""
-  )(implicit config: FlinkConfig
-  ) = {
+  def toSink[E <: FlinkEvent : TypeInformation](
+                                                 stream: DataStream[E],
+                                                 sinkName: String = ""
+                                               )(implicit config: FlinkConfig
+                                               ) = {
     val name = if (sinkName.isEmpty) config.getSinkNames.head else sinkName
     val src = config.getSinkConfig(name)
     (src match {
-      case s: KafkaSinkConfig         => toKafka[E](stream, s)
-      case s: KinesisSinkConfig       => toKinesis[E](stream, s)
-      case s: FileSinkConfig          => toFile[E](stream, s)
-      case s: SocketSinkConfig        => toSocket[E](stream, s)
-      case s: JdbcSinkConfig          => toJdbc[E](stream, s)
-      case s: CassandraSinkConfig     => toCassandraSink[E](stream, s)
+      case s: KafkaSinkConfig => toKafka[E](stream, s)
+      case s: KinesisSinkConfig => toKinesis[E](stream, s)
+      case s: FileSinkConfig => toFile[E](stream, s)
+      case s: SocketSinkConfig => toSocket[E](stream, s)
+      case s: JdbcSinkConfig => toJdbc[E](stream, s)
+      case s: CassandraSinkConfig => toCassandraSink[E](stream, s)
       case s: ElasticsearchSinkConfig => toElasticsearchSink[E](stream, s)
-      case s                          => throw new IllegalArgumentException(s"unsupported source connector: ${s.connector}")
+      case s => throw new IllegalArgumentException(s"unsupported source connector: ${s.connector}")
     })
   }
 
   /**
     * Send stream to a kafka sink.
-    * @param stream the data stream
+    *
+    * @param stream     the data stream
     * @param sinkConfig a sink configuration
-    * @param config implicit job args
+    * @param config     implicit job args
     * @tparam E stream element type
     * @return DataStreamSink[E]
     */
-  def toKafka[E <: FlinkEvent: TypeInformation](
-    stream: DataStream[E],
-    sinkConfig: KafkaSinkConfig
-  )(implicit config: FlinkConfig
-  ) =
+  def toKafka[E <: FlinkEvent : TypeInformation](
+                                                  stream: DataStream[E],
+                                                  sinkConfig: KafkaSinkConfig
+                                                )(implicit config: FlinkConfig
+                                                ) =
     stream
       .addSink(
         new FlinkKafkaProducer[E](sinkConfig.topic,
-                                  config
-                                    .getKafkaSerializationSchema(sinkConfig)
-                                    .asInstanceOf[KafkaSerializationSchema[E]],
-                                  sinkConfig.properties,
-                                  Semantic.AT_LEAST_ONCE)
+          config
+            .getKafkaSerializationSchema(sinkConfig)
+            .asInstanceOf[KafkaSerializationSchema[E]],
+          sinkConfig.properties,
+          Semantic.AT_LEAST_ONCE)
       )
       .uid(sinkConfig.label)
       .name(sinkConfig.label)
 
   /**
     * Send stream to a kinesis sink.
-    * @param stream the data stream
+    *
+    * @param stream     the data stream
     * @param sinkConfig a sink configuration
-    * @param config implicit job args
+    * @param config     implicit job args
     * @tparam E stream element type
     * @return DataStreamSink[E]
     */
-  def toKinesis[E <: FlinkEvent: TypeInformation](
-    stream: DataStream[E],
-    sinkConfig: KinesisSinkConfig
-  )(implicit config: FlinkConfig
-  ) =
+  def toKinesis[E <: FlinkEvent : TypeInformation](
+                                                    stream: DataStream[E],
+                                                    sinkConfig: KinesisSinkConfig
+                                                  )(implicit config: FlinkConfig
+                                                  ) =
     stream
       .addSink({
         val sink =
           new FlinkKinesisProducer[E](config.getSerializationSchema(sinkConfig).asInstanceOf[SerializationSchema[E]],
-                                      sinkConfig.properties)
+            sinkConfig.properties)
         sink.setDefaultStream(sinkConfig.stream)
         sink.setFailOnError(true)
         sink.setDefaultPartition("0")
@@ -365,38 +376,40 @@ object StreamUtils extends LazyLogging {
 
   /**
     * Send stream to a socket sink.
-    * @param stream the data stream
+    *
+    * @param stream     the data stream
     * @param sinkConfig a sink configuration
-    * @param config implicit job args
+    * @param config     implicit job args
     * @tparam E stream element type
     * @return DataStreamSink[E]
     */
-  def toJdbc[E <: FlinkEvent: TypeInformation](
-    stream: DataStream[E],
-    sinkConfig: JdbcSinkConfig
-  )(implicit config: FlinkConfig
-  ) =
+  def toJdbc[E <: FlinkEvent : TypeInformation](
+                                                 stream: DataStream[E],
+                                                 sinkConfig: JdbcSinkConfig
+                                               )(implicit config: FlinkConfig
+                                               ) =
     stream
       .addSink(
         new JdbcSink(config.getAddToJdbcBatchFunction(sinkConfig).asInstanceOf[AddToJdbcBatchFunction[E]],
-                     sinkConfig.properties)
+          sinkConfig.properties)
       )
       .uid(sinkConfig.label)
       .name(sinkConfig.label)
 
   /**
     * Send stream to a rolling file sink.
-    * @param stream the data stream
+    *
+    * @param stream     the data stream
     * @param sinkConfig a sink configuration
-    * @param config implicit job args
+    * @param config     implicit job args
     * @tparam E stream element type
     * @return DataStreamSink[E]
     */
-  def toFile[E <: FlinkEvent: TypeInformation](
-    stream: DataStream[E],
-    sinkConfig: FileSinkConfig
-  )(implicit config: FlinkConfig
-  ) = {
+  def toFile[E <: FlinkEvent : TypeInformation](
+                                                 stream: DataStream[E],
+                                                 sinkConfig: FileSinkConfig
+                                               )(implicit config: FlinkConfig
+                                               ) = {
     val path = sinkConfig.path
     val p = sinkConfig.properties
     val bucketCheckInterval = p.getProperty("bucket.check.interval", s"${60000}").toLong
@@ -405,7 +418,7 @@ object StreamUtils extends LazyLogging {
       case "datetime" =>
         new DateTimeBucketAssigner[E](p.getProperty("bucket.assigner.datetime.format", "YYYY/MM/DD/HH"))
       case "custom" => config.getBucketAssigner(p).asInstanceOf[BucketAssigner[E, String]]
-      case other    => throw new IllegalArgumentException(s"Unknown bucket assigner type '$other'.")
+      case other => throw new IllegalArgumentException(s"Unknown bucket assigner type '$other'.")
     }
     val encoderFormat = p.getProperty("encoder.format", "row")
     val sink = encoderFormat match {
@@ -423,7 +436,7 @@ object StreamUtils extends LazyLogging {
               )
               .build[E, String]()
           case "checkpoint" => OnCheckpointRollingPolicy.build[E, String]()
-          case policy       => throw new IllegalArgumentException(s"Unknown bucket rolling policy type: '$policy'")
+          case policy => throw new IllegalArgumentException(s"Unknown bucket rolling policy type: '$policy'")
         }
         builder
           .withBucketAssigner(bucketAssigner)
@@ -440,32 +453,34 @@ object StreamUtils extends LazyLogging {
 
   /**
     * Send stream to a socket sink.
-    * @param stream the data stream
+    *
+    * @param stream     the data stream
     * @param sinkConfig a sink configuration
-    * @param config implicit job args
+    * @param config     implicit job args
     * @tparam E stream element type
     * @return DataStreamSink[E]
     */
-  def toSocket[E <: FlinkEvent: TypeInformation](
-    stream: DataStream[E],
-    sinkConfig: SocketSinkConfig
-  )(implicit config: FlinkConfig
-  ) =
+  def toSocket[E <: FlinkEvent : TypeInformation](
+                                                   stream: DataStream[E],
+                                                   sinkConfig: SocketSinkConfig
+                                                 )(implicit config: FlinkConfig
+                                                 ) =
     stream
       .writeToSocket(sinkConfig.host,
-                     sinkConfig.port,
-                     config.getSerializationSchema(sinkConfig).asInstanceOf[SerializationSchema[E]])
+        sinkConfig.port,
+        config.getSerializationSchema(sinkConfig).asInstanceOf[SerializationSchema[E]])
       .uid(sinkConfig.label)
       .name(sinkConfig.label)
 
   /**
     * Send stream to a cassandra sink.
-    * @param stream the data stream
+    *
+    * @param stream     the data stream
     * @param sinkConfig a sink configuration
     * @tparam E stream element type
     * @return DataStreamSink[E]
     */
-  def toCassandraSink[E <: FlinkEvent: TypeInformation](stream: DataStream[E], sinkConfig: CassandraSinkConfig) =
+  def toCassandraSink[E <: FlinkEvent : TypeInformation](stream: DataStream[E], sinkConfig: CassandraSinkConfig) =
     CassandraSink
       .addSink(stream)
       .setHost(sinkConfig.host)
@@ -476,15 +491,16 @@ object StreamUtils extends LazyLogging {
 
   /**
     * Send stream to an elasticsearch sink.
-    * @param stream the data stream
+    *
+    * @param stream     the data stream
     * @param sinkConfig a sink configuration
     * @tparam E stream element type
     * @return DataStreamSink[E]
     */
-  def toElasticsearchSink[E <: FlinkEvent: TypeInformation](
-    stream: DataStream[E],
-    sinkConfig: ElasticsearchSinkConfig
-  ) = {
+  def toElasticsearchSink[E <: FlinkEvent : TypeInformation](
+                                                              stream: DataStream[E],
+                                                              sinkConfig: ElasticsearchSinkConfig
+                                                            ) = {
     val hosts = sinkConfig.transports
       .map(s => {
         val url = new URL(if (s.startsWith("http")) s else s"http://${s}")
@@ -496,7 +512,7 @@ object StreamUtils extends LazyLogging {
     val esSink = new ElasticsearchSink.Builder[E](hosts, new ElasticsearchSinkFunction[E] {
       override def process(element: E, ctx: RuntimeContext, indexer: RequestIndexer): Unit = {
         val data = (element.getClass.getDeclaredFields
-          .filterNot(f => Seq("$id","$key","$timestamp","$action").contains(f.getName)).foldLeft(Map.empty[String,Any]) {
+          .filterNot(f => Seq("$id", "$key", "$timestamp", "$action").contains(f.getName)).foldLeft(Map.empty[String, Any]) {
           case (a, f) =>
             f.setAccessible(true)
             val name = f.getName

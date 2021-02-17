@@ -1,9 +1,10 @@
 package io.epiphanous.flinkrunner.algorithm.membership
-import java.nio.charset.StandardCharsets
 
 import com.google.common.hash.Funnels
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+
+import java.nio.charset.StandardCharsets
 
 class StableBloomFilterTest extends AnyFlatSpec with Matchers {
 

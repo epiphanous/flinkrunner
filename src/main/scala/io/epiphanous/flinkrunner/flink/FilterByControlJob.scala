@@ -14,7 +14,7 @@ import org.apache.flink.streaming.api.scala.DataStream
   * As an example, let `on` represent an active control, `off` represent an inactive control,
   * and `d` to represent data elements. Then the following stream:
   *
-  *    `d1 d2 on d3 d4 d5 off d6 d7`
+  * `d1 d2 on d3 d4 d5 off d6 d7`
   *
   * would output `d3 d4 d5`.
   *
@@ -23,13 +23,14 @@ import org.apache.flink.streaming.api.scala.DataStream
   * @tparam OUT the output stream element type
   */
 abstract class FilterByControlJob[
-  D <: FlinkEvent: TypeInformation,
-  C <: FlinkEvent: TypeInformation,
-  OUT <: FlinkEvent: TypeInformation]
-    extends FlinkJob[D, OUT] {
+  D <: FlinkEvent : TypeInformation,
+  C <: FlinkEvent : TypeInformation,
+  OUT <: FlinkEvent : TypeInformation]
+  extends FlinkJob[D, OUT] {
 
   /**
     * A source data stream for the data events.
+    *
     * @param config implicit flink config
     * @return a data stream of data events.
     */
@@ -37,6 +38,7 @@ abstract class FilterByControlJob[
 
   /**
     * A source data stream for the control events.
+    *
     * @param config implicit flink config
     * @return a data stream of control events.
     */
@@ -48,7 +50,8 @@ abstract class FilterByControlJob[
     * in subclasses. It interleaves the data and control streams to produce a single stream of
     * DataOrControl objects and then uses a flat map with state to determine when to emit
     * the data records. It remembers the last control time and state and updates it when the state changes.
-    **
+    * *
+    *
     * @param config implicit flink config
     * @return data stream of data records
     */
@@ -76,7 +79,7 @@ abstract class FilterByControlJob[
         } else {
           val update = lastControlOpt match {
             case Some((_, active)) => dc.$active != active
-            case None              => true
+            case None => true
           }
           (false, if (update) Some((dc.$timestamp, dc.$active)) else lastControlOpt)
         }

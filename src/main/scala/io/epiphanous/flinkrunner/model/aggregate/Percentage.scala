@@ -1,20 +1,20 @@
 package io.epiphanous.flinkrunner.model.aggregate
 
-import java.time.Instant
-
 import io.epiphanous.flinkrunner.model.UnitMapper
 import squants.{Percent, Quantity}
 
+import java.time.Instant
+
 final case class Percentage(
-  dimension: String,
-  unit: String,
-  value: Double = 0d,
-  count: BigInt = BigInt(0),
-  aggregatedLastUpdated: Instant = Instant.EPOCH,
-  lastUpdated: Instant = Instant.now(),
-  dependentAggregations: Map[String, Aggregate] = Map.empty[String, Aggregate],
-  params: Map[String, String] = Map("base" -> Percentage.defaultBase))
-    extends Aggregate {
+                             dimension: String,
+                             unit: String,
+                             value: Double = 0d,
+                             count: BigInt = BigInt(0),
+                             aggregatedLastUpdated: Instant = Instant.EPOCH,
+                             lastUpdated: Instant = Instant.now(),
+                             dependentAggregations: Map[String, Aggregate] = Map.empty[String, Aggregate],
+                             params: Map[String, String] = Map("base" -> Percentage.defaultBase))
+  extends Aggregate {
 
   override def isDimensionless = true
 
@@ -39,7 +39,9 @@ final case class Percentage(
 
 object Percentage {
   final val DEFAULT_BASE = 1d
+
   def defaultBase = DEFAULT_BASE.toString
+
   def apply(dimension: String, unit: String, base: Double): Percentage =
     Percentage(dimension, unit, params = Map("base" -> base.toString))
 }

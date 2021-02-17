@@ -1,14 +1,13 @@
 package io.epiphanous.flinkrunner.avro
 
-import java.nio.ByteBuffer
-
 import com.sksamuel.avro4s.AvroSchema
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.avro.file.DataFileConstants
 import org.scalatest.TryValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import RegisteredAvroSchema._
+
+import java.nio.ByteBuffer
 
 class RegisteredAvroSchemaTest extends AnyFlatSpec with Matchers with TryValues with LazyLogging {
   behavior of "RegisteredAvroSchemaTest"

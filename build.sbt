@@ -28,7 +28,7 @@ val V = new {
   val enumeratum = "1.6.1"
   val typesafeConfig = "1.4.0"
   val guava = "29.0-jre"
-  val squants = "1.7.1"
+  val squants = "1.7.0"
   val avro = "1.10.1"
   val avro4s = "4.0.4"
 }
