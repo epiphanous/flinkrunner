@@ -35,16 +35,20 @@
   <a href="https://twitter.com/epiphanous">nextdude@epiphanous.io</a> and
   <a href="https://github.com/epiphanous/flinkrunner/graphs/contributors">
     contributors
-  </a>
+  </a></sub>
 </div>
 
 ## Maven Dependency
 
-`Flinkrunner 3` is available on maven central, built against Flink 1.11 with Scala 2.12 and JDK 11.
+`Flinkrunner 3` is [available on maven central](https://mvnrepository.com/artifact/io.epiphanous/flinkrunner_2.12),
+built against Flink 1.11 with Scala 2.12 and JDK 11.
 
 ```sbtshell
-libraryDependencies += "io.epiphanous" %% "flinkrunner" % "3.0.6"
+libraryDependencies += "io.epiphanous" %% "flinkrunner" % <flinkrunner-version>
 ```
+
+replacing `<flinkrunner-version>` with the currently released version of [flinkrunner on
+maven](https://mvnrepository.com/artifact/io.epiphanous/flinkrunner_2.12).
 
 ## What is FlinkRunner?
 
@@ -283,4 +287,3 @@ While you're free to override any of these methods in your job, usually you just
 method that converts your `DataStream[IN]` to a `DataStream[OUT]`.
 
 > TODO: Finish README.
-
