@@ -22,32 +22,43 @@ import java.util.Properties
 
 trait FlinkRunnerFactory[ADT <: FlinkEvent] {
 
-  def getJobInstance(name: String): BaseFlinkJob[_, _ <: ADT]
+  def getJobInstance(
+      name: String,
+      config: FlinkConfig): BaseFlinkJob[_, _ <: ADT]
 
   def getDeserializationSchema(
-      sourceConfig: SourceConfig): DeserializationSchema[ADT] = ???
+      name: String,
+      config: FlinkConfig): DeserializationSchema[ADT] = ???
 
   def getKafkaDeserializationSchema(
-      sourceConfig: KafkaSourceConfig): KafkaDeserializationSchema[ADT] =
+      name: String,
+      config: FlinkConfig): KafkaDeserializationSchema[ADT] =
     ???
 
-  def getKinesisDeserializationSchema(sourceConfig: KinesisSourceConfig)
-      : KinesisDeserializationSchema[ADT] = ???
+  def getKinesisDeserializationSchema(
+      name: String,
+      config: FlinkConfig): KinesisDeserializationSchema[ADT] = ???
 
   def getSerializationSchema(
-      sinkConfig: SinkConfig): SerializationSchema[ADT] = ???
+      name: String,
+      config: FlinkConfig): SerializationSchema[ADT] = ???
 
   def getKafkaSerializationSchema(
-      sinkConfig: KafkaSinkConfig): KafkaSerializationSchema[ADT] = ???
+      name: String,
+      config: FlinkConfig): KafkaSerializationSchema[ADT] = ???
 
   def getKinesisSerializationSchema(
-      sinkConfig: KinesisSinkConfig): KinesisSerializationSchema[ADT] = ???
+      name: String,
+      config: FlinkConfig): KinesisSerializationSchema[ADT] = ???
 
-  def getEncoder(sinkConfig: SinkConfig): Encoder[ADT] = ???
+  def getEncoder(name: String, config: FlinkConfig): Encoder[ADT] = ???
 
   def getAddToJdbcBatchFunction(
-      sinkConfig: SinkConfig): AddToJdbcBatchFunction[ADT] = ???
+      name: String,
+      config: FlinkConfig): AddToJdbcBatchFunction[ADT] = ???
 
-  def getBucketAssigner(props: Properties): BucketAssigner[ADT, String] =
+  def getBucketAssigner(
+      name: String,
+      config: FlinkConfig): BucketAssigner[ADT, String] =
     ???
 }

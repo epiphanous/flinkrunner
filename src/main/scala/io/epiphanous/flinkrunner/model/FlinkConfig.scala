@@ -169,32 +169,33 @@ class FlinkConfig(
       .newInstance()
       .asInstanceOf[T]
 
-  def getJobInstance = factory.getJobInstance(jobName)
+  def getJobInstance = factory.getJobInstance(jobName, this)
 
-  def getDeserializationSchema(sourceConfig: SourceConfig) =
-    factory.getDeserializationSchema(sourceConfig)
+  def getDeserializationSchema(name: String) =
+    factory.getDeserializationSchema(name, this)
 
-  def getKafkaDeserializationSchema(sourceConfig: KafkaSourceConfig) =
-    factory.getKafkaDeserializationSchema(sourceConfig)
+  def getKafkaDeserializationSchema(name: String) =
+    factory.getKafkaDeserializationSchema(name, this)
 
-  def getKinesisDeserializationSchema(sourceConfig: KinesisSourceConfig) =
-    factory.getKinesisDeserializationSchema(sourceConfig)
+  def getKinesisDeserializationSchema(name: String) =
+    factory.getKinesisDeserializationSchema(name, this)
 
-  def getSerializationSchema(sinkConfig: SinkConfig) =
-    factory.getSerializationSchema(sinkConfig)
+  def getSerializationSchema(name: String) =
+    factory.getSerializationSchema(name, this)
 
-  def getKafkaSerializationSchema(sinkConfig: KafkaSinkConfig) =
-    factory.getKafkaSerializationSchema(sinkConfig)
+  def getKafkaSerializationSchema(name: String) =
+    factory.getKafkaSerializationSchema(name, this)
 
-  def getKinesisSerializationSchema(sinkConfig: KinesisSinkConfig) =
-    factory.getKinesisSerializationSchema(sinkConfig)
+  def getKinesisSerializationSchema(name: String) =
+    factory.getKinesisSerializationSchema(name, this)
 
-  def getEncoder(sinkConfig: SinkConfig) = factory.getEncoder(sinkConfig)
+  def getEncoder(name: String) = factory.getEncoder(name, this)
 
-  def getAddToJdbcBatchFunction(sinkConfig: SinkConfig) =
-    factory.getAddToJdbcBatchFunction(sinkConfig)
+  def getAddToJdbcBatchFunction(name: String) =
+    factory.getAddToJdbcBatchFunction(name, this)
 
-  def getBucketAssigner(p: Properties) = factory.getBucketAssigner(p)
+  def getBucketAssigner(name: String) =
+    factory.getBucketAssigner(name, this)
 
   def getSourceConfig(name: String): SourceConfig =
     SourceConfig(name, this)

@@ -43,12 +43,12 @@ class RegisteredAvroSchemaTest
   }
 
   it should "encode without magic" in {
-    val encoded = regSchema
+    val encoded  = regSchema
       .encode(testObj, false)
     encoded.isSuccess shouldBe true
-    val magic   = DataFileConstants.MAGIC
-    val result  = encoded.success.value.slice(0, magic.length)
-    result.shouldEqual(magic)
+    val expected = Array(2, 0, 10, 104, 101)
+    val result   = encoded.success.value.slice(0, 5)
+    result.shouldEqual(expected)
   }
 
   it should "encode and decode" in {

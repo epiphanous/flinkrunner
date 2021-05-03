@@ -17,17 +17,19 @@ import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
 class ConfluentAvroSchemaRegistryClient(
-                                         preloaded: Map[String, RegisteredAvroSchema] = Map.empty
-                                       )(implicit config: FlinkConfig,
-                                         decoder: Decoder[ConfluentAvroSchemaRegistryResponse])
-  extends AvroSchemaRegistryClient
+    preloaded: Map[String, RegisteredAvroSchema] = Map.empty
+)(implicit
+    config: FlinkConfig,
+    decoder: Decoder[ConfluentAvroSchemaRegistryResponse])
+    extends AvroSchemaRegistryClient
     with StringUtils
     with LazyLogging {
 
   import ConfluentAvroSchemaRegistryClient.configPrefix
 
   @transient
-  lazy implicit val entityDecoder: EntityDecoder[IO, ConfluentAvroSchemaRegistryResponse] =
+  lazy implicit val entityDecoder
+      : EntityDecoder[IO, ConfluentAvroSchemaRegistryResponse] =
     jsonOf[IO, ConfluentAvroSchemaRegistryResponse]
 
   @transient
@@ -46,49 +48,59 @@ class ConfluentAvroSchemaRegistryClient(
   lazy val parser = new Parser()
 
   @transient
-  lazy val urlBase = config.getString(s"$configPrefix.url.base")
+  lazy val urlBase     = config.getString(s"$configPrefix.url.base")
   @transient
-  lazy val cacheLoader = new CacheLoader[String, Try[RegisteredAvroSchema]] {
-    override def load(uri: String): Try[RegisteredAvroSchema] = {
-      logger.debug(s"=== confluent schema registry cache load $uri")
-      preloaded.get(uri) match {
-        case Some(pre) => Success(pre)
-        case None =>
-          api
-            .use { client =>
-              client.expect[ConfluentAvroSchemaRegistryResponse](uri).attempt
-            }
-            .unsafeRunSync() match {
-            case Left(failure) =>
-              logger.error(s"Can't load key $uri: ${failure.getMessage}")
-              Failure(failure)
-            case Right(response) =>
-              response match {
-                case byId: ConfluentAvroSchemaRegistryResponseById =>
-                  val id = uri.split("/").last.toInt
-                  val schema = parser.parse(byId.schema)
-                  Success(RegisteredAvroSchema(id, schema, schema.getFullName))
-                case bySubjectVersion: ConfluentAvroSchemaRegistryResponseBySubjectVersion =>
-                  val schema = parser.parse(bySubjectVersion.schema)
-                  Success(
-                    RegisteredAvroSchema(bySubjectVersion.id,
-                      schema,
-                      bySubjectVersion.subject,
-                      bySubjectVersion.version)
-                  )
+  lazy val cacheLoader =
+    new CacheLoader[String, Try[RegisteredAvroSchema]] {
+      override def load(uri: String): Try[RegisteredAvroSchema] = {
+        logger.debug(s"=== confluent schema registry cache load $uri")
+        preloaded.get(uri) match {
+          case Some(pre) => Success(pre)
+          case None      =>
+            api
+              .use { client =>
+                client
+                  .expect[ConfluentAvroSchemaRegistryResponse](uri)
+                  .attempt
               }
-          }
+              .unsafeRunSync() match {
+              case Left(failure)   =>
+                logger.error(s"Can't load key $uri: ${failure.getMessage}")
+                Failure(failure)
+              case Right(response) =>
+                response match {
+                  case byId: ConfluentAvroSchemaRegistryResponseById                         =>
+                    val id     = uri.split("/").last.toInt
+                    val schema = parser.parse(byId.schema)
+                    Success(
+                      RegisteredAvroSchema(id, schema, schema.getFullName)
+                    )
+                  case bySubjectVersion: ConfluentAvroSchemaRegistryResponseBySubjectVersion =>
+                    val schema = parser.parse(bySubjectVersion.schema)
+                    Success(
+                      RegisteredAvroSchema(
+                        bySubjectVersion.id,
+                        schema,
+                        bySubjectVersion.subject,
+                        bySubjectVersion.version
+                      )
+                    )
+                }
+            }
+        }
       }
     }
-  }
 
   @transient
   lazy val cache = {
     logger.debug("=== initializing new confluent schema registry cache")
-    val expireAfter = config.getDuration(s"$configPrefix.cache.expire.after")
-    val builder = CacheBuilder
+    val expireAfter =
+      config.getDuration(s"$configPrefix.cache.expire.after")
+    val builder     = CacheBuilder
       .newBuilder()
-      .concurrencyLevel(config.getInt(s"$configPrefix.cache.concurrency.level"))
+      .concurrencyLevel(
+        config.getInt(s"$configPrefix.cache.concurrency.level")
+      )
       .maximumSize(config.getInt(s"$configPrefix.cache.max.size"))
       .expireAfterWrite(expireAfter.toMillis, TimeUnit.MILLISECONDS)
     //      .expireAfterWrite(expireAfter) // for guava 27
@@ -100,47 +112,59 @@ class ConfluentAvroSchemaRegistryClient(
   }
 
   /**
-    * Gets a schema from the registry by id.
-    *
-    * @param id the id of the scheme to fetch
-    * @return the registered schema wrapped in a Try
-    */
+   * Gets a schema from the registry by id.
+   *
+   * @param id
+   *   the id of the scheme to fetch
+   * @return
+   *   the registered schema wrapped in a Try
+   */
   override def get(id: Int) =
     cache.get(url(id))
 
   /**
-    * Gets the latest schema from the registry based on its subject.
-    * If retrieved successfully, also ensures the schema is installed
-    * in the cache by its unique id.
-    *
-    * @param subject the name of the schema
-    * @return the registered schema wrapped in a Try
-    */
+   * Gets the latest schema from the registry based on its subject. If
+   * retrieved successfully, also ensures the schema is installed in the
+   * cache by its unique id.
+   *
+   * @param subject
+   *   the name of the schema
+   * @return
+   *   the registered schema wrapped in a Try
+   */
   override def get(subject: String) =
     cache.get(url(subject)).map(putCache)
 
   /**
-    * Get a the most recent schema associated with the specified event.
-    * If retrieved successfully, also ensures the schema is installed
-    * in the cache by its unique id.
-    *
-    * @param event the event
-    * @param isKey indicates whether you want the key or value schema
-    * @tparam E the event class
-    * @return the registered schema wrapped in a Try
-    */
+   * Get a the most recent schema associated with the specified event. If
+   * retrieved successfully, also ensures the schema is installed in the
+   * cache by its unique id.
+   *
+   * @param event
+   *   the event
+   * @param isKey
+   *   indicates whether you want the key or value schema
+   * @tparam E
+   *   the event class
+   * @return
+   *   the registered schema wrapped in a Try
+   */
   override def get[E](event: E, isKey: Boolean = false) =
     cache.get(url(subject(event, isKey))).map(putCache)
 
   /**
-    * Return the registry subject name of the schema associated with
-    * the provided event instance.
-    *
-    * @param event an instance of E
-    * @param isKey if true add '_key' else '_value' suffix
-    * @tparam E event class
-    * @return schema subject name
-    */
+   * Return the registry subject name of the schema associated with the
+   * provided event instance.
+   *
+   * @param event
+   *   an instance of E
+   * @param isKey
+   *   if true add '_key' else '_value' suffix
+   * @tparam E
+   *   event class
+   * @return
+   *   schema subject name
+   */
   override def subject[E](event: E, isKey: Boolean = false): String =
     (event.getClass.getCanonicalName.split("\\.")
       :+ (if (isKey) "key" else "value"))
@@ -149,33 +173,40 @@ class ConfluentAvroSchemaRegistryClient(
       .mkString("_")
 
   /**
-    * Ensure the schema is installed in the cache under its id. Used by
-    * some get() methods which are name based.
-    *
-    * @param schema a registered avro schema instance
-    * @return the schema sent in
-    */
-  protected def putCache(schema: RegisteredAvroSchema): RegisteredAvroSchema = {
+   * Ensure the schema is installed in the cache under its id. Used by some
+   * get() methods which are name based.
+   *
+   * @param schema
+   *   a registered avro schema instance
+   * @return
+   *   the schema sent in
+   */
+  protected def putCache(
+      schema: RegisteredAvroSchema): RegisteredAvroSchema = {
     cache.put(url(schema.id), Success(schema))
     schema
   }
 
   /**
-    * Return the api endpoint used to retrieve a schema by id
-    *
-    * @param id the id of the schema to retrieve
-    * @return the endpoint url
-    */
+   * Return the api endpoint used to retrieve a schema by id
+   *
+   * @param id
+   *   the id of the schema to retrieve
+   * @return
+   *   the endpoint url
+   */
   protected def url(id: Int): String = s"$urlBase/schemas/ids/$id"
 
   /**
-    * Return the api endpoint used to retrieve a schema by its subject
-    * name and version string.
-    *
-    * @param subject the full name of the schema
-    * @param version the version to retrieve (defaults to "latest")
-    * @return
-    */
+   * Return the api endpoint used to retrieve a schema by its subject name
+   * and version string.
+   *
+   * @param subject
+   *   the full name of the schema
+   * @param version
+   *   the version to retrieve (defaults to "latest")
+   * @return
+   */
   protected def url(subject: String, version: String = "latest"): String =
     s"$urlBase/subjects/$subject/versions/$version"
 
