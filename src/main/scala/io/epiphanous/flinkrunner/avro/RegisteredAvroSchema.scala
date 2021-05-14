@@ -1,62 +1,87 @@
 package io.epiphanous.flinkrunner.avro
 
 import com.sksamuel.avro4s._
-import org.apache.avro.file.{DataFileReader, DataFileWriter, SeekableByteArrayInput}
-import org.apache.avro.generic.{GenericDatumReader, GenericDatumWriter, GenericRecord}
 import org.apache.avro.{LogicalTypes, Schema}
 
 import java.io.ByteArrayOutputStream
-import java.nio.ByteBuffer
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import scala.util.Try
 
-case class RegisteredAvroSchema(id: Int, schema: Schema, subject: String = "", version: Int = 0) {
-  val datumReader = new GenericDatumReader[GenericRecord](schema)
-  val datumWriter = new GenericDatumWriter[GenericRecord](schema)
+case class RegisteredAvroSchema(
+    schema: Schema,
+    id: String,
+    optSubject: Option[String] = None,
+    optVersion: Option[String] = None) {
 
-  def name = if (subject.isEmpty) schema.getFullName else subject
+  /** subject (name) of the schema */
+  val subject: String = optSubject.getOrElse(schema.getFullName)
 
-  def decode[E: Encoder : Decoder](buffer: ByteBuffer): Try[E] =
-    Try({
-      val is = new SeekableByteArrayInput(buffer.array().slice(buffer.position(), buffer.limit()))
-      val dataFileReader = new DataFileReader[GenericRecord](is, datumReader)
-      val datum = dataFileReader.next()
-      dataFileReader.close()
-      RecordFormat[E].from(datum)
-    })
+  /**
+   * Decode an array of bytes into an event of type E.
+   * @param bytes
+   *   a binary avro encoded array of bytes that can be decoded into type E
+   * @tparam E
+   *   the type of event to decode
+   * @return
+   *   the event, wrapped in a [[Try]]
+   */
+  def decode[E: Decoder](bytes: Array[Byte]): Try[E] = {
+    Try(
+      AvroInputStream
+        .binary[E]
+        .from(bytes)
+        .build(schema)
+        .iterator
+        .next()
+    )
+  }
 
-  def encode[E: Encoder : Decoder](event: E, addMagic: Boolean = true): Try[Array[Byte]] =
-    Try({
-      val os = new ByteArrayOutputStream()
-      val dataFileWriter = new DataFileWriter[GenericRecord](datumWriter)
-      dataFileWriter.create(schema, os)
-      val datum = RecordFormat[E].to(event)
-      dataFileWriter.append(datum)
-      dataFileWriter.close()
-      val bytes = os.toByteArray
-      if (addMagic) {
-        val size = bytes.length + 5 // 5 is magic + int id
-        ByteBuffer.allocate(size).put(RegisteredAvroSchema.MAGIC).putInt(id).put(bytes).array()
-      } else bytes
-    })
+  /**
+   * Binary avro encode an event of type E, prepending the result with the
+   * provided magic byte array.
+   * @param event
+   *   the event to encode
+   * @param magic
+   *   an array of bytes to prepend to the result that can be used to
+   *   identify the schema to decode the bytes with
+   * @tparam E
+   *   the type of event
+   * @return
+   *   an array of bytes, wrapped in a [[Try]]
+   */
+  def encode[E: Encoder](
+      event: E,
+      magic: Array[Byte] = Array.emptyByteArray): Try[Array[Byte]] =
+    Try {
+      val baos = new ByteArrayOutputStream()
+      val os   = AvroOutputStream.binary[E].to(baos).build()
+      os.write(event)
+      os.flush()
+      os.close()
+      magic ++ baos.toByteArray
+    }
 }
 
 object RegisteredAvroSchema {
-  final val MAGIC = 0x0.toByte
-
   // force java instants to encode/decode with microsecond precision
   implicit val instantSchemaFor: AnyRef with SchemaFor[Instant] =
-    SchemaFor[Instant](LogicalTypes.localTimestampMicros().addToSchema(Schema.create(Schema.Type.LONG)))
+    SchemaFor[Instant](
+      LogicalTypes
+        .localTimestampMicros()
+        .addToSchema(Schema.create(Schema.Type.LONG))
+    )
 
   implicit val InstantEncoder: Encoder[Instant] =
     Encoder.LongEncoder
-      .comap[Instant](instant => ChronoUnit.MICROS.between(Instant.EPOCH, instant))
+      .comap[Instant](instant =>
+        ChronoUnit.MICROS.between(Instant.EPOCH, instant)
+      )
       .withSchema(instantSchemaFor)
 
   implicit val InstantDecoder: Decoder[Instant] = Decoder.LongDecoder
     .map[Instant](micros => Instant.EPOCH.plus(micros, ChronoUnit.MICROS))
     .withSchema(instantSchemaFor)
 
-  def schemaFor[E](implicit s: SchemaFor[E]) = AvroSchema[E]
+  def schemaFor[E](implicit s: SchemaFor[E]): Schema = AvroSchema[E]
 }

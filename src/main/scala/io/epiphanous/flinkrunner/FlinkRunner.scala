@@ -4,59 +4,65 @@ import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkEvent}
 
 /**
-  * Flink Job Invoker
-  */
+ * Flink Job Invoker
+ */
 class FlinkRunner[ADT <: FlinkEvent](
-                                      args: Array[String],
-                                      factory: FlinkRunnerFactory[ADT],
-                                      sources: Map[String, Seq[Array[Byte]]] = Map.empty,
-                                      optConfig: Option[String] = None)
-  extends LazyLogging {
+    args: Array[String],
+    factory: FlinkRunnerFactory[ADT],
+    sources: Map[String, Seq[Array[Byte]]] = Map.empty,
+    optConfig: Option[String] = None)
+    extends LazyLogging {
 
-  implicit val config: FlinkConfig = new FlinkConfig(args, factory, sources, optConfig)
-  implicit val env: SEE = config.configureStreamExecutionEnvironment
+  implicit val config: FlinkConfig =
+    new FlinkConfig(args, factory, sources, optConfig)
+  implicit val env: SEE            = config.configureStreamExecutionEnvironment
 
   /**
-    * An intermediate method to process main args, with optional callback to
-    * capture output of flink job.
-    *
-    * @param callback a function from an iterator to unit
-    */
+   * An intermediate method to process main args, with optional callback to
+   * capture output of flink job.
+   *
+   * @param callback
+   *   a function from an iterator to unit
+   */
   def process(
-               callback: PartialFunction[Stream[ADT], Unit] = {
-                 case _ => ()
-               }
-             ): Unit =
+      callback: PartialFunction[Stream[ADT], Unit] = { case _ =>
+        ()
+      }
+  ): Unit =
     if (config.jobName == "help") showHelp()
     else process1(callback)
 
   /**
-    * Actually invoke the job based on the job name and arguments passed in.
-    * If the job run returns an iterator of results, pass those results to the
-    * callback. Otherwise, just return. The callback is for testing the stream
-    * of results from a flink job. It will only be invoked if --mock.edges
-    * option is on.
-    *
-    * @param callback a function from a stream to unit that receives results
-    *                 from running flink job
-    */
+   * Actually invoke the job based on the job name and arguments passed in.
+   * If the job run returns an iterator of results, pass those results to
+   * the callback. Otherwise, just return. The callback is for testing the
+   * stream of results from a flink job. It will only be invoked if
+   * --mock.edges option is on.
+   *
+   * @param callback
+   *   a function from a stream to unit that receives results from running
+   *   flink job
+   */
   def process1(
-                callback: PartialFunction[Stream[ADT], Unit] = {
-                  case _ => ()
-                }
-              ): Unit = {
-    if (config.jobArgs.headOption.exists(s => List("help", "--help", "-help", "-h").contains(s))) showJobHelp()
+      callback: PartialFunction[Stream[ADT], Unit] = { case _ =>
+        ()
+      }
+  ): Unit = {
+    if (
+      config.jobArgs.headOption
+        .exists(s => List("help", "--help", "-help", "-h").contains(s))
+    ) showJobHelp()
     else {
-      config.getJobInstance.run match {
-        case Left(results) => callback(results.asInstanceOf[Iterator[ADT]].toStream)
-        case Right(_) => ()
+      factory.getJobInstance(config.jobName, config).run match {
+        case Left(results) => callback(results.toStream)
+        case Right(_)      => ()
       }
     }
   }
 
   /**
-    * Show help for a particular job
-    * */
+   * Show help for a particular job
+   */
   def showJobHelp(): Unit = {
     val usage =
       s"""|${config.jobName} - ${config.jobDescription}
@@ -68,21 +74,21 @@ class FlinkRunner[ADT <: FlinkEvent](
   }
 
   /**
-    * Show a help message regarding usage.
-    *
-    * @param error an optional error message to show
-    */
+   * Show a help message regarding usage.
+   *
+   * @param error
+   *   an optional error message to show
+   */
   def showHelp(error: Option[String] = None): Unit = {
     val jobInfo = config.jobs.toList.sorted match {
       case s if s.isEmpty => "  *** No jobs defined ***"
-      case s =>
-        s.map(jn => {
+      case s              =>
+        s.map { jn =>
           val desc = config.getString(s"jobs.$jn.description")
           s"  - $jn: $desc"
-        })
-          .mkString("\n")
+        }.mkString("\n")
     }
-    val usage =
+    val usage   =
       s"""|
           |Usage: ${config.systemName} <jobName> [job parameters]
           |

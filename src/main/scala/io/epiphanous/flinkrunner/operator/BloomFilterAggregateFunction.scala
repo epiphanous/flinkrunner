@@ -6,8 +6,14 @@ import org.apache.flink.api.common.functions.RichAggregateFunction
 
 import java.nio.charset.StandardCharsets
 
-class BloomFilterAggregateFunction(numCells: Long, bitsPerCell: Int = 3, falsePositiveRate: Double = 0.001)
-  extends RichAggregateFunction[CharSequence, StableBloomFilter[CharSequence], StableBloomFilter[CharSequence]] {
+class BloomFilterAggregateFunction(
+    numCells: Long,
+    bitsPerCell: Int = 3,
+    falsePositiveRate: Double = 0.001)
+    extends RichAggregateFunction[
+      CharSequence,
+      StableBloomFilter[CharSequence],
+      StableBloomFilter[CharSequence]] {
 
   override def createAccumulator() =
     StableBloomFilter
@@ -17,13 +23,18 @@ class BloomFilterAggregateFunction(numCells: Long, bitsPerCell: Int = 3, falsePo
       .withFalsePositiveRate(falsePositiveRate)
       .build()
 
-  override def add(value: CharSequence, accumulator: StableBloomFilter[CharSequence]) = {
+  override def add(
+      value: CharSequence,
+      accumulator: StableBloomFilter[CharSequence]) = {
     accumulator.add(value)
     accumulator
   }
 
-  override def getResult(accumulator: StableBloomFilter[CharSequence]) = accumulator
+  override def getResult(accumulator: StableBloomFilter[CharSequence]) =
+    accumulator
 
-  override def merge(a: StableBloomFilter[CharSequence], b: StableBloomFilter[CharSequence]) =
+  override def merge(
+      a: StableBloomFilter[CharSequence],
+      b: StableBloomFilter[CharSequence]) =
     a.merge(b)
 }

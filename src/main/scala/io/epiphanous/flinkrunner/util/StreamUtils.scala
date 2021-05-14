@@ -14,6 +14,7 @@ import org.apache.flink.api.common.serialization.{
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.core.fs.Path
 import org.apache.flink.streaming.api.TimeCharacteristic
+import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.{
   BasePathBucketAssigner,
   DateTimeBucketAssigner
@@ -28,10 +29,7 @@ import org.apache.flink.streaming.api.functions.sink.filesystem.{
 }
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.streaming.connectors.cassandra.CassandraSink
-import org.apache.flink.streaming.connectors.elasticsearch.{
-  ElasticsearchSinkFunction,
-  RequestIndexer
-}
+import org.apache.flink.streaming.connectors.elasticsearch.RequestIndexer
 import org.apache.flink.streaming.connectors.elasticsearch7.ElasticsearchSink
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer.Semantic
 import org.apache.flink.streaming.connectors.kafka.{
@@ -55,10 +53,11 @@ import java.io.{File, FileNotFoundException}
 import java.net.URL
 import java.nio.charset.StandardCharsets
 import scala.collection.JavaConverters._
+import scala.util.matching.Regex
 
 object StreamUtils extends LazyLogging {
 
-  val RESOURCE_PATTERN = "resource://(.*)".r
+  val RESOURCE_PATTERN: Regex = "resource://(.*)".r
 
   /**
    * A little syntactic sugar for writing stream program. This is the pipe
@@ -84,7 +83,7 @@ object StreamUtils extends LazyLogging {
    */
   implicit class Pipe[A](val v: A) extends AnyVal {
     // forward pipe op
-    def |>[B](t: A => B) = t(v)
+    def |>[B](t: A => B): B = t(v)
 
     // side effect op
     def |#(e: A => Unit): A = {
@@ -92,23 +91,10 @@ object StreamUtils extends LazyLogging {
     }
   }
 
-  //  /**
-  //    * Generates a timestamp and watermark assigner for a stream with a given type of element that limits
-  //    * how late an element is allowed to arrive in event time.
-  //    *
-  //    * @param config implicitly provided job config
-  //    * @tparam E the type of stream element
-  //    * @return BoundedLatenessGenerator[E]
-  //    */
-  //  def boundedLatenessEventTime[E <: FlinkEvent: TypeInformation](
-  //    streamID: String
-  //  )(implicit config: FlinkConfig
-  //  ): BoundedLatenessGenerator[E] =
-  //    new BoundedLatenessGenerator[E](config.maxLateness.toMillis, streamID)
-
   /**
-   * Applies a bounded of order watermarking strategy with idleness
-   * checking
+   * Generates a timestamp and watermark assigner for a stream with a given
+   * type of element that limits how late an element is allowed to arrive
+   * in event time.
    *
    * @param config
    *   implicitly provided job config
@@ -117,37 +103,66 @@ object StreamUtils extends LazyLogging {
    * @return
    *   BoundedLatenessGenerator[E]
    */
-  def boundedOutofOrderness[E <: FlinkEvent: TypeInformation]()(implicit
-      config: FlinkConfig): WatermarkStrategy[E] =
+  def boundedLatenessWatermarks[E <: FlinkEvent: TypeInformation](
+      streamID: String
+  )(implicit config: FlinkConfig) =
+    new BoundedLatenessWatermarkStrategy[E](
+      config.maxLateness.toMillis,
+      streamID
+    )
+
+  /**
+   * Create a bounded of order watermark strategy with idleness checking
+   *
+   * @param config
+   *   implicitly provided job config
+   * @tparam E
+   *   the type of stream element
+   * @return
+   *   BoundedLatenessGenerator[E]
+   */
+  def boundedOutofOrdernessWatermarks[E <: FlinkEvent: TypeInformation]()(
+      implicit config: FlinkConfig): WatermarkStrategy[E] =
     WatermarkStrategy
       .forBoundedOutOfOrderness(config.maxLateness)
       .withIdleness(config.maxIdleness)
 
-  //  /**
-  //    * Creates an ascending timestamp extractor.
-  //    * @tparam E type of stream element
-  //    * @return AscendingTimestampExtractor[E]
-  //    */
-  //  def ascendingTimestampExtractor[E <: FlinkEvent: TypeInformation](): AscendingTimestampExtractor[E] = {
-  //    val extractor: AscendingTimestampExtractor[E] = new AscendingTimestampExtractor[E] {
-  //      var lastTimestamp = Long.MinValue
-  //      def extractAscendingTimestamp(event: E) = {
-  //        lastTimestamp = event.$timestamp
-  //        lastTimestamp
-  //      }
-  //    }
-  //    extractor.withViolationHandler(new IgnoringHandler())
-  //    extractor
-  //  }
+  /**
+   * Creates an ascending timestamp watermark strategy.
+   * @tparam E
+   *   type of stream element
+   * @return
+   *   AscendingTimestampExtractor[E]
+   */
+  def ascendingTimestampsWatermarks[E <: FlinkEvent: TypeInformation]()
+      : WatermarkStrategy[E] = WatermarkStrategy.forMonotonousTimestamps()
 
+  /**
+   * Assign timestamps/watermarks if we're using event time
+   * @param in
+   *   the input stream to watermark
+   * @param config
+   *   implicit flink configuration
+   * @param env
+   *   implicit stream execution environment
+   * @tparam E
+   *   event type
+   * @return
+   *   the possibly watermarked input stream
+   */
   def maybeAssignTimestampsAndWatermarks[E <: FlinkEvent: TypeInformation](
-      in: DataStream[E]
+      in: DataStream[E],
+      srcConfig: SourceConfig
   )(implicit config: FlinkConfig, env: SEE): DataStream[E] =
-    if (env.getStreamTimeCharacteristic == TimeCharacteristic.EventTime)
-      in.assignTimestampsAndWatermarks(boundedOutofOrderness[E]())
-        .name(s"wm:${in.name}")
+    if (srcConfig.timeCharacteristic == TimeCharacteristic.EventTime) {
+      in.assignTimestampsAndWatermarks(srcConfig.watermarkStrategy match {
+        case "bounded out of orderness" =>
+          boundedOutofOrdernessWatermarks()
+        case "ascending timestamps"     => ascendingTimestampsWatermarks()
+        case _                          => boundedLatenessWatermarks(in.name)
+      }).name(s"wm:${in.name}")
         .uid(s"wm:${in.name}")
-    else in
+    } else in
 
   /**
    * Configure stream source from configuration.
@@ -162,11 +177,11 @@ object StreamUtils extends LazyLogging {
   def fromSource[E <: FlinkEvent: TypeInformation](
       sourceName: String = ""
   )(implicit config: FlinkConfig, env: SEE): DataStream[E] = {
-    val name =
+    val name   =
       if (sourceName.isEmpty) config.getSourceNames.head else sourceName
-    val src  = config.getSourceConfig(name)
-    val uid  = src.label
-    (src match {
+    val src    = config.getSourceConfig(name)
+    val uid    = src.label
+    val stream = (src match {
       case src: KafkaSourceConfig      => fromKafka(src)
       case src: KinesisSourceConfig    => fromKinesis(src)
       case src: FileSourceConfig       => fromFile(src)
@@ -177,6 +192,7 @@ object StreamUtils extends LazyLogging {
           s"unsupported source connector: ${src.connector}"
         )
     }).name(uid).uid(uid)
+    maybeAssignTimestampsAndWatermarks(stream, src)
   }
 
   /**
@@ -198,7 +214,7 @@ object StreamUtils extends LazyLogging {
       new FlinkKafkaConsumer[E](
         srcConfig.topic,
         config
-          .getKafkaDeserializationSchema(srcConfig)
+          .getKafkaDeserializationSchema(srcConfig.name)
           .asInstanceOf[KafkaDeserializationSchema[E]],
         srcConfig.properties
       )
@@ -225,7 +241,7 @@ object StreamUtils extends LazyLogging {
       new FlinkKinesisConsumer[E](
         srcConfig.stream,
         config
-          .getKinesisDeserializationSchema(srcConfig)
+          .getKinesisDeserializationSchema(srcConfig.name)
           .asInstanceOf[KinesisDeserializationSchema[E]],
         srcConfig.properties
       )
@@ -254,7 +270,7 @@ object StreamUtils extends LazyLogging {
       case other               => other
     }
     val ds   = config
-      .getDeserializationSchema(srcConfig)
+      .getDeserializationSchema(srcConfig.name)
       .asInstanceOf[DeserializationSchema[E]]
     env
       .readTextFile(path)
@@ -284,7 +300,7 @@ object StreamUtils extends LazyLogging {
       .uid(s"raw:${srcConfig.label}")
       .map(line =>
         config
-          .getDeserializationSchema(srcConfig)
+          .getDeserializationSchema(srcConfig.name)
           .asInstanceOf[DeserializationSchema[E]]
           .deserialize(line.getBytes(StandardCharsets.UTF_8))
       )
@@ -312,7 +328,7 @@ object StreamUtils extends LazyLogging {
       .uid(s"raw:${srcConfig.label}")
       .map(bytes =>
         config
-          .getDeserializationSchema(srcConfig)
+          .getDeserializationSchema(srcConfig.name)
           .asInstanceOf[DeserializationSchema[E]]
           .deserialize(bytes)
       )
@@ -382,8 +398,7 @@ object StreamUtils extends LazyLogging {
       sinkName: String = ""
   )(implicit config: FlinkConfig) = {
     val name = if (sinkName.isEmpty) config.getSinkNames.head else sinkName
-    val src  = config.getSinkConfig(name)
-    (src match {
+    config.getSinkConfig(name) match {
       case s: KafkaSinkConfig         => toKafka[E](stream, s)
       case s: KinesisSinkConfig       => toKinesis[E](stream, s)
       case s: FileSinkConfig          => toFile[E](stream, s)
@@ -395,7 +410,7 @@ object StreamUtils extends LazyLogging {
         throw new IllegalArgumentException(
           s"unsupported source connector: ${s.connector}"
         )
-    })
+    }
   }
 
   /**
@@ -415,13 +430,13 @@ object StreamUtils extends LazyLogging {
   def toKafka[E <: FlinkEvent: TypeInformation](
       stream: DataStream[E],
       sinkConfig: KafkaSinkConfig
-  )(implicit config: FlinkConfig) =
+  )(implicit config: FlinkConfig): DataStreamSink[E] =
     stream
       .addSink(
         new FlinkKafkaProducer[E](
           sinkConfig.topic,
           config
-            .getKafkaSerializationSchema(sinkConfig)
+            .getKafkaSerializationSchema(sinkConfig.name)
             .asInstanceOf[KafkaSerializationSchema[E]],
           sinkConfig.properties,
           Semantic.AT_LEAST_ONCE
@@ -447,13 +462,13 @@ object StreamUtils extends LazyLogging {
   def toKinesis[E <: FlinkEvent: TypeInformation](
       stream: DataStream[E],
       sinkConfig: KinesisSinkConfig
-  )(implicit config: FlinkConfig) =
+  )(implicit config: FlinkConfig): DataStreamSink[E] =
     stream
       .addSink {
         val sink =
           new FlinkKinesisProducer[E](
             config
-              .getKinesisSerializationSchema(sinkConfig)
+              .getKinesisSerializationSchema(sinkConfig.name)
               .asInstanceOf[KinesisSerializationSchema[E]],
             sinkConfig.properties
           )
@@ -482,12 +497,12 @@ object StreamUtils extends LazyLogging {
   def toJdbc[E <: FlinkEvent: TypeInformation](
       stream: DataStream[E],
       sinkConfig: JdbcSinkConfig
-  )(implicit config: FlinkConfig) =
+  )(implicit config: FlinkConfig): DataStreamSink[E] =
     stream
       .addSink(
         new JdbcSink(
           config
-            .getAddToJdbcBatchFunction(sinkConfig)
+            .getAddToJdbcBatchFunction(sinkConfig.name)
             .asInstanceOf[AddToJdbcBatchFunction[E]],
           sinkConfig.properties
         )
@@ -512,7 +527,7 @@ object StreamUtils extends LazyLogging {
   def toFile[E <: FlinkEvent: TypeInformation](
       stream: DataStream[E],
       sinkConfig: FileSinkConfig
-  )(implicit config: FlinkConfig) = {
+  )(implicit config: FlinkConfig): DataStreamSink[E] = {
     val path                = sinkConfig.path
     val p                   = sinkConfig.properties
     val bucketCheckInterval =
@@ -529,7 +544,7 @@ object StreamUtils extends LazyLogging {
           )
         case "custom"   =>
           config
-            .getBucketAssigner(p)
+            .getBucketAssigner(sinkConfig.name)
             .asInstanceOf[BucketAssigner[E, String]]
         case other      =>
           throw new IllegalArgumentException(
@@ -542,7 +557,7 @@ object StreamUtils extends LazyLogging {
         val builder       =
           StreamingFileSink.forRowFormat(
             new Path(path),
-            config.getEncoder(sinkConfig).asInstanceOf[Encoder[E]]
+            config.getEncoder(sinkConfig.name).asInstanceOf[Encoder[E]]
           )
         val rollingPolicy =
           p.getProperty("bucket.rolling.policy", "default") match {
@@ -608,13 +623,13 @@ object StreamUtils extends LazyLogging {
   def toSocket[E <: FlinkEvent: TypeInformation](
       stream: DataStream[E],
       sinkConfig: SocketSinkConfig
-  )(implicit config: FlinkConfig) =
+  )(implicit config: FlinkConfig): DataStreamSink[E] =
     stream
       .writeToSocket(
         sinkConfig.host,
         sinkConfig.port,
         config
-          .getSerializationSchema(sinkConfig)
+          .getSerializationSchema(sinkConfig.name)
           .asInstanceOf[SerializationSchema[E]]
       )
       .uid(sinkConfig.label)
@@ -658,7 +673,7 @@ object StreamUtils extends LazyLogging {
   def toElasticsearchSink[E <: FlinkEvent: TypeInformation](
       stream: DataStream[E],
       sinkConfig: ElasticsearchSinkConfig
-  ) = {
+  ): DataStreamSink[E] = {
     val hosts  = sinkConfig.transports.map { s =>
       val url      = new URL(if (s.startsWith("http")) s else s"http://$s")
       val hostname = url.getHost
@@ -667,30 +682,25 @@ object StreamUtils extends LazyLogging {
     }.asJava
     val esSink = new ElasticsearchSink.Builder[E](
       hosts,
-      new ElasticsearchSinkFunction[E] {
-        override def process(
-            element: E,
-            ctx: RuntimeContext,
-            indexer: RequestIndexer): Unit = {
-          val data = (element.getClass.getDeclaredFields
-            .filterNot(f =>
-              Seq("$id", "$key", "$timestamp", "$action").contains(
-                f.getName
-              )
+      (element: E, _: RuntimeContext, indexer: RequestIndexer) => {
+        val data = element.getClass.getDeclaredFields
+          .filterNot(f =>
+            Seq("$id", "$key", "$timestamp", "$action").contains(
+              f.getName
             )
-            .foldLeft(Map.empty[String, Any]) { case (a, f) =>
-              f.setAccessible(true)
-              val name = f.getName
-              f.get(element) match {
-                case Some(v: Any) => a + (name -> v)
-                case None         => a
-                case v: Any       => a + (name -> v)
-              }
-            })
-            .asJava
-          val req  = Requests.indexRequest(sinkConfig.index).source(data)
-          indexer.add(req)
-        }
+          )
+          .foldLeft(Map.empty[String, Any]) { case (a, f) =>
+            f.setAccessible(true)
+            val name = f.getName
+            f.get(element) match {
+              case Some(v: Any) => a + (name -> v)
+              case None         => a
+              case v: Any       => a + (name -> v)
+            }
+          }
+          .asJava
+        val req  = Requests.indexRequest(sinkConfig.index).source(data)
+        indexer.add(req)
       }
     ).build()
     stream.addSink(esSink).uid(sinkConfig.label).name(sinkConfig.label)

@@ -169,32 +169,35 @@ class FlinkConfig(
       .newInstance()
       .asInstanceOf[T]
 
-  def getJobInstance = factory.getJobInstance(jobName)
+//  def getJobInstance = factory.getJobInstance(jobName, this)
 
-  def getDeserializationSchema(sourceConfig: SourceConfig) =
-    factory.getDeserializationSchema(sourceConfig)
+  def getDeserializationSchema(name: String) =
+    factory.getDeserializationSchema(name, this)
 
-  def getKafkaDeserializationSchema(sourceConfig: KafkaSourceConfig) =
-    factory.getKafkaDeserializationSchema(sourceConfig)
+  def getKafkaDeserializationSchema(name: String) =
+    factory.getKafkaDeserializationSchema(name, this)
 
-  def getKinesisDeserializationSchema(sourceConfig: KinesisSourceConfig) =
-    factory.getKinesisDeserializationSchema(sourceConfig)
+  def getKinesisDeserializationSchema(name: String) =
+    factory.getKinesisDeserializationSchema(name, this)
 
-  def getSerializationSchema(sinkConfig: SinkConfig) =
-    factory.getSerializationSchema(sinkConfig)
+  def getSerializationSchema(name: String) =
+    factory.getSerializationSchema(name, this)
 
-  def getKafkaSerializationSchema(sinkConfig: KafkaSinkConfig) =
-    factory.getKafkaSerializationSchema(sinkConfig)
+  def getKafkaSerializationSchema(name: String) =
+    factory.getKafkaSerializationSchema(name, this)
 
-  def getKinesisSerializationSchema(sinkConfig: KinesisSinkConfig) =
-    factory.getKinesisSerializationSchema(sinkConfig)
+  def getKinesisSerializationSchema(name: String) =
+    factory.getKinesisSerializationSchema(name, this)
 
-  def getEncoder(sinkConfig: SinkConfig) = factory.getEncoder(sinkConfig)
+  def getEncoder(name: String) = factory.getEncoder(name, this)
 
-  def getAddToJdbcBatchFunction(sinkConfig: SinkConfig) =
-    factory.getAddToJdbcBatchFunction(sinkConfig)
+  def getAddToJdbcBatchFunction(name: String) =
+    factory.getAddToJdbcBatchFunction(name, this)
 
-  def getBucketAssigner(p: Properties) = factory.getBucketAssigner(p)
+  def getBucketAssigner(name: String) =
+    factory.getBucketAssigner(name, this)
+
+  def getAvroCoder(name: String) = factory.getAvroCoder(name, this)
 
   def getSourceConfig(name: String): SourceConfig =
     SourceConfig(name, this)
@@ -268,8 +271,8 @@ class FlinkConfig(
     env
   }
 
-  lazy val timeCharacteristic = {
-    getString("time.characteristic").toLowerCase
+  def getTimeCharacteristic(tc: String): TimeCharacteristic = {
+    tc.toLowerCase
       .replaceFirst("\\s*time$", "") match {
       case "event"      => TimeCharacteristic.EventTime
       case "processing" => TimeCharacteristic.ProcessingTime
@@ -280,6 +283,26 @@ class FlinkConfig(
         )
     }
   }
+
+  lazy val timeCharacteristic = getTimeCharacteristic(
+    getString("time.characteristic")
+  )
+
+  def getWatermarkStrategy(ws: String) =
+    ws.toLowerCase.replaceAll("[^a-z]", "") match {
+      case "boundedlateness"       => "bounded lateness"
+      case "boundedoutoforderness" => "bounded out of orderness"
+      case "ascendingtimestamps"   => "ascending timestamps"
+      case "monotonictimestamps"   => "ascending timestamps"
+      case unknown                 =>
+        throw new RuntimeException(
+          s"Unknown watermark.strategy setting: '$unknown'"
+        )
+    }
+
+  lazy val watermarkStrategy = getWatermarkStrategy(
+    getString("watermark.strategy")
+  )
 
   lazy val systemHelp              = _config.getString("system.help")
   lazy val jobHelp                 = getString("help")
