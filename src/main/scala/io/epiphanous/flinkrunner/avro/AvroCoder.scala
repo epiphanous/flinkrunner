@@ -1,61 +1,43 @@
 package io.epiphanous.flinkrunner.avro
 
 import com.sksamuel.avro4s.{Decoder, Encoder}
+import com.typesafe.scalalogging.LazyLogging
 
-import java.nio.ByteBuffer
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 /**
- * Uses an avro registry client to facilitate avro encoding and decoding.
+ * Uses a provided schema registry client to facilitate avro encoding and
+ * decoding.
  *
  * @param registry
  *   the schema registry client
+ * @tparam Context
+ *   the schema registry context type
  */
-class AvroCoder(registry: AvroSchemaRegistryClient) {
-
-  import AvroCoder.MAGIC_BYTE
-
-  /**
-   * Returns a byte buffer wrapped around message, checking and reading its
-   * first byte matches our expected magic byte.
-   *
-   * @param message
-   *   the byte array to wrap
-   * @return
-   *   the byte buffer (wrapped in a [[Try]] )
-   */
-  protected def getByteBuffer(message: Array[Byte]): Try[ByteBuffer] =
-    Try(ByteBuffer.wrap(message)).flatMap { buffer =>
-      Try(buffer.get()).flatMap[ByteBuffer] { b =>
-        if (b == MAGIC_BYTE) Success(buffer)
-        else
-          Failure(
-            new AvroCodingException(
-              s"unexpected magic byte '$b' found while decoding message"
-            )
-          )
-      }
-    }
+class AvroCoder[Context](registry: AvroSchemaRegistryClient[Context])
+    extends LazyLogging {
 
   /**
-   * Avro decode a message. The message should have a leading magic byte,
-   * followed by a integer ID, used to lookup the message's schema in the
-   * registry.
+   * Decode a given binary avro encoded byte array using a schema
+   * identified by some prefix at the start of the encoded bytes, and
+   * optionally additional context information.
    *
    * @param message
    *   the raw byte array
+   * @param optContext
+   *   any additional context, besides a message prefix, needed to look up
+   *   the avro schema
    * @tparam E
-   *   the expected type of message
+   *   the expected type of payload
    * @return
    *   An instance of E (wrapped in a [[Try]] )
    */
-  def decode[E: Decoder](message: Array[Byte]): Try[E] =
-    getByteBuffer(message).flatMap { buffer =>
-      Try(buffer.getInt()).flatMap { id =>
-        println(id)
-        registry.get(id).flatMap(_.decode[E](buffer))
-      }
-    }
+  def decode[E: Decoder](
+      message: Array[Byte],
+      optContext: Option[Context] = None): Try[E] = for {
+    (schema, bytes) <- registry.getFromMessage(message, optContext)
+    event <- schema.decode[E](bytes)
+  } yield event
 
   /**
    * Avro encode an event record, using the latest schema found in the
@@ -71,15 +53,8 @@ class AvroCoder(registry: AvroSchemaRegistryClient) {
    */
   def encode[E: Encoder](
       event: E,
-      isKey: Boolean = false): Try[Array[Byte]] =
-    registry.get[E](event, isKey).flatMap(_.encode[E](event))
-}
-
-object AvroCoder {
-
-  /**
-   * A magic byte that should be the first byte read from a byte buffer
-   * amenable to encoding with this library.
-   */
-  val MAGIC_BYTE: Byte = 0x0
+      optContext: Option[Context] = None): Try[Array[Byte]] =
+    registry
+      .getFromEvent(event, optContext)
+      .flatMap { case (schema, magic) => schema.encode(event, magic) }
 }

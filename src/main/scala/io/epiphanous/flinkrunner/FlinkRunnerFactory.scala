@@ -1,5 +1,6 @@
 package io.epiphanous.flinkrunner
 
+import io.epiphanous.flinkrunner.avro.AvroCoder
 import io.epiphanous.flinkrunner.flink.BaseFlinkJob
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.operator.AddToJdbcBatchFunction
@@ -17,8 +18,6 @@ import org.apache.flink.streaming.connectors.kinesis.serialization.{
   KinesisDeserializationSchema,
   KinesisSerializationSchema
 }
-
-import java.util.Properties
 
 trait FlinkRunnerFactory[ADT <: FlinkEvent] {
 
@@ -61,4 +60,6 @@ trait FlinkRunnerFactory[ADT <: FlinkEvent] {
       name: String,
       config: FlinkConfig): BucketAssigner[ADT, String] =
     ???
+
+  def getAvroCoder(name: String, config: FlinkConfig): AvroCoder[_] = ???
 }

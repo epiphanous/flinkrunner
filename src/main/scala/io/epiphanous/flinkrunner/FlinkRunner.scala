@@ -53,9 +53,8 @@ class FlinkRunner[ADT <: FlinkEvent](
         .exists(s => List("help", "--help", "-help", "-h").contains(s))
     ) showJobHelp()
     else {
-      config.getJobInstance.run match {
-        case Left(results) =>
-          callback(results.asInstanceOf[Iterator[ADT]].toStream)
+      factory.getJobInstance(config.jobName, config).run match {
+        case Left(results) => callback(results.toStream)
         case Right(_)      => ()
       }
     }

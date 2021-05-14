@@ -1,6 +1,8 @@
 package io.epiphanous.flinkrunner.model
 
-case class DataOrControl[D <: FlinkEvent, C <: FlinkEvent](event: Either[D, C]) extends FlinkEvent {
+case class DataOrControl[D <: FlinkEvent, C <: FlinkEvent](
+    event: Either[D, C])
+    extends FlinkEvent {
   def $id: String = event.fold(_.$id, _.$id)
 
   def $key: String = event.fold(_.$key, _.$key)
@@ -21,7 +23,9 @@ case class DataOrControl[D <: FlinkEvent, C <: FlinkEvent](event: Either[D, C]) 
 }
 
 object DataOrControl {
-  def data[D <: FlinkEvent, C <: FlinkEvent](event: D): DataOrControl[D, C] = DataOrControl[D, C](Left(event))
+  def data[D <: FlinkEvent, C <: FlinkEvent](
+      event: D): DataOrControl[D, C] = DataOrControl[D, C](Left(event))
 
-  def control[D <: FlinkEvent, C <: FlinkEvent](event: C): DataOrControl[D, C] = DataOrControl[D, C](Right(event))
+  def control[D <: FlinkEvent, C <: FlinkEvent](
+      event: C): DataOrControl[D, C] = DataOrControl[D, C](Right(event))
 }

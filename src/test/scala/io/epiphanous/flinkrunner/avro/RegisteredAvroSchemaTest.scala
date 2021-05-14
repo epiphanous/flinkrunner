@@ -2,12 +2,10 @@ package io.epiphanous.flinkrunner.avro
 
 import com.sksamuel.avro4s.AvroSchema
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.avro.file.DataFileConstants
 import org.scalatest.TryValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.nio.ByteBuffer
 import java.time.temporal.ChronoUnit
 
 class RegisteredAvroSchemaTest
@@ -19,10 +17,10 @@ class RegisteredAvroSchemaTest
 
   val regSchema =
     RegisteredAvroSchema(
-      17,
       AvroSchema[TestAvroClass1],
-      "io_epiphanous_flinkrunner_avro_test_class_value",
-      1
+      "1",
+      Some("io_epiphanous_flinkrunner_avro_test_class_value"),
+      Some("1")
     )
 
   val testObj = TestAvroClass1.obj1
@@ -30,21 +28,17 @@ class RegisteredAvroSchemaTest
   logger.debug(regSchema.schema.toString)
 
   it should "encode with magic" in {
-    val encoded  = regSchema
-      .encode(testObj)
+    val magic   = Array('m', 'a', 'g', 'i', 'c').map(_.toByte)
+    val encoded = regSchema
+      .encode(testObj, magic)
     encoded.isSuccess shouldBe true
-    val result   = encoded.success.value.slice(0, 5)
-    val expected = ByteBuffer
-      .allocate(5)
-      .put(RegisteredAvroSchema.MAGIC)
-      .putInt(regSchema.id)
-      .array()
-    result.shouldEqual(expected)
+    val result  = encoded.success.value.slice(0, magic.length)
+    result.shouldEqual(magic)
   }
 
   it should "encode without magic" in {
     val encoded  = regSchema
-      .encode(testObj, false)
+      .encode(testObj)
     encoded.isSuccess shouldBe true
     val expected = Array(2, 0, 10, 104, 101)
     val result   = encoded.success.value.slice(0, 5)
@@ -53,9 +47,9 @@ class RegisteredAvroSchemaTest
 
   it should "encode and decode" in {
     val roundTrip = regSchema
-      .encode(testObj, false)
+      .encode(testObj)
       .flatMap[TestAvroClass1](bytes =>
-        regSchema.decode[TestAvroClass1](ByteBuffer.wrap(bytes))
+        regSchema.decode[TestAvroClass1](bytes)
       )
     logger.debug(roundTrip.toString)
     roundTrip.isSuccess shouldBe true

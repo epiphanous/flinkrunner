@@ -7,22 +7,37 @@ import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.scala.DataStream
 
 /**
-  * An abstract flink job to transform on a stream of events from an algebraic data type (ADT).
-  *
-  * @tparam IN  The type of input stream elements
-  * @tparam OUT The type of output stream elements
-  */
-abstract class FlinkJob[IN <: FlinkEvent : TypeInformation, OUT <: FlinkEvent : TypeInformation]
-  extends BaseFlinkJob[DataStream[IN], OUT] {
-
-  def getEventSourceName(implicit config: FlinkConfig) = config.getSourceNames.headOption.getOrElse("events")
+ * An abstract flink job to transform on a stream of events from an
+ * algebraic data type (ADT).
+ *
+ * @tparam IN
+ *   The type of input stream elements
+ * @tparam OUT
+ *   The type of output stream elements
+ */
+abstract class FlinkJob[
+    IN <: FlinkEvent: TypeInformation,
+    OUT <: FlinkEvent: TypeInformation]
+    extends BaseFlinkJob[DataStream[IN], OUT] {
 
   /**
-    * Returns source data stream to pass into transform(). This can be overridden by subclasses.
-    *
-    * @return input data stream
-    */
+   * Return the primary event source name
+   * @param config
+   *   implicit flink config
+   * @return
+   *   primary source name
+   */
+  def getEventSourceName(implicit config: FlinkConfig): String =
+    config.getSourceNames.headOption.getOrElse("events")
+
+  /**
+   * Returns source data stream to pass into transform(). This can be
+   * overridden by subclasses.
+   *
+   * @return
+   *   input data stream
+   */
   def source()(implicit config: FlinkConfig, env: SEE): DataStream[IN] =
-    fromSource[IN](getEventSourceName) |> maybeAssignTimestampsAndWatermarks[IN]
+    fromSource[IN](getEventSourceName)
 
 }

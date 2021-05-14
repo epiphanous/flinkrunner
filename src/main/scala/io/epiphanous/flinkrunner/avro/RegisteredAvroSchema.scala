@@ -4,22 +4,29 @@ import com.sksamuel.avro4s._
 import org.apache.avro.{LogicalTypes, Schema}
 
 import java.io.ByteArrayOutputStream
-import java.nio.ByteBuffer
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import scala.util.Try
 
 case class RegisteredAvroSchema(
-    id: Int,
     schema: Schema,
-    subject: String = "",
-    version: Int = 0) {
+    id: String,
+    optSubject: Option[String] = None,
+    optVersion: Option[String] = None) {
 
-  def name: String = if (subject.isEmpty) schema.getFullName else subject
+  /** subject (name) of the schema */
+  val subject: String = optSubject.getOrElse(schema.getFullName)
 
-  def decode[E: Decoder](buffer: ByteBuffer): Try[E] = {
-    val bytes = new Array[Byte](buffer.remaining())
-    buffer.get(bytes)
+  /**
+   * Decode an array of bytes into an event of type E.
+   * @param bytes
+   *   a binary avro encoded array of bytes that can be decoded into type E
+   * @tparam E
+   *   the type of event to decode
+   * @return
+   *   the event, wrapped in a [[Try]]
+   */
+  def decode[E: Decoder](bytes: Array[Byte]): Try[E] = {
     Try(
       AvroInputStream
         .binary[E]
@@ -30,30 +37,33 @@ case class RegisteredAvroSchema(
     )
   }
 
+  /**
+   * Binary avro encode an event of type E, prepending the result with the
+   * provided magic byte array.
+   * @param event
+   *   the event to encode
+   * @param magic
+   *   an array of bytes to prepend to the result that can be used to
+   *   identify the schema to decode the bytes with
+   * @tparam E
+   *   the type of event
+   * @return
+   *   an array of bytes, wrapped in a [[Try]]
+   */
   def encode[E: Encoder](
       event: E,
-      addMagic: Boolean = true): Try[Array[Byte]] =
+      magic: Array[Byte] = Array.emptyByteArray): Try[Array[Byte]] =
     Try {
-      val baos  = new ByteArrayOutputStream()
-      val os    = AvroOutputStream.binary[E].to(baos).build()
+      val baos = new ByteArrayOutputStream()
+      val os   = AvroOutputStream.binary[E].to(baos).build()
       os.write(event)
       os.flush()
       os.close()
-      val bytes = baos.toByteArray
-      if (addMagic)
-        ByteBuffer
-          .allocate(bytes.length + 5)
-          .put(RegisteredAvroSchema.MAGIC)
-          .putInt(id)
-          .put(bytes)
-          .array()
-      else bytes
+      magic ++ baos.toByteArray
     }
 }
 
 object RegisteredAvroSchema {
-  final val MAGIC = 0x0.toByte
-
   // force java instants to encode/decode with microsecond precision
   implicit val instantSchemaFor: AnyRef with SchemaFor[Instant] =
     SchemaFor[Instant](

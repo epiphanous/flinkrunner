@@ -91,23 +91,10 @@ object StreamUtils extends LazyLogging {
     }
   }
 
-  //  /**
-  //    * Generates a timestamp and watermark assigner for a stream with a given type of element that limits
-  //    * how late an element is allowed to arrive in event time.
-  //    *
-  //    * @param config implicitly provided job config
-  //    * @tparam E the type of stream element
-  //    * @return BoundedLatenessGenerator[E]
-  //    */
-  //  def boundedLatenessEventTime[E <: FlinkEvent: TypeInformation](
-  //    streamID: String
-  //  )(implicit config: FlinkConfig
-  //  ): BoundedLatenessGenerator[E] =
-  //    new BoundedLatenessGenerator[E](config.maxLateness.toMillis, streamID)
-
   /**
-   * Applies a bounded of order watermarking strategy with idleness
-   * checking
+   * Generates a timestamp and watermark assigner for a stream with a given
+   * type of element that limits how late an element is allowed to arrive
+   * in event time.
    *
    * @param config
    *   implicitly provided job config
@@ -116,37 +103,66 @@ object StreamUtils extends LazyLogging {
    * @return
    *   BoundedLatenessGenerator[E]
    */
-  def boundedOutofOrderness[E <: FlinkEvent: TypeInformation]()(implicit
-      config: FlinkConfig): WatermarkStrategy[E] =
+  def boundedLatenessWatermarks[E <: FlinkEvent: TypeInformation](
+      streamID: String
+  )(implicit config: FlinkConfig) =
+    new BoundedLatenessWatermarkStrategy[E](
+      config.maxLateness.toMillis,
+      streamID
+    )
+
+  /**
+   * Create a bounded of order watermark strategy with idleness checking
+   *
+   * @param config
+   *   implicitly provided job config
+   * @tparam E
+   *   the type of stream element
+   * @return
+   *   BoundedLatenessGenerator[E]
+   */
+  def boundedOutofOrdernessWatermarks[E <: FlinkEvent: TypeInformation]()(
+      implicit config: FlinkConfig): WatermarkStrategy[E] =
     WatermarkStrategy
       .forBoundedOutOfOrderness(config.maxLateness)
       .withIdleness(config.maxIdleness)
 
-  //  /**
-  //    * Creates an ascending timestamp extractor.
-  //    * @tparam E type of stream element
-  //    * @return AscendingTimestampExtractor[E]
-  //    */
-  //  def ascendingTimestampExtractor[E <: FlinkEvent: TypeInformation](): AscendingTimestampExtractor[E] = {
-  //    val extractor: AscendingTimestampExtractor[E] = new AscendingTimestampExtractor[E] {
-  //      var lastTimestamp = Long.MinValue
-  //      def extractAscendingTimestamp(event: E) = {
-  //        lastTimestamp = event.$timestamp
-  //        lastTimestamp
-  //      }
-  //    }
-  //    extractor.withViolationHandler(new IgnoringHandler())
-  //    extractor
-  //  }
+  /**
+   * Creates an ascending timestamp watermark strategy.
+   * @tparam E
+   *   type of stream element
+   * @return
+   *   AscendingTimestampExtractor[E]
+   */
+  def ascendingTimestampsWatermarks[E <: FlinkEvent: TypeInformation]()
+      : WatermarkStrategy[E] = WatermarkStrategy.forMonotonousTimestamps()
 
+  /**
+   * Assign timestamps/watermarks if we're using event time
+   * @param in
+   *   the input stream to watermark
+   * @param config
+   *   implicit flink configuration
+   * @param env
+   *   implicit stream execution environment
+   * @tparam E
+   *   event type
+   * @return
+   *   the possibly watermarked input stream
+   */
   def maybeAssignTimestampsAndWatermarks[E <: FlinkEvent: TypeInformation](
-      in: DataStream[E]
+      in: DataStream[E],
+      srcConfig: SourceConfig
   )(implicit config: FlinkConfig, env: SEE): DataStream[E] =
-    if (env.getStreamTimeCharacteristic == TimeCharacteristic.EventTime)
-      in.assignTimestampsAndWatermarks(boundedOutofOrderness[E]())
-        .name(s"wm:${in.name}")
+    if (srcConfig.timeCharacteristic == TimeCharacteristic.EventTime) {
+      in.assignTimestampsAndWatermarks(srcConfig.watermarkStrategy match {
+        case "bounded out of orderness" =>
+          boundedOutofOrdernessWatermarks()
+        case "ascending timestamps"     => ascendingTimestampsWatermarks()
+        case _                          => boundedLatenessWatermarks(in.name)
+      }).name(s"wm:${in.name}")
         .uid(s"wm:${in.name}")
-    else in
+    } else in
 
   /**
    * Configure stream source from configuration.
@@ -161,11 +177,11 @@ object StreamUtils extends LazyLogging {
   def fromSource[E <: FlinkEvent: TypeInformation](
       sourceName: String = ""
   )(implicit config: FlinkConfig, env: SEE): DataStream[E] = {
-    val name =
+    val name   =
       if (sourceName.isEmpty) config.getSourceNames.head else sourceName
-    val src  = config.getSourceConfig(name)
-    val uid  = src.label
-    (src match {
+    val src    = config.getSourceConfig(name)
+    val uid    = src.label
+    val stream = (src match {
       case src: KafkaSourceConfig      => fromKafka(src)
       case src: KinesisSourceConfig    => fromKinesis(src)
       case src: FileSourceConfig       => fromFile(src)
@@ -176,6 +192,7 @@ object StreamUtils extends LazyLogging {
           s"unsupported source connector: ${src.connector}"
         )
     }).name(uid).uid(uid)
+    maybeAssignTimestampsAndWatermarks(stream, src)
   }
 
   /**

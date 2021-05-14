@@ -16,12 +16,13 @@ class AvroCoderTest
   behavior of "AvroCoderTest"
 
   val obj       = TestAvroClass1.obj1
-  val registry  = new TestAvroSchemaRegistryClient()
+  val registry  = new TestSchemaRegistryClient()
+  val subject   = registry.getSubjectName(obj)
   val regSchema = RegisteredAvroSchema(
-    1,
     AvroSchema[TestAvroClass1],
-    registry.subject(obj, false),
-    1
+    "1",
+    Some(subject),
+    Some("1")
   )
   registry.install(regSchema)
 
@@ -34,7 +35,7 @@ class AvroCoderTest
         logger.debug(bytes.mkString(","))
         coder.decode[TestAvroClass1](bytes)
       }
-    result.isSuccess shouldBe true
+//    result.isSuccess shouldBe true
     logger.debug(s"$obj")
     logger.debug(s"${result.success.value}")
     result.success.value shouldEqual obj.copy(t =
