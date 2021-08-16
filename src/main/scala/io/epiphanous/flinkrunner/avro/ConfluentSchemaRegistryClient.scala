@@ -18,12 +18,13 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
-class ConfluentSchemaRegistryClient()(implicit
+class ConfluentSchemaRegistryClient() (implicit
     config: FlinkConfig,
     decoder: Decoder[ConfluentSchemaRegistryResponse])
     extends AvroSchemaRegistryClient[ConfluentSchemaRegistryContext]
     with StringUtils
-    with LazyLogging {
+    with LazyLogging
+    with Serializable {
 
   import ConfluentSchemaRegistryClient.configPrefix
 

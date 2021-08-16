@@ -1,8 +1,27 @@
+import sbtassembly.MergeStrategy
+
 name := "flinkrunner"
 
 lazy val scala212               = "2.12.12"
 lazy val scala211               = "2.11.12"
 lazy val supportedScalaVersions = List(scala212)
+
+val customMergeStrategy: String => MergeStrategy = {
+  case "reference.conf" =>
+    MergeStrategy.concat
+  case "module-info.class" =>
+    MergeStrategy.concat
+  case "mozilla/public-suffix-list.txt" =>
+    MergeStrategy.concat
+  case "scala/annotation/nowarn$.class" =>
+    MergeStrategy.concat
+  case "scala/annotation/nowarn.class" =>
+    MergeStrategy.concat
+  case s =>
+    MergeStrategy.defaultMergeStrategy(s)
+}
+
+assemblyMergeStrategy in assembly := customMergeStrategy
 
 inThisBuild(
   List(
@@ -56,7 +75,7 @@ val flinkDeps   =
 
 val loggingDeps = Seq(
   "ch.qos.logback"              % "logback-classic" % V.logback % Provided,
-  "com.typesafe.scala-logging" %% "scala-logging"   % V.scalaLogging
+  "com.typesafe.scala-logging" %% "scala-logging"   % V.scalaLogging % Provided
 )
 
 val http4sDeps =
@@ -73,14 +92,14 @@ val circeDeps  = Seq(
 )
 
 val otherDeps = Seq(
-  "com.beachape"        %% "enumeratum"  % V.enumeratum,
-  "org.apache.avro"      % "avro"        % V.avro,
-  "com.typesafe"         % "config"      % V.typesafeConfig,
-  "com.google.guava"     % "guava"       % V.guava,
-  "org.typelevel"       %% "squants"     % V.squants,
-  "com.sksamuel.avro4s" %% "avro4s-core" % V.avro4s,
+  "com.beachape"        %% "enumeratum"  % V.enumeratum % Provided,
+  "org.apache.avro"      % "avro"        % V.avro % Provided,
+  "com.typesafe"         % "config"      % V.typesafeConfig % Provided,
+  "com.google.guava"     % "guava"       % V.guava % Provided,
+  "org.typelevel"       %% "squants"     % V.squants % Provided,
+  "com.sksamuel.avro4s" %% "avro4s-core" % V.avro4s % Provided,
   "org.scalactic"       %% "scalactic"   % V.scalaTest  % Test,
-  "org.scalatest"       %% "scalatest"   % V.scalaTest  % Test,
+  "org.scalatest"       %% "scalatest"   % V.scalaTest  % Test ,
   "org.scalacheck"      %% "scalacheck"  % V.scalaCheck % Test
 )
 

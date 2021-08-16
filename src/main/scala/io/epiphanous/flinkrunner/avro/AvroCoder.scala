@@ -15,7 +15,7 @@ import scala.util.Try
  *   the schema registry context type
  */
 class AvroCoder[Context](registry: AvroSchemaRegistryClient[Context])
-    extends LazyLogging {
+extends LazyLogging with Serializable {
 
   /**
    * Decode a given binary avro encoded byte array using a schema
