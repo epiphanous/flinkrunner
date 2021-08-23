@@ -282,7 +282,7 @@ class ConfluentSchemaRegistryClient() (implicit
    *   the version to retrieve (defaults to "latest")
    * @return
    */
-  protected def url(subject: String, version: String = "latest"): String =
+  protected def url(subject: String, version: String = "1"): String =
     s"$urlBase/subjects/$subject/versions/$version"
 
 }
