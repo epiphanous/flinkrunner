@@ -74,7 +74,7 @@ class JdbcSink[E <: FlinkEvent: TypeInformation](
     super.open(parameters)
   }
 
-  override def invoke(value: E, context: Context[_]): Unit = {
+  override def invoke(value: E, context: Context): Unit = {
     pendingRows += value
     if (pendingRows.size >= bufferSize) {
       pendingRows.foreach(row => batchFunction.addToBatch(row, statement))
