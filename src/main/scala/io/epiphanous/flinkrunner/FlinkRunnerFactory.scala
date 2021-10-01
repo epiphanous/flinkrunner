@@ -21,45 +21,54 @@ import org.apache.flink.streaming.connectors.kinesis.serialization.{
 
 trait FlinkRunnerFactory[ADT <: FlinkEvent] {
 
+  def getFlinkConfig(
+      args: Array[String],
+      sources: Map[String, Seq[Array[Byte]]] = Map.empty,
+      optConfig: Option[String] = None) =
+    new FlinkConfig[ADT](args, this, sources, optConfig)
+
   def getJobInstance(
       name: String,
-      config: FlinkConfig): BaseFlinkJob[_, _ <: ADT]
+      config: FlinkConfig[ADT]): BaseFlinkJob[_, _, ADT]
 
-  def getDeserializationSchema(
+  def getDeserializationSchema[E <: ADT](
       name: String,
-      config: FlinkConfig): DeserializationSchema[ADT] = ???
+      config: FlinkConfig[ADT]): DeserializationSchema[E] = ???
 
-  def getKafkaDeserializationSchema(
+  def getKafkaDeserializationSchema[E <: ADT](
       name: String,
-      config: FlinkConfig): KafkaDeserializationSchema[ADT] =
+      config: FlinkConfig[ADT]): KafkaDeserializationSchema[E] =
     ???
 
-  def getKinesisDeserializationSchema(
+  def getKinesisDeserializationSchema[E <: ADT](
       name: String,
-      config: FlinkConfig): KinesisDeserializationSchema[ADT] = ???
+      config: FlinkConfig[ADT]): KinesisDeserializationSchema[E] = ???
 
-  def getSerializationSchema(
+  def getSerializationSchema[E <: ADT](
       name: String,
-      config: FlinkConfig): SerializationSchema[ADT] = ???
+      config: FlinkConfig[ADT]): SerializationSchema[E] = ???
 
-  def getKafkaSerializationSchema(
+  def getKafkaSerializationSchema[E <: ADT](
       name: String,
-      config: FlinkConfig): KafkaSerializationSchema[ADT] = ???
+      config: FlinkConfig[ADT]): KafkaSerializationSchema[E] = ???
 
-  def getKinesisSerializationSchema(
+  def getKinesisSerializationSchema[E <: ADT](
       name: String,
-      config: FlinkConfig): KinesisSerializationSchema[ADT] = ???
+      config: FlinkConfig[ADT]): KinesisSerializationSchema[E] = ???
 
-  def getEncoder(name: String, config: FlinkConfig): Encoder[ADT] = ???
-
-  def getAddToJdbcBatchFunction(
+  def getEncoder[E <: ADT](
       name: String,
-      config: FlinkConfig): AddToJdbcBatchFunction[ADT] = ???
+      config: FlinkConfig[ADT]): Encoder[E] = ???
 
-  def getBucketAssigner(
+  def getAddToJdbcBatchFunction[E <: ADT](
       name: String,
-      config: FlinkConfig): BucketAssigner[ADT, String] =
+      config: FlinkConfig[ADT]): AddToJdbcBatchFunction[E] = ???
+
+  def getBucketAssigner[E <: ADT](
+      name: String,
+      config: FlinkConfig[ADT]): BucketAssigner[E, String] =
     ???
 
-  def getAvroCoder(name: String, config: FlinkConfig): AvroCoder[_] = ???
+  def getAvroCoder(name: String, config: FlinkConfig[ADT]): AvroCoder[_] =
+    ???
 }

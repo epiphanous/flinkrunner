@@ -1,8 +1,7 @@
 package io.epiphanous.flinkrunner.flink
 
-import io.epiphanous.flinkrunner.SEE
-import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkEvent}
-import io.epiphanous.flinkrunner.util.StreamUtils._
+import io.epiphanous.flinkrunner.FlinkRunner
+import io.epiphanous.flinkrunner.model.FlinkEvent
 import org.apache.flink.api.common.state.MapStateDescriptor
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.scala._
@@ -18,18 +17,25 @@ import org.apache.flink.streaming.api.scala.{
  * href="https://flink.apache.org/2019/06/26/broadcast-state.html">broadcast
  * stream join pattern</a>.
  *
+ * @param runner
+ *   the flink runner associated with this job
  * @tparam IN
  *   Input stream event type
  * @tparam BC
  *   Broadcast stream event type
  * @tparam OUT
  *   Output stream event type
+ * @tparam ADT
+ *   The flink runner's algebraic data type
  */
 abstract class BroadcastFlinkJob[
-    IN <: FlinkEvent: TypeInformation,
-    BC <: FlinkEvent: TypeInformation,
-    OUT <: FlinkEvent: TypeInformation]
-    extends BaseFlinkJob[BroadcastConnectedStream[IN, BC], OUT] {
+    IN <: ADT: TypeInformation,
+    BC <: ADT: TypeInformation,
+    OUT <: ADT: TypeInformation,
+    ADT <: FlinkEvent: TypeInformation](runner: FlinkRunner[ADT])
+    extends BaseFlinkJob[BroadcastConnectedStream[IN, BC], OUT, ADT](
+      runner
+    ) {
 
   import BroadcastFlinkJob._
 
@@ -38,12 +44,10 @@ abstract class BroadcastFlinkJob[
    * output data stream from the connected broadcast + events stream. Must
    * be overridden by sub-classes.
    *
-   * @param config
-   *   implicit flink config
    * @return
    *   KeyedBroadcastProcessFunction[String, IN, BC, OUT]
    */
-  def getBroadcastProcessFunction()(implicit config: FlinkConfig)
+  def getBroadcastProcessFunction
       : KeyedBroadcastProcessFunction[String, IN, BC, OUT]
 
   /**
@@ -52,14 +56,12 @@ abstract class BroadcastFlinkJob[
    * @param nameOpt
    *   the name of the broadcast stream in the source configuration
    *   (default "broadcast")
-   * @param config
-   *   implicit flink config
    * @return
    *   MapStateDescriptor[String, BC]
    */
   def getBroadcastStateDescriptor(
       nameOpt: Option[String] = None
-  )(implicit config: FlinkConfig): MapStateDescriptor[String, BC] =
+  ): MapStateDescriptor[String, BC] =
     new MapStateDescriptor[String, BC](
       nameOpt.getOrElse(BROADCAST_STATE_DESCRIPTOR_NAME),
       createTypeInformation[String],
@@ -69,41 +71,26 @@ abstract class BroadcastFlinkJob[
   /**
    * Creates the broadcast source stream.
    *
-   * @param config
-   *   implicit flink config
-   * @param env
-   *   implicit streaming execution environment
    * @return
    *   broadcast stream
    */
-  def broadcastSource(implicit
-      config: FlinkConfig,
-      env: SEE): BroadcastStream[BC] =
-    fromSource[BC](getBroadcastSourceName).broadcast(
-      getBroadcastStateDescriptor()
-    )
-
-  def getBroadcastSourceName()(implicit config: FlinkConfig) =
-    BROADCAST_SOURCE_NAME
-
-  def getEventSourceName()(implicit config: FlinkConfig) =
-    EVENT_SOURCE_NAME
+  def broadcastSource: BroadcastStream[BC] =
+    runner
+      .fromSource[BC](getBroadcastSourceName)
+      .broadcast(
+        getBroadcastStateDescriptor()
+      )
 
   /**
    * Creates the broadcast stream and the input event stream and connects
    * them
    *
-   * @param config
-   *   implicit flink config
-   * @param env
-   *   implicit streaming execution environment
    * @return
    *   connected broadcast + events stream
    */
-  override def source()(implicit
-      config: FlinkConfig,
-      env: SEE): BroadcastConnectedStream[IN, BC] =
-    (fromSource[IN](getEventSourceName))
+  override def source(): BroadcastConnectedStream[IN, BC] =
+    (runner
+      .fromSource[IN](getEventSourceName))
       .keyBy((in: IN) => in.$key)
       .connect(broadcastSource)
 
@@ -122,11 +109,15 @@ abstract class BroadcastFlinkJob[
    */
   override def transform(
       in: BroadcastConnectedStream[IN, BC]
-  )(implicit config: FlinkConfig, env: SEE): DataStream[OUT] = {
+  ): DataStream[OUT] = {
     val name =
-      s"processed:${getEventSourceName()}+${getBroadcastSourceName()}"
-    in.process(getBroadcastProcessFunction()).name(name).uid(name)
+      s"processed:$getEventSourceName+$getBroadcastSourceName"
+    in.process(getBroadcastProcessFunction).name(name).uid(name)
   }
+
+  def getBroadcastSourceName: String = BROADCAST_SOURCE_NAME
+
+  def getEventSourceName: String = EVENT_SOURCE_NAME
 
 }
 

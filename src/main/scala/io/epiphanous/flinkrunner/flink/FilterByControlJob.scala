@@ -1,12 +1,7 @@
 package io.epiphanous.flinkrunner.flink
 
-import io.epiphanous.flinkrunner.SEE
-import io.epiphanous.flinkrunner.model.{
-  DataOrControl,
-  FlinkConfig,
-  FlinkEvent
-}
-import io.epiphanous.flinkrunner.util.StreamUtils._
+import io.epiphanous.flinkrunner.FlinkRunner
+import io.epiphanous.flinkrunner.model.{DataOrControl, FlinkEvent}
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.scala._
 import org.apache.flink.streaming.api.scala.DataStream
@@ -24,6 +19,8 @@ import org.apache.flink.streaming.api.scala.DataStream
  *
  * would output `d3 d4 d5`.
  *
+ * @param runner
+ *   the flink runner associated with this job
  * @tparam D
  *   the data type
  * @tparam C
@@ -32,32 +29,30 @@ import org.apache.flink.streaming.api.scala.DataStream
  *   the output stream element type
  */
 abstract class FilterByControlJob[
-    D <: FlinkEvent: TypeInformation,
-    C <: FlinkEvent: TypeInformation,
-    OUT <: FlinkEvent: TypeInformation]
-    extends FlinkJob[D, OUT] {
+    D <: ADT: TypeInformation,
+    C <: ADT: TypeInformation,
+    OUT <: ADT: TypeInformation,
+    ADT <: FlinkEvent: TypeInformation](runner: FlinkRunner[ADT])
+    extends FlinkJob[D, OUT, ADT](runner) {
+
+  import io.epiphanous.flinkrunner.flink.FilterByControlJob._
 
   /**
    * A source data stream for the data events.
    *
-   * @param config
-   *   implicit flink config
    * @return
    *   a data stream of data events.
    */
-  def data(implicit config: FlinkConfig, env: SEE): DataStream[D] =
-    fromSource[D]("data")
+  def data: DataStream[D] =
+    runner.fromSource[D](getDataStreamName)
 
   /**
    * A source data stream for the control events.
    *
-   * @param config
-   *   implicit flink config
    * @return
    *   a data stream of control events.
    */
-  def control(implicit config: FlinkConfig, env: SEE): DataStream[C] =
-    fromSource[C]("control")
+  def control: DataStream[C] = runner.fromSource[C](getControlStreamName)
 
   /**
    * Generate a stream of data records filtered by the control stream. This
@@ -67,26 +62,31 @@ abstract class FilterByControlJob[
    * when to emit the data records. It remembers the last control time and
    * state and updates it when the state changes. *
    *
-   * @param config
-   *   implicit flink config
    * @return
    *   data stream of data records
    */
-  override def source()(implicit
-      config: FlinkConfig,
-      env: SEE): DataStream[D] = {
+  override def source(): DataStream[D] = {
 
     val controlLockoutDuration =
       config.getDuration("control.lockout.duration").toMillis
 
+    val name = getDataControlStreamName
+
+    implicit val typeInformation
+        : TypeInformation[DataOrControl[D, C, ADT]] =
+      TypeInformation.of(classOf[DataOrControl[D, C, ADT]])
+
     val in =
       data
         .connect(control)
-        .map(DataOrControl.data[D, C], DataOrControl.control[D, C])
-        .name("data+control")
-        .uid("data+control")
+        .map(
+          DataOrControl.data[D, C, ADT],
+          DataOrControl.control[D, C, ADT]
+        )
+        .name(name)
+        .uid(name)
 
-    in.keyBy((e: DataOrControl[D, C]) => e.$key)
+    in.keyBy((e: DataOrControl[D, C, ADT]) => e.$key)
       .filterWithState[(Long, Boolean)]((dc, lastControlOpt) => {
         if (dc.isData) {
           val emit = lastControlOpt match {
@@ -109,9 +109,21 @@ abstract class FilterByControlJob[
       })
       .name(s"filter:${in.name}")
       .uid(s"filter:${in.name}")
-      .map((x: DataOrControl[D, C]) => x.data.get)
+      .map((x: DataOrControl[D, C, ADT]) => x.data.get)
       .name("filtered:data")
       .uid("filtered:data")
   }
 
+  def getDataStreamName: String = DATA_STREAM_NAME
+
+  def getControlStreamName: String = CONTROL_STREAM_NAME
+
+  def getDataControlStreamName: String =
+    s"$getDataStreamName+$getControlStreamName"
+
+}
+
+object FilterByControlJob {
+  val DATA_STREAM_NAME    = "data"
+  val CONTROL_STREAM_NAME = "control"
 }

@@ -1,8 +1,7 @@
 package io.epiphanous.flinkrunner.flink
 
-import io.epiphanous.flinkrunner.SEE
-import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkEvent}
-import io.epiphanous.flinkrunner.util.StreamUtils._
+import io.epiphanous.flinkrunner.FlinkRunner
+import io.epiphanous.flinkrunner.model.FlinkEvent
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.scala.DataStream
 
@@ -10,24 +9,27 @@ import org.apache.flink.streaming.api.scala.DataStream
  * An abstract flink job to transform on a stream of events from an
  * algebraic data type (ADT).
  *
+ * @param runner
+ *   the flink runner associated with this job
  * @tparam IN
  *   The type of input stream elements
  * @tparam OUT
  *   The type of output stream elements
+ * @tparam ADT
+ *   The flink runner's algebraic data type
  */
 abstract class FlinkJob[
-    IN <: FlinkEvent: TypeInformation,
-    OUT <: FlinkEvent: TypeInformation]
-    extends BaseFlinkJob[DataStream[IN], OUT] {
+    IN <: ADT: TypeInformation,
+    OUT <: ADT: TypeInformation,
+    ADT <: FlinkEvent: TypeInformation](runner: FlinkRunner[ADT])
+    extends BaseFlinkJob[DataStream[IN], OUT, ADT](runner) {
 
   /**
    * Return the primary event source name
-   * @param config
-   *   implicit flink config
    * @return
    *   primary source name
    */
-  def getEventSourceName(implicit config: FlinkConfig): String =
+  def getEventSourceName: String =
     config.getSourceNames.headOption.getOrElse("events")
 
   /**
@@ -37,7 +39,7 @@ abstract class FlinkJob[
    * @return
    *   input data stream
    */
-  def source()(implicit config: FlinkConfig, env: SEE): DataStream[IN] =
-    fromSource[IN](getEventSourceName)
+  def source(): DataStream[IN] =
+    runner.fromSource[IN](getEventSourceName)
 
 }

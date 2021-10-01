@@ -2,7 +2,7 @@ package io.epiphanous.flinkrunner.model
 
 import java.util.UUID
 
-case class DataControlPeriod[D <: FlinkEvent](
+case class DataControlPeriod[D <: ADT, ADT <: FlinkEvent](
     id: String = UUID.randomUUID().toString,
     key: String,
     start: Long = 0L,

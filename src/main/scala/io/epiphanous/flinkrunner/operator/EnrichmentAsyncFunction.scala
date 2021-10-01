@@ -4,7 +4,7 @@ import cats.effect.{ContextShift, IO, Timer}
 import com.google.common.cache.{CacheBuilder, CacheLoader}
 import com.typesafe.scalalogging.LazyLogging
 import io.circe.Decoder
-import io.epiphanous.flinkrunner.model.FlinkConfig
+import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkEvent}
 import org.apache.flink.runtime.concurrent.Executors.directExecutionContext
 import org.apache.flink.streaming.api.scala.async.{
   AsyncFunction,
@@ -58,11 +58,16 @@ import scala.util.{Failure, Success, Try}
  * @tparam CV
  *   the cache value type
  */
-abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
+abstract class EnrichmentAsyncFunction[
+    IN,
+    OUT,
+    CV <: AnyRef,
+    ADT <: FlinkEvent](
     configPrefix: String,
     cacheLoaderOpt: Option[CacheLoader[String, Option[CV]]] = None,
-    preloaded: Map[String, CV] = Map.empty[String, CV]
-)(implicit config: FlinkConfig, decoder: Decoder[CV])
+    preloaded: Map[String, CV] = Map.empty[String, CV],
+    config: FlinkConfig[ADT]
+)(implicit decoder: Decoder[CV])
     extends AsyncFunction[IN, OUT]
     with LazyLogging {
 

@@ -6,33 +6,46 @@ import squants.{Percent, Quantity}
 import java.time.Instant
 
 final case class Percentage(
-                             dimension: String,
-                             unit: String,
-                             value: Double = 0d,
-                             count: BigInt = BigInt(0),
-                             aggregatedLastUpdated: Instant = Instant.EPOCH,
-                             lastUpdated: Instant = Instant.now(),
-                             dependentAggregations: Map[String, Aggregate] = Map.empty[String, Aggregate],
-                             params: Map[String, String] = Map("base" -> Percentage.defaultBase))
-  extends Aggregate {
+    dimension: String,
+    unit: String,
+    value: Double = 0d,
+    count: BigInt = BigInt(0),
+    aggregatedLastUpdated: Instant = Instant.EPOCH,
+    lastUpdated: Instant = Instant.now(),
+    dependentAggregations: Map[String, Aggregate] =
+      Map.empty[String, Aggregate],
+    params: Map[String, String] = Map("base" -> Percentage.defaultBase))
+    extends Aggregate {
 
   override def isDimensionless = true
 
   override def outUnit = Percent.symbol
 
-  val baseParam: Double = params.getOrElse("base", Percentage.defaultBase).toDouble
+  val baseParam: Double =
+    params.getOrElse("base", Percentage.defaultBase).toDouble
 
   def baseQuantity[A <: Quantity[A]](q: A, unitMapper: UnitMapper) =
     unitMapper.createQuantity(q.dimension, baseParam, unit)
 
-  override def update[A <: Quantity[A]](q: A, aggLU: Instant, unitMapper: UnitMapper) = {
+  override def update[A <: Quantity[A]](
+      q: A,
+      aggLU: Instant,
+      unitMapper: UnitMapper) = {
     val updateValue = baseQuantity(q, unitMapper).map(b => q / b) match {
       case Some(addValue) => addValue * 100.0
-      case None =>
-        logger.error(s"$name[$dimension,$unit] can not be updated with (Quantity[${q.dimension.name}]=$q)")
+      case None           =>
+        logger.error(
+          s"$name[$dimension,$unit] can not be updated with (Quantity[${q.dimension.name}]=$q)"
+        )
         0d
     }
-    Some(copy(value = this.value + updateValue, count = count + 1, aggregatedLastUpdated = aggLU))
+    Some(
+      copy(
+        value = this.value + updateValue,
+        count = count + 1,
+        aggregatedLastUpdated = aggLU
+      )
+    )
   }
 
 }

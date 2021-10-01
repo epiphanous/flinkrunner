@@ -145,6 +145,7 @@ trait UnitMapper extends LazyLogging {
     )
   }
 
+  //noinspection ScalaUnusedSymbol
   def getSymbolFromString(dimension: String, unit: String): String = unit
 
 }

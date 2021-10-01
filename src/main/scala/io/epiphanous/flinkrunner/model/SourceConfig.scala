@@ -1,9 +1,9 @@
 package io.epiphanous.flinkrunner.model
 
 import io.epiphanous.flinkrunner.model.FlinkConnectorName._
-import org.apache.flink.streaming.api.TimeCharacteristic
 
 import java.util.Properties
+import scala.concurrent.duration.DurationInt
 import scala.util.Try
 
 sealed trait SourceConfig {
@@ -13,20 +13,21 @@ sealed trait SourceConfig {
 
   def label: String = s"$connector/$name"
 
-  def timeCharacteristic: TimeCharacteristic
-
   def watermarkStrategy: String
+
+  def maxAllowedLateness: Long
 
   def properties: Properties
 }
 
 object SourceConfig {
-  def apply(name: String, config: FlinkConfig): SourceConfig = {
+  def apply[ADT <: FlinkEvent](
+      name: String,
+      config: FlinkConfig[ADT]): SourceConfig = {
     val p                  = s"sources.$name"
-    val timeCharacteristic =
-      Try(config.getString(s"$p.time.characteristic"))
-        .map(config.getTimeCharacteristic)
-        .getOrElse(config.timeCharacteristic)
+    val maxAllowedLateness = Try(
+      config.getDuration(s"$p.max.allowed.lateness")
+    ).map(_.toMillis).getOrElse(5.minutes.toMillis)
     val watermarkStrategy  = Try(config.getString(s"$p.watermark.strategy"))
       .map(config.getWatermarkStrategy)
       .getOrElse(config.watermarkStrategy)
@@ -42,8 +43,8 @@ object SourceConfig {
               name,
               config.getString(s"$p.topic"),
               config.getBoolean(s"$p.isKeyed"),
-              timeCharacteristic,
               watermarkStrategy,
+              maxAllowedLateness,
               config.getProperties(s"$p.config")
             )
           case Kinesis    =>
@@ -51,8 +52,8 @@ object SourceConfig {
               connector,
               name,
               config.getString(s"$p.stream"),
-              timeCharacteristic,
               watermarkStrategy,
+              maxAllowedLateness,
               config.getProperties(s"$p.config")
             )
           case File       =>
@@ -60,8 +61,8 @@ object SourceConfig {
               connector,
               name,
               config.getString(s"$p.path"),
-              timeCharacteristic,
               watermarkStrategy,
+              maxAllowedLateness,
               config.getProperties(s"$p.config")
             )
           case Socket     =>
@@ -70,8 +71,8 @@ object SourceConfig {
               name,
               config.getString(s"$p.host"),
               config.getInt(s"$p.port"),
-              timeCharacteristic,
               watermarkStrategy,
+              maxAllowedLateness,
               config.getProperties(s"$p.config")
             )
           case Collection =>
@@ -79,8 +80,8 @@ object SourceConfig {
               connector,
               name,
               name,
-              timeCharacteristic,
               watermarkStrategy,
+              maxAllowedLateness,
               config.getProperties(s"$p.config")
             )
           case other      =>
@@ -101,8 +102,8 @@ final case class KafkaSourceConfig(
     name: String,
     topic: String,
     isKeyed: Boolean,
-    timeCharacteristic: TimeCharacteristic,
     watermarkStrategy: String,
+    maxAllowedLateness: Long,
     properties: Properties)
     extends SourceConfig
 
@@ -110,8 +111,8 @@ final case class KinesisSourceConfig(
     connector: FlinkConnectorName = Kinesis,
     name: String,
     stream: String,
-    timeCharacteristic: TimeCharacteristic,
     watermarkStrategy: String,
+    maxAllowedLateness: Long,
     properties: Properties)
     extends SourceConfig
 
@@ -119,8 +120,8 @@ final case class FileSourceConfig(
     connector: FlinkConnectorName = File,
     name: String,
     path: String,
-    timeCharacteristic: TimeCharacteristic,
     watermarkStrategy: String,
+    maxAllowedLateness: Long,
     properties: Properties)
     extends SourceConfig
 
@@ -129,8 +130,8 @@ final case class SocketSourceConfig(
     name: String,
     host: String,
     port: Int,
-    timeCharacteristic: TimeCharacteristic,
     watermarkStrategy: String,
+    maxAllowedLateness: Long,
     properties: Properties)
     extends SourceConfig
 
@@ -138,7 +139,7 @@ final case class CollectionSourceConfig(
     connector: FlinkConnectorName = Collection,
     name: String,
     topic: String,
-    timeCharacteristic: TimeCharacteristic,
     watermarkStrategy: String,
+    maxAllowedLateness: Long,
     properties: Properties)
     extends SourceConfig

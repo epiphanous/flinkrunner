@@ -15,7 +15,9 @@ sealed trait SinkConfig {
 }
 
 object SinkConfig {
-  def apply(name: String, config: FlinkConfig): SinkConfig = {
+  def apply[ADT <: FlinkEvent](
+      name: String,
+      config: FlinkConfig[ADT]): SinkConfig = {
     val p = s"sinks.$name"
     FlinkConnectorName.withNameInsensitiveOption(
       config.getString(s"$p.connector")

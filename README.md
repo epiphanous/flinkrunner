@@ -40,7 +40,7 @@
 
 ## Maven Dependency
 
-`Flinkrunner 3` is [available on maven central](https://mvnrepository.com/artifact/io.epiphanous/flinkrunner_2.12),
+`Flinkrunner 4` is [available on maven central](https://mvnrepository.com/artifact/io.epiphanous/flinkrunner_2.12),
 built against Flink 1.13 with Scala 2.12 and JDK 11.
 
 ```sbtshell

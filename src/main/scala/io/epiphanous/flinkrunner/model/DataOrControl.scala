@@ -1,6 +1,8 @@
 package io.epiphanous.flinkrunner.model
 
-case class DataOrControl[D <: FlinkEvent, C <: FlinkEvent](
+import org.apache.flink.api.common.typeinfo.TypeInformation
+
+case class DataOrControl[D <: ADT, C <: ADT, ADT <: FlinkEvent](
     event: Either[D, C])
     extends FlinkEvent {
   def $id: String = event.fold(_.$id, _.$id)
@@ -23,9 +25,11 @@ case class DataOrControl[D <: FlinkEvent, C <: FlinkEvent](
 }
 
 object DataOrControl {
-  def data[D <: FlinkEvent, C <: FlinkEvent](
-      event: D): DataOrControl[D, C] = DataOrControl[D, C](Left(event))
+  def data[D <: ADT, C <: ADT, ADT <: FlinkEvent: TypeInformation](
+      data: D): DataOrControl[D, C, ADT] =
+    DataOrControl[D, C, ADT](Left(data))
 
-  def control[D <: FlinkEvent, C <: FlinkEvent](
-      event: C): DataOrControl[D, C] = DataOrControl[D, C](Right(event))
+  def control[D <: ADT, C <: ADT, ADT <: FlinkEvent: TypeInformation](
+      control: C) =
+    DataOrControl[D, C, ADT](Right(control))
 }

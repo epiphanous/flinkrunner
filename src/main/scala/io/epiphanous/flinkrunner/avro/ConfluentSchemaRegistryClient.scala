@@ -4,9 +4,10 @@ import cats.effect.{ContextShift, IO, Resource, Timer}
 import com.google.common.cache.{CacheBuilder, CacheLoader, LoadingCache}
 import com.typesafe.scalalogging.LazyLogging
 import io.circe.Decoder
-import io.epiphanous.flinkrunner.model.FlinkConfig
+import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkEvent}
 import io.epiphanous.flinkrunner.util.StringUtils
 import org.apache.avro.Schema.Parser
+import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.runtime.concurrent.Executors.directExecutionContext
 import org.http4s.EntityDecoder
 import org.http4s.circe.jsonOf
@@ -18,8 +19,8 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
-class ConfluentSchemaRegistryClient()(implicit
-    config: FlinkConfig,
+class ConfluentSchemaRegistryClient[ADT <: FlinkEvent: TypeInformation](
+    config: FlinkConfig[ADT])(implicit
     decoder: Decoder[ConfluentSchemaRegistryResponse])
     extends AvroSchemaRegistryClient[ConfluentSchemaRegistryContext]
     with StringUtils
@@ -104,7 +105,7 @@ class ConfluentSchemaRegistryClient()(implicit
       .concurrencyLevel(
         config.getInt(s"$configPrefix.cache.concurrency.level")
       )
-      .maximumSize(config.getInt(s"$configPrefix.cache.max.size"))
+      .maximumSize(config.getLong(s"$configPrefix.cache.max.size"))
       .expireAfterWrite(expireAfter.toMillis, TimeUnit.MILLISECONDS)
     //      .expireAfterWrite(expireAfter) // for guava 27
     if (!config.getBoolean(s"$configPrefix.cache.use.strong.keys"))

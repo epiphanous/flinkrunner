@@ -2,26 +2,22 @@ package io.epiphanous.flinkrunner.model
 
 import com.typesafe.config.{ConfigFactory, ConfigObject}
 import com.typesafe.scalalogging.LazyLogging
+import io.epiphanous.flinkrunner.model.ConfigToProps.RichConfigObject
 import io.epiphanous.flinkrunner.{FlinkRunnerFactory, SEE}
 import org.apache.flink.api.java.utils.ParameterTool
-import org.apache.flink.contrib.streaming.state.{
-  PredefinedOptions,
-  RocksDBStateBackend
-}
-import org.apache.flink.runtime.state.filesystem.FsStateBackend
-import org.apache.flink.streaming.api.TimeCharacteristic
+import org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackend
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 
 import java.io.File
 import java.time.Duration
-import java.util.{Properties, List => JList, Map => JMap}
+import java.util.Properties
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
 @SerialVersionUID(1544548116L)
-class FlinkConfig(
+class FlinkConfig[ADT <: FlinkEvent](
     args: Array[String],
-    factory: FlinkRunnerFactory[_],
+    factory: FlinkRunnerFactory[ADT],
     sources: Map[String, Seq[Array[Byte]]] = Map.empty,
     optConfig: Option[String] = None)
     extends LazyLogging
@@ -128,24 +124,7 @@ class FlinkConfig(
       case (_, p)   => _config.getDuration(p)
     }
 
-  def getProperties(path: String): Properties = {
-    val p = new Properties()
-
-    def flatten(key: String, value: Object): Unit = {
-      val pkey = if (key.isEmpty) key else s"$key."
-      value match {
-        case map: JMap[String, Object] @unchecked =>
-          map.asScala.foreach { case (k, v) => flatten(s"$pkey$k", v) }
-        case list: JList[Object] @unchecked       =>
-          list.asScala.zipWithIndex.foreach { case (v, i) =>
-            flatten(s"$pkey$i", v)
-          }
-        case v                                    =>
-          p.put(key, v.toString)
-          () // force unit return
-      }
-    }
-
+  def getProperties(path: String): Properties =
     (_s(path) match {
       case ("a", p) =>
         Some(
@@ -155,12 +134,7 @@ class FlinkConfig(
         )
       case (_, p)   =>
         if (_config.hasPath(p)) Some(_config.getObject(p)) else None
-    }) match {
-      case Some(c) => flatten("", c.unwrapped())
-      case None    => // noop
-    }
-    p
-  }
+    }).asProperties
 
   def _classInstance[T](path: String): T =
     Class
@@ -171,33 +145,35 @@ class FlinkConfig(
 
 //  def getJobInstance = factory.getJobInstance(jobName, this)
 
-  def getDeserializationSchema(name: String) =
-    factory.getDeserializationSchema(name, this)
+  def getDeserializationSchema[E <: ADT](name: String) =
+    factory.getDeserializationSchema[E](name, this)
 
-  def getKafkaDeserializationSchema(name: String) =
-    factory.getKafkaDeserializationSchema(name, this)
+  def getKafkaDeserializationSchema[E <: ADT](name: String) =
+    factory.getKafkaDeserializationSchema[E](name, this)
 
-  def getKinesisDeserializationSchema(name: String) =
-    factory.getKinesisDeserializationSchema(name, this)
+  def getKinesisDeserializationSchema[E <: ADT](name: String) =
+    factory.getKinesisDeserializationSchema[E](name, this)
 
-  def getSerializationSchema(name: String) =
-    factory.getSerializationSchema(name, this)
+  def getSerializationSchema[E <: ADT](name: String) =
+    factory.getSerializationSchema[E](name, this)
 
-  def getKafkaSerializationSchema(name: String) =
-    factory.getKafkaSerializationSchema(name, this)
+  def getKafkaSerializationSchema[E <: ADT](name: String) =
+    factory.getKafkaSerializationSchema[E](name, this)
 
-  def getKinesisSerializationSchema(name: String) =
-    factory.getKinesisSerializationSchema(name, this)
+  def getKinesisSerializationSchema[E <: ADT](name: String) =
+    factory.getKinesisSerializationSchema[E](name, this)
 
-  def getEncoder(name: String) = factory.getEncoder(name, this)
+  def getEncoder[E <: ADT](name: String) =
+    factory.getEncoder[E](name, this)
 
-  def getAddToJdbcBatchFunction(name: String) =
-    factory.getAddToJdbcBatchFunction(name, this)
+  def getAddToJdbcBatchFunction[E <: ADT](name: String) =
+    factory.getAddToJdbcBatchFunction[E](name, this)
 
-  def getBucketAssigner(name: String) =
-    factory.getBucketAssigner(name, this)
+  def getBucketAssigner[E <: ADT](name: String) =
+    factory.getBucketAssigner[E](name, this)
 
-  def getAvroCoder(name: String) = factory.getAvroCoder(name, this)
+  def getAvroCoder(name: String) =
+    factory.getAvroCoder(name, this)
 
   def getSourceConfig(name: String): SourceConfig =
     SourceConfig(name, this)
@@ -232,9 +208,6 @@ class FlinkConfig(
       else
         StreamExecutionEnvironment.getExecutionEnvironment
 
-    // use event time
-    env.setStreamTimeCharacteristic(timeCharacteristic)
-
     // set parallelism
     env.setParallelism(globalParallelism)
 
@@ -250,43 +223,15 @@ class FlinkConfig(
         checkpointMaxConcurrent
       )
 
-      val backend = if (stateBackend == "rocksdb") {
-        logger.info(s"Using ROCKS DB state backend at $checkpointUrl")
-        val rocksBackend =
-          new RocksDBStateBackend(checkpointUrl, checkpointIncremental)
-        if (checkpointFlash)
-          rocksBackend.setPredefinedOptions(
-            PredefinedOptions.FLASH_SSD_OPTIMIZED
-          )
-        rocksBackend
-      } else {
-        logger.info(s"Using FILE SYSTEM state backend at $checkpointUrl")
-        new FsStateBackend(checkpointUrl)
-      }
-      /* this deprecation is annoying; its due to rocksdb's state backend
-         extending AbstractStateBackend which is deprecated */
-      env.setStateBackend(backend)
+      logger.info(s"Using ROCKS DB state backend at $checkpointUrl")
+      env.setStateBackend(
+        new EmbeddedRocksDBStateBackend(checkpointIncremental)
+      )
+      env.getCheckpointConfig.setCheckpointStorage(checkpointUrl)
     }
 
     env
   }
-
-  def getTimeCharacteristic(tc: String): TimeCharacteristic = {
-    tc.toLowerCase
-      .replaceFirst("\\s*time$", "") match {
-      case "event"      => TimeCharacteristic.EventTime
-      case "processing" => TimeCharacteristic.ProcessingTime
-      case "ingestion"  => TimeCharacteristic.IngestionTime
-      case unknown      =>
-        throw new RuntimeException(
-          s"Unknown time.characteristic setting: '$unknown'"
-        )
-    }
-  }
-
-  lazy val timeCharacteristic = getTimeCharacteristic(
-    getString("time.characteristic")
-  )
 
   def getWatermarkStrategy(ws: String) =
     ws.toLowerCase.replaceAll("[^a-z]", "") match {

@@ -1,7 +1,7 @@
 package io.epiphanous.flinkrunner.util
 
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.model.FlinkEvent
+import io.epiphanous.flinkrunner.model.JdbcSinkConfig
 import io.epiphanous.flinkrunner.operator.AddToJdbcBatchFunction
 import org.apache.flink.api.common.state.{ListState, ListStateDescriptor}
 import org.apache.flink.api.common.typeinfo.TypeInformation
@@ -16,7 +16,6 @@ import org.apache.flink.streaming.api.functions.sink.SinkFunction.Context
 import org.apache.flink.streaming.api.scala._
 
 import java.sql.{Connection, DriverManager, PreparedStatement}
-import java.util.Properties
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try}
@@ -37,12 +36,14 @@ import scala.util.{Failure, Success, Try}
  * @tparam E
  *   the class of sink elements.
  */
-class JdbcSink[E <: FlinkEvent: TypeInformation](
-    batchFunction: AddToJdbcBatchFunction[E],
-    props: Properties)
-    extends RichSinkFunction[E]
+class JdbcSink[E: TypeInformation](
+    sinkConfig: JdbcSinkConfig,
+    batchFunction: AddToJdbcBatchFunction[E]
+) extends RichSinkFunction[E]
     with CheckpointedFunction
     with LazyLogging {
+
+  val props = sinkConfig.properties
 
   val bufferSize                              = props.getProperty("buffer.size").toInt
   private val pendingRows                     = ListBuffer.empty[E]

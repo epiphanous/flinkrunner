@@ -1,6 +1,7 @@
 package io.epiphanous.flinkrunner.util
 
 import io.epiphanous.flinkrunner.UnitSpec
+import io.epiphanous.flinkrunner.model.FlinkEvent
 import org.apache.flink.api.common.eventtime.{Watermark, WatermarkOutput}
 
 import java.util.UUID.randomUUID
@@ -12,7 +13,10 @@ class BoundedLatenessGeneratorTest extends UnitSpec {
   val random = new Random()
 
   def getBlg(maxAllowedLateness: Long = 10L, streamID: String = "Test") =
-    new BoundedLatenessGenerator[TestEvent](maxAllowedLateness, streamID)
+    new BoundedLatenessGenerator[TestEvent](
+      maxAllowedLateness,
+      streamID
+    )
 
   def uuid = randomUUID().toString
 
