@@ -24,10 +24,11 @@ inThisBuild(
 Test / parallelExecution := false
 Test / fork := true
 resolvers += "Local Maven Repository" at "file://" + Path.userHome.absolutePath + "/.m2/repository"
+resolvers += "Confluent Repository" at "https://packages.confluent.io/maven/"
 
 val V = new {
-  val flink          = "1.13.2"
-  val logback        = "1.2.6"
+  val flink          = "1.13.3"
+  val logback        = "1.2.7"
   val scalaLogging   = "3.9.4"
   val scalaTest      = "3.2.10"
   val scalaCheck     = "1.15.4"
@@ -35,53 +36,57 @@ val V = new {
   val http4s         = "0.21.29"
   val enumeratum     = "1.7.0"
   val typesafeConfig = "1.4.1"
-  val guava          = "29.0-jre"
+  val guava          = "31.0.1-jre" //"29.0-jre"
   val squants        = "1.8.3"
-  val avro           = "1.10.2"
+  val avro           = "1.11.0"
   val avro4s         = "4.0.11"
+  val schemaRegistry = "7.0.0"
 }
 
-val flinkDeps   =
-  Seq("scala", "streaming-scala", "cep-scala").map(a =>
-    "org.apache.flink" %% s"flink-$a" % V.flink % Provided
-  ) ++
-    Seq(
-      "connector-kafka",
-      "connector-kinesis",
-      "connector-cassandra",
-      "connector-elasticsearch7",
-      "statebackend-rocksdb"
-    ).map(a => "org.apache.flink" %% s"flink-$a" % V.flink) ++
-    Seq("org.apache.flink" %% "flink-test-utils" % V.flink % Test)
+val flinkDeps =
+  Seq(
+    "org.apache.flink" %% s"flink-scala"                    % V.flink % Provided,
+    "org.apache.flink" %% s"flink-streaming-scala"          % V.flink % Provided,
+    "org.apache.flink" %% s"flink-cep-scala"                % V.flink % Provided,
+    "org.apache.flink" %% s"flink-connector-kafka"          % V.flink,
+    "org.apache.flink" %% s"flink-connector-kinesis"        % V.flink,
+    "org.apache.flink" %% s"flink-connector-cassandra"      % V.flink,
+    "org.apache.flink" %% s"flink-connector-elasticsearch7" % V.flink,
+    "org.apache.flink" %% s"flink-statebackend-rocksdb"     % V.flink,
+    "org.apache.flink"  % s"flink-avro-confluent-registry"  % V.flink,
+    "org.apache.flink" %% s"flink-test-utils"               % V.flink % Test
+  )
 
 val loggingDeps = Seq(
   "ch.qos.logback"              % "logback-classic" % V.logback % Provided,
   "com.typesafe.scala-logging" %% "scala-logging"   % V.scalaLogging
 )
 
-val http4sDeps =
-  Seq("http4s-dsl", "http4s-client", "http4s-blaze-client", "http4s-circe")
-    .map("org.http4s" %% _ % V.http4s)
+val http4sDeps = Seq(
+  "dsl",
+  "client",
+  "blaze-client",
+  "circe"
+).map(d => "org.http4s" %% s"http4s-$d" % V.http4s)
 
 val circeDeps  = Seq(
-  "circe-core",
-  "circe-generic",
-  "circe-generic-extras",
-  "circe-parser"
-).map(
-  "io.circe" %% _ % V.circe
-)
+  "core",
+  "generic",
+  "generic-extras",
+  "parser"
+).map(d => "io.circe" %% s"circe-$d" % V.circe)
 
-val otherDeps = Seq(
-  "com.beachape"        %% "enumeratum"  % V.enumeratum,
-  "org.apache.avro"      % "avro"        % V.avro,
-  "com.typesafe"         % "config"      % V.typesafeConfig,
-  "com.google.guava"     % "guava"       % V.guava,
-  "org.typelevel"       %% "squants"     % V.squants,
-  "com.sksamuel.avro4s" %% "avro4s-core" % V.avro4s,
-  "org.scalactic"       %% "scalactic"   % V.scalaTest  % Test,
-  "org.scalatest"       %% "scalatest"   % V.scalaTest  % Test,
-  "org.scalacheck"      %% "scalacheck"  % V.scalaCheck % Test
+val otherDeps  = Seq(
+  "io.confluent"         % "kafka-schema-registry-client" % V.schemaRegistry,
+  "com.beachape"        %% "enumeratum"                   % V.enumeratum,
+  "org.apache.avro"      % "avro"                         % V.avro,
+  "com.typesafe"         % "config"                       % V.typesafeConfig,
+  "com.google.guava"     % "guava"                        % V.guava,
+  "org.typelevel"       %% "squants"                      % V.squants,
+  "com.sksamuel.avro4s" %% "avro4s-core"                  % V.avro4s,
+  "org.scalactic"       %% "scalactic"                    % V.scalaTest  % Test,
+  "org.scalatest"       %% "scalatest"                    % V.scalaTest  % Test,
+  "org.scalacheck"      %% "scalacheck"                   % V.scalaCheck % Test
 )
 
 /**

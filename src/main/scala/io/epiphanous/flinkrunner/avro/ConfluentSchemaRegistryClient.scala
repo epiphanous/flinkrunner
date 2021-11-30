@@ -209,14 +209,17 @@ class ConfluentSchemaRegistryClient[ADT <: FlinkEvent: TypeInformation](
    */
   protected def getSubjectName[E](
       event: E,
-      optContext: Option[ConfluentSchemaRegistryContext] = None): String =
-    (event.getClass.getCanonicalName.split("\\.")
-      :+ (if (optContext.getOrElse(ConfluentSchemaRegistryContext()).isKey)
-            "key"
-          else "value"))
-      .map(snakify)
-      .map(name => clean(name, replacement = "_"))
-      .mkString("_")
+      optContext: Option[ConfluentSchemaRegistryContext] = None)
+      : String = {
+    val keyOrValue  =
+      if (optContext.getOrElse(ConfluentSchemaRegistryContext()).isKey)
+        "key"
+      else "value"
+    val subjectName = config.getString(
+      s"schema.registry.${event.getClass.getCanonicalName}"
+    )
+    s"$subjectName-$keyOrValue"
+  }
 
   /**
    * Retrieve a schema based on its id or subject, and optionally, some

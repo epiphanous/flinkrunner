@@ -28,8 +28,7 @@ case class RegisteredAvroSchema(
    */
   def decode[E: Decoder](bytes: Array[Byte]): Try[E] = {
     Try(
-      AvroInputStream
-        .binary[E]
+      AvroInputStream.binary
         .from(bytes)
         .build(schema)
         .iterator
@@ -55,7 +54,7 @@ case class RegisteredAvroSchema(
       magic: Array[Byte] = Array.emptyByteArray): Try[Array[Byte]] =
     Try {
       val baos = new ByteArrayOutputStream()
-      val os   = AvroOutputStream.binary[E].to(baos).build()
+      val os   = AvroOutputStream.binary.to(baos).build()
       os.write(event)
       os.flush()
       os.close()

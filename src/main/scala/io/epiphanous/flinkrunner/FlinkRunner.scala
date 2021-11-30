@@ -72,24 +72,9 @@ class FlinkRunner[ADT <: FlinkEvent](
   val env: SEE                 = config.configureStreamExecutionEnvironment
 
   /**
-   * An intermediate method to process main args, with optional callback to
-   * capture output of flink job.
-   *
-   * @param callback
-   *   a function from an iterator to unit
-   */
-  def process(
-      callback: PartialFunction[List[_], Unit] = { case _ =>
-        ()
-      }
-  ): Unit =
-    if (config.jobName == "help") showHelp()
-    else process1(callback)
-
-  /**
-   * Actually invoke the job based on the job name and arguments passed in.
-   * If the job run returns an iterator of results, pass those results to
-   * the callback. Otherwise, just return. The callback is for testing the
+   * Invoke a job based on the job name and arguments passed in. If the job
+   * run returns an iterator of results, pass those results to the
+   * callback. Otherwise, just return. The callback is for testing the
    * stream of results from a flink job. It will only be invoked if
    * --mock.edges option is on.
    *
@@ -97,17 +82,18 @@ class FlinkRunner[ADT <: FlinkEvent](
    *   a function from a stream to unit that receives results from running
    *   flink job
    */
-  def process1(
+  def process(
       callback: PartialFunction[List[_], Unit] = { case _ =>
         ()
       }
   ): Unit = {
-    if (
+    if (config.jobName == "help") showHelp()
+    else if (
       config.jobArgs.headOption
         .exists(s => List("help", "--help", "-help", "-h").contains(s))
     ) showJobHelp()
     else {
-      factory.getJobInstance(config.jobName, config).run() match {
+      factory.getJobInstance(config.jobName, this).run() match {
         case Left(results) => callback(results)
         case Right(_)      => ()
       }
@@ -185,7 +171,7 @@ class FlinkRunner[ADT <: FlinkEvent](
    * @return
    *   BoundedLatenessGenerator[E]
    */
-  def boundedOutofOrdernessWatermarks[E <: ADT: TypeInformation]()
+  def boundedOutOfOrderWatermarks[E <: ADT: TypeInformation]()
       : WatermarkStrategy[E] =
     WatermarkStrategy
       .forBoundedOutOfOrderness(config.maxLateness)
@@ -205,8 +191,6 @@ class FlinkRunner[ADT <: FlinkEvent](
    * Assign timestamps/watermarks if we're using event time
    * @param in
    *   the input stream to watermark
-   * @param env
-   *   implicit stream execution environment
    * @tparam E
    *   event type
    * @return
@@ -217,10 +201,10 @@ class FlinkRunner[ADT <: FlinkEvent](
       srcConfig: SourceConfig
   ): DataStream[E] =
     in.assignTimestampsAndWatermarks(srcConfig.watermarkStrategy match {
-      case "bounded out of orderness" =>
-        boundedOutofOrdernessWatermarks()
-      case "ascending timestamps"     => ascendingTimestampsWatermarks()
-      case _                          => boundedLatenessWatermarks(in.name)
+      case "bounded out of order" =>
+        boundedOutOfOrderWatermarks()
+      case "ascending timestamps" => ascendingTimestampsWatermarks()
+      case _                      => boundedLatenessWatermarks(in.name)
     }).name(s"wm:${in.name}")
       .uid(s"wm:${in.name}")
 
@@ -406,7 +390,7 @@ class FlinkRunner[ADT <: FlinkEvent](
     file.getAbsolutePath
   }
 
-  val runner = this
+  val runner: FlinkRunner[ADT] = this
 
   implicit class EventStreamOps[E <: ADT: TypeInformation](
       stream: DataStream[E]) {
@@ -422,7 +406,7 @@ class FlinkRunner[ADT <: FlinkEvent](
         .uid(s"cast types $name")
     }
 
-    def toSink(sinkName: String = "") =
+    def toSink(sinkName: String = ""): Object =
       runner.toSink[E](stream, sinkName)
 
   }
@@ -434,8 +418,6 @@ class FlinkRunner[ADT <: FlinkEvent](
    *   the data stream to send to sink
    * @param sinkName
    *   a sink name to obtain configuration
-   * @param config
-   *   implicit flink job args
    * @tparam E
    *   stream element type
    * @return
@@ -444,7 +426,7 @@ class FlinkRunner[ADT <: FlinkEvent](
   def toSink[E <: ADT: TypeInformation](
       stream: DataStream[E],
       sinkName: String = ""
-  ) = {
+  ): Object = {
     val name = if (sinkName.isEmpty) config.getSinkNames.head else sinkName
     config.getSinkConfig(name) match {
       case s: KafkaSinkConfig         => toKafka[E](stream, s)
@@ -468,8 +450,6 @@ class FlinkRunner[ADT <: FlinkEvent](
    *   the data stream
    * @param sinkConfig
    *   a sink configuration
-   * @param config
-   *   implicit job args
    * @tparam E
    *   stream element type
    * @return
@@ -500,8 +480,6 @@ class FlinkRunner[ADT <: FlinkEvent](
    *   the data stream
    * @param sinkConfig
    *   a sink configuration
-   * @param config
-   *   implicit job args
    * @tparam E
    *   stream element type
    * @return
@@ -535,8 +513,6 @@ class FlinkRunner[ADT <: FlinkEvent](
    *   the data stream
    * @param sinkConfig
    *   a sink configuration
-   * @param config
-   *   implicit job args
    * @tparam E
    *   stream element type
    * @return
@@ -565,8 +541,6 @@ class FlinkRunner[ADT <: FlinkEvent](
    *   the data stream
    * @param sinkConfig
    *   a sink configuration
-   * @param config
-   *   implicit job args
    * @tparam E
    *   stream element type
    * @return
@@ -661,8 +635,6 @@ class FlinkRunner[ADT <: FlinkEvent](
    *   the data stream
    * @param sinkConfig
    *   a sink configuration
-   * @param config
-   *   implicit job args
    * @tparam E
    *   stream element type
    * @return
@@ -697,7 +669,7 @@ class FlinkRunner[ADT <: FlinkEvent](
    */
   def toCassandraSink[E <: ADT: TypeInformation](
       stream: DataStream[E],
-      sinkConfig: CassandraSinkConfig) =
+      sinkConfig: CassandraSinkConfig): CassandraSink[E] =
     CassandraSink
       .addSink(stream)
       .setHost(sinkConfig.host)

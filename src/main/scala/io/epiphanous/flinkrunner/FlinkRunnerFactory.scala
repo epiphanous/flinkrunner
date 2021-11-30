@@ -27,9 +27,9 @@ trait FlinkRunnerFactory[ADT <: FlinkEvent] {
       optConfig: Option[String] = None) =
     new FlinkConfig[ADT](args, this, sources, optConfig)
 
-  def getJobInstance(
+  def getJobInstance[DS, OUT <: ADT](
       name: String,
-      config: FlinkConfig[ADT]): BaseFlinkJob[_, _, ADT]
+      runner: FlinkRunner[ADT]): BaseFlinkJob[DS, OUT, ADT]
 
   def getDeserializationSchema[E <: ADT](
       name: String,
