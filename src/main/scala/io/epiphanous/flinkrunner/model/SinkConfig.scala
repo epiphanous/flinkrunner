@@ -15,6 +15,7 @@ sealed trait SinkConfig {
 }
 
 object SinkConfig {
+  lazy val s3BasePath = sys.env.get("S3_BUCKET")
   def apply(name: String, config: FlinkConfig): SinkConfig = {
     val p = s"sinks.$name"
     FlinkConnectorName.withNameInsensitiveOption(
@@ -23,12 +24,21 @@ object SinkConfig {
       case Some(connector) =>
         connector match {
           case Kafka             =>
+            val refConf = config.getProperties(s"$p.config")
+            val kafkaBrokers = sys.env.get("KAFKA_BROKERS")
+            val kafkaConfig = kafkaBrokers match {
+              case Some(value) =>
+                refConf.setProperty("bootstrap.servers", value)
+                refConf
+              case None =>
+                refConf
+            }
             KafkaSinkConfig(
               connector,
               name,
               config.getString(s"$p.topic"),
               config.getBoolean(s"$p.isKeyed"),
-              config.getProperties(s"$p.config")
+              kafkaConfig
             )
           case Kinesis           =>
             KinesisSinkConfig(
@@ -38,10 +48,16 @@ object SinkConfig {
               config.getProperties(s"$p.config")
             )
           case File              =>
+            val path = s3BasePath match {
+              case Some(value) =>
+                value
+              case None =>
+                config.getString(s"$p.path")
+            }
             FileSinkConfig(
               connector,
               name,
-              config.getString(s"$p.path"),
+              path,
               config.getProperties(s"$p.config")
             )
           case Socket            =>

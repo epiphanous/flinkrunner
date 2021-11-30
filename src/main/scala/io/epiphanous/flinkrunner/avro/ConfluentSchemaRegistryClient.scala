@@ -53,7 +53,14 @@ class ConfluentSchemaRegistryClient() (implicit
   lazy val parser = new Parser()
 
   @transient
-  lazy val urlBase: String = config.getString(s"$configPrefix.url.base")
+  lazy val schemaRegistryBaseUrl = sys.env.get("SCHEMA_BROKERS")
+  val urlBase = schemaRegistryBaseUrl match {
+    case Some(value) =>
+      value
+    case None =>
+      config.getString(s"$configPrefix.url.base")
+  }
+  logger.info(s"urlBase $urlBase")
 
   @transient
   lazy val cacheLoader: CacheLoader[String, Try[RegisteredAvroSchema]] =
