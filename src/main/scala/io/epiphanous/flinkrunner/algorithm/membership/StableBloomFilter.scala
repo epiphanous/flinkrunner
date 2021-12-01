@@ -1,6 +1,6 @@
 package io.epiphanous.flinkrunner.algorithm.membership
 
-import com.google.common.hash.Funnel
+import com.google.common.hash.{Funnel, HashFunction}
 import com.google.common.hash.Hashing.murmur3_128
 
 import java.nio.ByteBuffer
@@ -40,11 +40,14 @@ case class StableBloomFilter[T](
     s"d must be an integer in [1,$STORAGE_BITS]"
   )
 
+  /** number of cells per unit storage */
+  val storedCells: Int = Math.floor(STORAGE_BITS / d).toInt
+
   /** number of bits used per unit storage */
-  val storedBits: Long = STORAGE_BITS.toLong / (d * d)
+  val storedBits: Int = storedCells * d
 
   /** total memory required */
-  val M = m * d
+  val M: Long = m * d
 
   require(
     M / storedBits < Int.MaxValue,
@@ -53,25 +56,25 @@ case class StableBloomFilter[T](
   require(FPR > 0 && FPR < 1, "FPR must be a double in (0,1)")
 
   /** cell value to set upon insertion */
-  val Max = (1 << d) - 1
+  val Max: Int = (1 << d) - 1
 
   /** number of longs used for storage */
-  val w = math.ceil(M.toDouble / storedBits).toInt
+  val w: Int = math.ceil(M.toDouble / storedBits).toInt
 
   /** number of hash functions used */
-  val K = math.max(1, math.ceil(Max * LN2_SQUARED).toInt)
+  val K: Int = math.max(1, math.ceil(Max * LN2_SQUARED).toInt)
 
   /** number of cells to decrement on each insertion */
-  val P = StableBloomFilter.optimalP(m, K, d, FPR)
+  val P: Int = optimalP(m, K, d, FPR)
 
   /** random number generator for decrementing cells */
   val random = new Random()
 
   /** murmur3 128 guava hashing function generator */
-  val hasher = murmur3_128()
+  val hasher: HashFunction = murmur3_128()
 
   /** heap storage for our bits */
-  val storage = Array.fill[Long](w)(0)
+  val storage: Array[Long] = Array.fill[Long](w)(0)
 
   /**
    * Insert a stream element into the filter.
@@ -81,11 +84,11 @@ case class StableBloomFilter[T](
    * @return
    */
   def add(item: T): Boolean = {
-    val cells       = hash(item)
-    val alreadySeen = cells.forall(i => get(i) > 0L)
+    val cells     = hash(item)
+    val maybeSeen = cells.forall(i => get(i) > 0L)
     decrementRandomCells()
     cells.foreach(set)
-    alreadySeen
+    maybeSeen
   }
 
   /**
@@ -142,7 +145,7 @@ case class StableBloomFilter[T](
    * @param i
    *   the cell to decrement (in <code>[0,m)</code>)
    */
-  private def decrement(i: Long): Unit = {
+  def decrement(i: Long): Unit = {
     val (x, j)  = offset(i)
     val current = getBitsValue(x, j)
     if (current > 0)
@@ -155,7 +158,7 @@ case class StableBloomFilter[T](
    * @param i
    *   the cell to set (in <code>[0,m)</code>)
    */
-  private def set(i: Long): Unit = {
+  def set(i: Long): Unit = {
     val (x, j) = offset(i)
     storage(x) |= (Max.toLong << j)
   }
@@ -171,7 +174,7 @@ case class StableBloomFilter[T](
    * @return
    *   Int
    */
-  private def getBitsValue(x: Int, j: Int) =
+  def getBitsValue(x: Int, j: Int) =
     (storage(x) & (Max.toLong << j)) >>> j
 
   /**
@@ -187,9 +190,9 @@ case class StableBloomFilter[T](
    * @return
    *   (Int, Int)
    */
-  private def offset(i: Long): (Int, Int) = {
+  def offset(i: Long): (Int, Int) = {
     // the cell covers d bits starting at b (within our total M bits)
-    val b = (i - 1) * d
+    val b = i * d
     // the b'th bit is stored in the x'th index of our storage array of longs
     val x = math.floor(b.toDouble / storedBits).toInt
     // from l, we're interested in d bits starting as LSB bit j
@@ -205,7 +208,7 @@ case class StableBloomFilter[T](
    *   the item to hash
    * @return
    */
-  private def hash(item: T) = {
+  def hash(item: T): Seq[Long] = {
     val hash128 = hasher.hashObject(item, funnel).asBytes()
     val hash1   = ByteBuffer.wrap(hash128, 0, 8).getLong
     val hash2   = ByteBuffer.wrap(hash128, 8, 8).getLong
