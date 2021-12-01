@@ -23,7 +23,8 @@ class ConfluentSchemaRegistryClient()(implicit
     decoder: Decoder[ConfluentSchemaRegistryResponse])
     extends AvroSchemaRegistryClient[ConfluentSchemaRegistryContext]
     with StringUtils
-    with LazyLogging {
+    with LazyLogging
+    with Serializable {
 
   import ConfluentSchemaRegistryClient.configPrefix
 
