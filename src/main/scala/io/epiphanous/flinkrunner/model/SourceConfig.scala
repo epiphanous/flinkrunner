@@ -37,15 +37,6 @@ object SourceConfig {
       case Some(connector) =>
         connector match {
           case Kafka      =>
-            val refConf = config.getProperties(s"$p.config")
-            val kafkaBrokers = sys.env.get("KAFKA_BROKERS")
-            val kafkaConfig = kafkaBrokers match {
-              case Some(value) =>
-                refConf.setProperty("bootstrap.servers", value)
-                refConf
-              case None =>
-                refConf
-            }
             KafkaSourceConfig(
               connector,
               name,
@@ -53,7 +44,7 @@ object SourceConfig {
               config.getBoolean(s"$p.isKeyed"),
               timeCharacteristic,
               watermarkStrategy,
-              kafkaConfig
+              config.getProperties(s"$p.config")
             )
           case Kinesis    =>
             KinesisSourceConfig(

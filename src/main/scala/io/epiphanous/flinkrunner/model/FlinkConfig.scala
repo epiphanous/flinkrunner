@@ -304,27 +304,20 @@ class FlinkConfig(
     getString("watermark.strategy")
   )
 
-  lazy val s3CheckpointUrlEnv = sys.env.get("S3_CHECKPOINTING_URL")
-  val checkpointUrl = s3CheckpointUrlEnv match {
-    case Some(value) =>
-      value
-    case None =>
-      getString("checkpoint.url")
-  }
-
-  lazy val systemHelp = _config.getString("system.help")
-  lazy val jobHelp = getString("help")
-  lazy val jobDescription = getString("description")
-  lazy val globalParallelism = getInt("global.parallelism")
-  lazy val checkpointInterval = getLong("checkpoint.interval")
-  lazy val checkpointMinPause = getDuration("checkpoint.min.pause")
+  lazy val systemHelp              = _config.getString("system.help")
+  lazy val jobHelp                 = getString("help")
+  lazy val jobDescription          = getString("description")
+  lazy val globalParallelism       = getInt("global.parallelism")
+  lazy val checkpointInterval      = getLong("checkpoint.interval")
+  lazy val checkpointMinPause      = getDuration("checkpoint.min.pause")
   lazy val checkpointMaxConcurrent = getInt("checkpoint.max.concurrent")
-  lazy val checkpointFlash = getBoolean("checkpoint.flash")
-  lazy val stateBackend = getString("state.backend").toLowerCase
-  lazy val checkpointIncremental = getBoolean("checkpoint.incremental")
-  lazy val showPlan = getBoolean("show.plan")
-  lazy val mockEdges = isDev && getBoolean("mock.edges")
-  lazy val maxLateness = getDuration("max.lateness")
-  lazy val maxIdleness = getDuration("max.idleness")
+  lazy val checkpointUrl           = getString("checkpoint.url")
+  lazy val checkpointFlash         = getBoolean("checkpoint.flash")
+  lazy val stateBackend            = getString("state.backend").toLowerCase
+  lazy val checkpointIncremental   = getBoolean("checkpoint.incremental")
+  lazy val showPlan                = getBoolean("show.plan")
+  lazy val mockEdges               = isDev && getBoolean("mock.edges")
+  lazy val maxLateness             = getDuration("max.lateness")
+  lazy val maxIdleness             = getDuration("max.idleness")
 
 }
