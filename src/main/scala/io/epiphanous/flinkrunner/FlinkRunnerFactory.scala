@@ -9,6 +9,8 @@ import org.apache.flink.api.common.serialization.{
   Encoder,
   SerializationSchema
 }
+import org.apache.flink.connector.kafka.sink.KafkaRecordSerializationSchema
+import org.apache.flink.connector.kafka.source.reader.deserializer.KafkaRecordDeserializationSchema
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner
 import org.apache.flink.streaming.connectors.kafka.{
   KafkaDeserializationSchema,
@@ -39,6 +41,14 @@ trait FlinkRunnerFactory[ADT <: FlinkEvent] {
       name: String,
       config: FlinkConfig[ADT]): KafkaDeserializationSchema[E] =
     ???
+
+  def getKafkaRecordSerializationSchema[E <: ADT](
+      name: String,
+      config: FlinkConfig[ADT]): KafkaRecordSerializationSchema[E] = ???
+
+  def getKafkaRecordDeserializationSchema[E <: ADT](
+      name: String,
+      config: FlinkConfig[ADT]): KafkaRecordDeserializationSchema[E] = ???
 
   def getKinesisDeserializationSchema[E <: ADT](
       name: String,

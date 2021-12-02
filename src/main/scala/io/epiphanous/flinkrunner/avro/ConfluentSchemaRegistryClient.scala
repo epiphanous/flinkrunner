@@ -8,7 +8,7 @@ import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkEvent}
 import io.epiphanous.flinkrunner.util.StringUtils
 import org.apache.avro.Schema.Parser
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.runtime.concurrent.Executors.directExecutionContext
+import org.apache.flink.util.concurrent.Executors
 import org.http4s.EntityDecoder
 import org.http4s.circe.jsonOf
 import org.http4s.client.Client
@@ -16,7 +16,7 @@ import org.http4s.client.blaze.BlazeClientBuilder
 
 import java.nio.ByteBuffer
 import java.util.concurrent.TimeUnit
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 import scala.util.{Failure, Success, Try}
 
 class ConfluentSchemaRegistryClient[ADT <: FlinkEvent: TypeInformation](
@@ -37,7 +37,8 @@ class ConfluentSchemaRegistryClient[ADT <: FlinkEvent: TypeInformation](
     jsonOf[IO, ConfluentSchemaRegistryResponse]
 
   @transient
-  lazy implicit val ec: ExecutionContext = directExecutionContext()
+  lazy implicit val ec: ExecutionContextExecutor =
+    ExecutionContext.fromExecutor(Executors.directExecutor())
 
   @transient
   lazy implicit val cs: ContextShift[IO] = IO.contextShift(ec)

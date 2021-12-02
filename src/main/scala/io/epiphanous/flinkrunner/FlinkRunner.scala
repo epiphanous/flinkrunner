@@ -15,6 +15,8 @@ import org.apache.flink.api.common.serialization.{
   SerializationSchema
 }
 import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.connector.kafka.sink.KafkaSink
+import org.apache.flink.connector.kafka.source.KafkaSource
 import org.apache.flink.core.fs.Path
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.{
@@ -33,17 +35,7 @@ import org.apache.flink.streaming.api.scala.{DataStream, _}
 import org.apache.flink.streaming.connectors.cassandra.CassandraSink
 import org.apache.flink.streaming.connectors.elasticsearch.RequestIndexer
 import org.apache.flink.streaming.connectors.elasticsearch7.ElasticsearchSink
-import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer.Semantic
-import org.apache.flink.streaming.connectors.kafka.{
-  FlinkKafkaConsumer,
-  FlinkKafkaProducer,
-  KafkaDeserializationSchema,
-  KafkaSerializationSchema
-}
-import org.apache.flink.streaming.connectors.kinesis.serialization.{
-  KinesisDeserializationSchema,
-  KinesisSerializationSchema
-}
+import org.apache.flink.streaming.connectors.kinesis.serialization.KinesisSerializationSchema
 import org.apache.flink.streaming.connectors.kinesis.{
   FlinkKinesisConsumer,
   FlinkKinesisProducer
@@ -247,18 +239,27 @@ class FlinkRunner[ADT <: FlinkEvent](
    */
   def fromKafka[E <: ADT: TypeInformation](
       srcConfig: KafkaSourceConfig
-  ): DataStream[E] = {
-    val consumer =
-      new FlinkKafkaConsumer[E](
-        srcConfig.topic,
-        config
-          .getKafkaDeserializationSchema[E](srcConfig.name)
-          .asInstanceOf[KafkaDeserializationSchema[E]],
-        srcConfig.properties
-      )
+  ): DataStream[E] =
     env
-      .addSource(consumer)
-  }
+      .fromSource(
+        KafkaSource
+          .builder[E]()
+          .setProperties(srcConfig.properties)
+          .setDeserializer(
+            config
+              .getKafkaRecordDeserializationSchema[E](
+                srcConfig.name
+              )
+          )
+          .build(),
+        srcConfig.watermarkStrategy match {
+          case "bounded out of order" =>
+            boundedOutOfOrderWatermarks[E]()
+          case "ascending timestamps" => ascendingTimestampsWatermarks[E]()
+          case _                      => boundedLatenessWatermarks[E](srcConfig.name)
+        },
+        srcConfig.label
+      )
 
   /**
    * Configure stream from kinesis.
@@ -277,13 +278,11 @@ class FlinkRunner[ADT <: FlinkEvent](
       new FlinkKinesisConsumer[E](
         srcConfig.stream,
         config
-          .getKinesisDeserializationSchema(srcConfig.name)
-          .asInstanceOf[KinesisDeserializationSchema[E]],
+          .getKinesisDeserializationSchema[E](srcConfig.name),
         srcConfig.properties
       )
     env
       .addSource(consumer)
-      .name(srcConfig.label)
   }
 
   /**
@@ -304,8 +303,7 @@ class FlinkRunner[ADT <: FlinkEvent](
       case other               => other
     }
     val ds   = config
-      .getDeserializationSchema(srcConfig.name)
-      .asInstanceOf[DeserializationSchema[E]]
+      .getDeserializationSchema[E](srcConfig.name)
     env
       .readTextFile(path)
       .name(s"raw:${srcConfig.label}")
@@ -427,15 +425,22 @@ class FlinkRunner[ADT <: FlinkEvent](
       stream: DataStream[E],
       sinkName: String = ""
   ): Object = {
-    val name = if (sinkName.isEmpty) config.getSinkNames.head else sinkName
-    config.getSinkConfig(name) match {
-      case s: KafkaSinkConfig         => toKafka[E](stream, s)
-      case s: KinesisSinkConfig       => toKinesis[E](stream, s)
-      case s: FileSinkConfig          => toFile[E](stream, s)
-      case s: SocketSinkConfig        => toSocket[E](stream, s)
-      case s: JdbcSinkConfig          => toJdbc[E](stream, s)
-      case s: CassandraSinkConfig     => toCassandraSink[E](stream, s)
-      case s: ElasticsearchSinkConfig => toElasticsearchSink[E](stream, s)
+    val name       = if (sinkName.isEmpty) config.getSinkNames.head else sinkName
+    val sinkConfig = config.getSinkConfig(name)
+    val label      = sinkConfig.label
+    sinkConfig match {
+      case s: KafkaSinkConfig         =>
+        toKafka[E](stream, s).uid(label).name(label)
+      case s: KinesisSinkConfig       =>
+        toKinesis[E](stream, s).uid(label).name(label)
+      case s: FileSinkConfig          => toFile[E](stream, s).uid(label).name(label)
+      case s: SocketSinkConfig        =>
+        toSocket[E](stream, s).uid(label).name(label)
+      case s: JdbcSinkConfig          => toJdbc[E](stream, s).uid(label).name(label)
+      case s: CassandraSinkConfig     =>
+        toCassandraSink[E](stream, s).uid(label).name(label)
+      case s: ElasticsearchSinkConfig =>
+        toElasticsearchSink[E](stream, s).uid(label).name(label)
       case s                          =>
         throw new IllegalArgumentException(
           s"unsupported source connector: ${s.connector}"
@@ -460,18 +465,18 @@ class FlinkRunner[ADT <: FlinkEvent](
       sinkConfig: KafkaSinkConfig
   ): DataStreamSink[E] =
     stream
-      .addSink(
-        new FlinkKafkaProducer[E](
-          sinkConfig.topic,
-          config
-            .getKafkaSerializationSchema(sinkConfig.name)
-            .asInstanceOf[KafkaSerializationSchema[E]],
-          sinkConfig.properties,
-          Semantic.AT_LEAST_ONCE
-        )
+      .sinkTo(
+        KafkaSink
+          .builder()
+          .setKafkaProducerConfig(sinkConfig.properties)
+          .setRecordSerializer(
+            config
+              .getKafkaRecordSerializationSchema[E](
+                sinkConfig.name
+              )
+          )
+          .build()
       )
-      .uid(sinkConfig.label)
-      .name(sinkConfig.label)
 
   /**
    * Send stream to a kinesis sink.
@@ -503,8 +508,6 @@ class FlinkRunner[ADT <: FlinkEvent](
         sink.setDefaultPartition("0")
         sink
       }
-      .uid(sinkConfig.label)
-      .name(sinkConfig.label)
 
   /**
    * Send stream to a socket sink.
@@ -531,8 +534,6 @@ class FlinkRunner[ADT <: FlinkEvent](
             .asInstanceOf[AddToJdbcBatchFunction[E]]
         )
       )
-      .uid(sinkConfig.label)
-      .name(sinkConfig.label)
 
   /**
    * Send stream to a rolling file sink.
@@ -625,7 +626,7 @@ class FlinkRunner[ADT <: FlinkEvent](
           s"Unknown file sink encoder format: '$encoderFormat'"
         )
     }
-    stream.addSink(sink).uid(sinkConfig.label).name(sinkConfig.label)
+    stream.addSink(sink)
   }
 
   /**
@@ -652,8 +653,6 @@ class FlinkRunner[ADT <: FlinkEvent](
           .getSerializationSchema(sinkConfig.name)
           .asInstanceOf[SerializationSchema[E]]
       )
-      .uid(sinkConfig.label)
-      .name(sinkConfig.label)
 
   /**
    * Send stream to a cassandra sink.
@@ -675,8 +674,6 @@ class FlinkRunner[ADT <: FlinkEvent](
       .setHost(sinkConfig.host)
       .setQuery(sinkConfig.query)
       .build()
-      .uid(sinkConfig.label)
-      .name(sinkConfig.label)
 
   /**
    * Send stream to an elasticsearch sink.
@@ -723,7 +720,7 @@ class FlinkRunner[ADT <: FlinkEvent](
         indexer.add(req)
       }
     ).build()
-    stream.addSink(esSink).uid(sinkConfig.label).name(sinkConfig.label)
+    stream.addSink(esSink)
   }
 
 }

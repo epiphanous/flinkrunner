@@ -1,16 +1,16 @@
 package io.epiphanous.flinkrunner.util
 
 import io.epiphanous.flinkrunner.UnitSpec
-import io.epiphanous.flinkrunner.model.FlinkEvent
 import org.apache.flink.api.common.eventtime.{Watermark, WatermarkOutput}
+import org.scalatest.Assertion
 
 import java.util.UUID.randomUUID
 import scala.util.Random
 
 class BoundedLatenessGeneratorTest extends UnitSpec {
 
-  val now    = System.currentTimeMillis()
-  val random = new Random()
+  val now: Long = System.currentTimeMillis()
+  val random    = new Random()
 
   def getBlg(maxAllowedLateness: Long = 10L, streamID: String = "Test") =
     new BoundedLatenessGenerator[TestEvent](
@@ -18,13 +18,14 @@ class BoundedLatenessGeneratorTest extends UnitSpec {
       streamID
     )
 
-  def uuid = randomUUID().toString
+  def uuid: String = randomUUID().toString
 
-  def nextEvent(ts: Long) = TestEvent(uuid, ts)
+  def nextEvent(ts: Long): TestEvent = TestEvent(uuid, ts)
 
-  def ascending(space: Long = 5) = (prev: Long) => prev + space
+  def ascending(space: Long = 5): Long => Long = (prev: Long) =>
+    prev + space
 
-  def randomWalk(minSpace: Long = -20, maxSpace: Long = 40) =
+  def randomWalk(minSpace: Long = -20, maxSpace: Long = 40): Long => Long =
     (prev: Long) =>
       prev + Math.ceil(minSpace + random.nextDouble() * maxSpace).toLong
 
@@ -33,7 +34,7 @@ class BoundedLatenessGeneratorTest extends UnitSpec {
       progress: Long => Long = randomWalk(),
       probSpike: Double = 0,
       spikeSize: Long = 50000
-  ) =
+  ): Stream[TestEvent] =
     Stream
       .iterate((TestEvent(uuid, start), start)) { case (_, timeline) =>
         val spike = if (random.nextDouble() < probSpike) spikeSize else 0L
@@ -46,7 +47,7 @@ class BoundedLatenessGeneratorTest extends UnitSpec {
       start: Long = now - 1000L,
       space: Long = 5,
       probSpike: Double = 0,
-      spikeSize: Long = 50000) =
+      spikeSize: Long = 50000): Stream[TestEvent] =
     events(start, ascending(space), probSpike, spikeSize)
 
   def randomEvents(
@@ -55,7 +56,7 @@ class BoundedLatenessGeneratorTest extends UnitSpec {
       maxSpace: Long = 40,
       probSpike: Double = 0,
       spikeSize: Long = 50000
-  ) =
+  ): Stream[TestEvent] =
     events(start, randomWalk(minSpace, maxSpace), probSpike, spikeSize)
 
   def randomEventsWithSpike(
@@ -64,7 +65,7 @@ class BoundedLatenessGeneratorTest extends UnitSpec {
       maxSpace: Long = 40,
       probSpike: Double = .20,
       spikeSize: Long = 50000
-  ) =
+  ): Stream[TestEvent] =
     randomEvents(start, minSpace, maxSpace, probSpike, spikeSize)
 
   behavior of "BoundedLatenessGenerator"
@@ -88,13 +89,14 @@ class BoundedLatenessGeneratorTest extends UnitSpec {
     assert(seenSpaces.head === space)
   }
 
-  def watermarkTest(testEvents: Stream[TestEvent]) = {
+  def watermarkTest(testEvents: Stream[TestEvent]): Assertion = {
     var prevTs      = -1L
     val maxLateness = 10L
     val blg         = getBlg(maxLateness)
     val wmo         = new WatermarkOutput {
       override def emitWatermark(watermark: Watermark): Unit = {}
       override def markIdle(): Unit = {}
+      override def markActive(): Unit = {}
     }
     var maxTs       = 0L
     val result      = testEvents

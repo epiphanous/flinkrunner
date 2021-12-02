@@ -27,7 +27,7 @@ resolvers += "Local Maven Repository" at "file://" + Path.userHome.absolutePath 
 resolvers += "Confluent Repository" at "https://packages.confluent.io/maven/"
 
 val V = new {
-  val flink          = "1.13.3"
+  val flink          = "1.14.0"
   val logback        = "1.2.7"
   val scalaLogging   = "3.9.4"
   val scalaTest      = "3.2.10"
@@ -77,16 +77,17 @@ val circeDeps  = Seq(
 ).map(d => "io.circe" %% s"circe-$d" % V.circe)
 
 val otherDeps  = Seq(
-  "io.confluent"         % "kafka-schema-registry-client" % V.schemaRegistry,
-  "com.beachape"        %% "enumeratum"                   % V.enumeratum,
-  "org.apache.avro"      % "avro"                         % V.avro,
-  "com.typesafe"         % "config"                       % V.typesafeConfig,
-  "com.google.guava"     % "guava"                        % V.guava,
-  "org.typelevel"       %% "squants"                      % V.squants,
-  "com.sksamuel.avro4s" %% "avro4s-core"                  % V.avro4s,
-  "org.scalactic"       %% "scalactic"                    % V.scalaTest  % Test,
-  "org.scalatest"       %% "scalatest"                    % V.scalaTest  % Test,
-  "org.scalacheck"      %% "scalacheck"                   % V.scalaCheck % Test
+//  "io.confluent"         % "kafka-schema-registry-client" % V.schemaRegistry,
+  "io.confluent"         % "kafka-streams-avro-serde" % "7.0.0",
+  "com.beachape"        %% "enumeratum"               % V.enumeratum,
+//  "org.apache.avro"      % "avro"                     % V.avro,
+  "com.typesafe"         % "config"                   % V.typesafeConfig,
+  "com.google.guava"     % "guava"                    % V.guava,
+  "org.typelevel"       %% "squants"                  % V.squants,
+  "com.sksamuel.avro4s" %% "avro4s-core"              % V.avro4s,
+  "org.scalactic"       %% "scalactic"                % V.scalaTest  % Test,
+  "org.scalatest"       %% "scalatest"                % V.scalaTest  % Test,
+  "org.scalacheck"      %% "scalacheck"               % V.scalaCheck % Test
 )
 
 /**

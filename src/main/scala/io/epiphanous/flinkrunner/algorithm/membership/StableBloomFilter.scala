@@ -41,7 +41,7 @@ case class StableBloomFilter[T](
   )
 
   /** number of cells per unit storage */
-  val storedCells: Int = Math.floor(STORAGE_BITS / d).toInt
+  val storedCells: Int = STORAGE_BITS / d
 
   /** number of bits used per unit storage */
   val storedBits: Int = storedCells * d

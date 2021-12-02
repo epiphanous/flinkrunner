@@ -5,7 +5,7 @@ import com.google.common.cache.{CacheBuilder, CacheLoader}
 import com.typesafe.scalalogging.LazyLogging
 import io.circe.Decoder
 import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkEvent}
-import org.apache.flink.runtime.concurrent.Executors.directExecutionContext
+import org.apache.flink.util.concurrent.Executors
 import org.apache.flink.streaming.api.scala.async.{
   AsyncFunction,
   ResultFuture
@@ -75,7 +75,8 @@ abstract class EnrichmentAsyncFunction[
   lazy implicit val entityDecoder: EntityDecoder[IO, CV] = jsonOf[IO, CV]
 
   @transient
-  lazy implicit val ec: ExecutionContext = directExecutionContext()
+  lazy implicit val ec: ExecutionContext =
+    ExecutionContext.fromExecutor(Executors.directExecutor())
 
   @transient
   lazy implicit val cs: ContextShift[IO] = IO.contextShift(ec)

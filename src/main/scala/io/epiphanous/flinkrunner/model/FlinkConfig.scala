@@ -5,6 +5,7 @@ import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.ConfigToProps.RichConfigObject
 import io.epiphanous.flinkrunner.{FlinkRunnerFactory, SEE}
 import org.apache.flink.api.java.utils.ParameterTool
+import org.apache.flink.connector.kafka.source.reader.deserializer.KafkaRecordDeserializationSchema
 import org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackend
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 
@@ -151,6 +152,10 @@ class FlinkConfig[ADT <: FlinkEvent](
   def getKafkaDeserializationSchema[E <: ADT](name: String) =
     factory.getKafkaDeserializationSchema[E](name, this)
 
+  def getKafkaRecordDeserializationSchema[E <: ADT](
+      name: String): KafkaRecordDeserializationSchema[E] =
+    factory.getKafkaRecordDeserializationSchema[E](name, this)
+
   def getKinesisDeserializationSchema[E <: ADT](name: String) =
     factory.getKinesisDeserializationSchema[E](name, this)
 
@@ -159,6 +164,9 @@ class FlinkConfig[ADT <: FlinkEvent](
 
   def getKafkaSerializationSchema[E <: ADT](name: String) =
     factory.getKafkaSerializationSchema[E](name, this)
+
+  def getKafkaRecordSerializationSchema[E <: ADT](name: String) =
+    factory.getKafkaRecordSerializationSchema[E](name, this)
 
   def getKinesisSerializationSchema[E <: ADT](name: String) =
     factory.getKinesisSerializationSchema[E](name, this)
