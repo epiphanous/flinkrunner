@@ -8,6 +8,10 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 import scala.util.Try
 
+@deprecated(
+  "Use the ConfluentAvroRegistryKafkaRecordSerialization and Deserialization classes instead",
+  "4.0.0"
+)
 case class RegisteredAvroSchema(
     schema: Schema,
     id: String,

@@ -4,6 +4,10 @@ import java.nio.ByteBuffer
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
+@deprecated(
+  "Use the ConfluentAvroRegistryKafkaRecordSerialization and Deserialization classes instead",
+  "4.0.0"
+)
 class TestSchemaRegistryClient
     extends AvroSchemaRegistryClient[ConfluentSchemaRegistryContext] {
   val schemas =

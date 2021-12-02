@@ -19,6 +19,10 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 import scala.util.{Failure, Success, Try}
 
+@deprecated(
+  "Use the ConfluentAvroRegistryKafkaRecordSerialization and Deserialization classes instead",
+  "4.0.0"
+)
 class ConfluentSchemaRegistryClient[ADT <: FlinkEvent: TypeInformation](
     config: FlinkConfig[ADT])(implicit
     decoder: Decoder[ConfluentSchemaRegistryResponse])

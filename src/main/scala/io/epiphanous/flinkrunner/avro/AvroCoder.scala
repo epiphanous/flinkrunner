@@ -14,6 +14,10 @@ import scala.util.Try
  * @tparam Context
  *   the schema registry context type
  */
+@deprecated(
+  "Use the ConfluentAvroRegistryKafkaRecordSerialization and Deserialization classes instead",
+  "4.0.0"
+)
 class AvroCoder[Context](registry: AvroSchemaRegistryClient[Context])
     extends LazyLogging {
 

@@ -5,18 +5,34 @@ import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.syntax._
 import io.circe.{Decoder, Encoder}
 
+@deprecated(
+  "Use the ConfluentAvroRegistryKafkaRecordSerialization and Deserialization classes instead",
+  "4.0.0"
+)
 sealed trait ConfluentSchemaRegistryResponse {
   def schema: String
 }
 
+@deprecated(
+  "Use the ConfluentAvroRegistryKafkaRecordSerialization and Deserialization classes instead",
+  "4.0.0"
+)
 case class ConfluentSchemaRegistryResponseById(schema: String)
     extends ConfluentSchemaRegistryResponse
 
+@deprecated(
+  "Use the ConfluentAvroRegistryKafkaRecordSerialization and Deserialization classes instead",
+  "4.0.0"
+)
 object ConfluentSchemaRegistryResponseById {
   implicit val encoder = deriveEncoder[ConfluentSchemaRegistryResponseById]
   implicit val decoder = deriveDecoder[ConfluentSchemaRegistryResponseById]
 }
 
+@deprecated(
+  "Use the ConfluentAvroRegistryKafkaRecordSerialization and Deserialization classes instead",
+  "4.0.0"
+)
 case class ConfluentSchemaRegistryResponseBySubjectVersion(
     subject: String,
     id: Int,

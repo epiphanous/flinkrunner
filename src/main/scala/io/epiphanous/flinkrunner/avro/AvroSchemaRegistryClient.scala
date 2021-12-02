@@ -5,6 +5,10 @@ import scala.util.Try
 /**
  * A trait for an avro schema registry
  */
+@deprecated(
+  "Use the ConfluentAvroRegistryKafkaRecordSerialization and Deserialization classes instead",
+  "4.0.0"
+)
 trait AvroSchemaRegistryClient[Context] {
 
   /**
