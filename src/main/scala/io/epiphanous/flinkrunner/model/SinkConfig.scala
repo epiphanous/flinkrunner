@@ -1,7 +1,9 @@
 package io.epiphanous.flinkrunner.model
 
+import com.google.common.collect.Maps
 import io.epiphanous.flinkrunner.model.FlinkConnectorName._
 
+import java.util
 import java.util.Properties
 
 sealed trait SinkConfig {
@@ -12,6 +14,9 @@ sealed trait SinkConfig {
   def label: String = s"$connector/$name"
 
   def properties: Properties
+
+  def propertiesMap: util.HashMap[String, String] =
+    Maps.newHashMap(Maps.fromProperties(properties))
 }
 
 object SinkConfig {

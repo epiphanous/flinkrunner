@@ -1,7 +1,9 @@
 package io.epiphanous.flinkrunner.model
 
+import com.google.common.collect.Maps
 import io.epiphanous.flinkrunner.model.FlinkConnectorName._
 
+import java.util
 import java.util.Properties
 import scala.concurrent.duration.DurationInt
 import scala.util.Try
@@ -18,6 +20,9 @@ sealed trait SourceConfig {
   def maxAllowedLateness: Long
 
   def properties: Properties
+
+  def propertiesMap: util.HashMap[String, String] =
+    Maps.newHashMap(Maps.fromProperties(properties))
 }
 
 object SourceConfig {

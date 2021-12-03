@@ -1,25 +1,20 @@
 package io.epiphanous.flinkrunner.serde
 
 import com.typesafe.scalalogging.LazyLogging
-import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient
-import io.confluent.kafka.serializers.{
-  KafkaAvroSerializer,
-  KafkaAvroSerializerConfig
-}
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
+import io.confluent.kafka.serializers.KafkaAvroSerializer
 import io.epiphanous.flinkrunner.model.{
   FlinkConfig,
+  FlinkConnectorName,
   FlinkEvent,
   KafkaSinkConfig
 }
-import io.epiphanous.flinkrunner.serde.ConfluentAvroRegistryKafkaRecordSerializationSchema.DEFAULT_CACHE_CAPACITY
 import org.apache.avro.specific.SpecificRecord
 import org.apache.flink.connector.kafka.sink.KafkaRecordSerializationSchema
 import org.apache.flink.formats.avro.registry.confluent.ConfluentRegistryAvroSerializationSchema
 import org.apache.kafka.clients.producer.ProducerRecord
 
 import java.{lang, util}
-import scala.collection.JavaConverters.mapAsJavaMapConverter
-import scala.collection.mutable
 
 /**
  * A schema to serialize an ADT event using a confluent avro schema
@@ -44,66 +39,87 @@ abstract class ConfluentAvroRegistryKafkaRecordSerializationSchema[
 ) extends KafkaRecordSerializationSchema[E]
     with LazyLogging {
 
-  val sinkConfig: KafkaSinkConfig =
-    config.getSourceConfig(sinkName).asInstanceOf[KafkaSinkConfig]
-
-  val url: String              =
-    sinkConfig.properties.getProperty("schema.registry.url")
-  val cacheCapacity: Int       = sinkConfig.properties
-    .getProperty("schema.registry.cache.capacity", DEFAULT_CACHE_CAPACITY)
-    .toInt
-  val removeJavaProps: Boolean = sinkConfig.properties
-    .getProperty("serializer.remove.java.props", "true")
-    .toBoolean
-  val useLogicalTypes: Boolean = sinkConfig.properties
-    .getProperty("serializer.use.logical.type.converters", "true")
-    .toBoolean
-
-  /** create serializer config */
-  val serializerConfig: util.Map[String, Boolean] = Map(
-    KafkaAvroSerializerConfig.AVRO_REMOVE_JAVA_PROPS_CONFIG           -> removeJavaProps,
-    KafkaAvroSerializerConfig.AVRO_USE_LOGICAL_TYPE_CONVERTERS_CONFIG -> useLogicalTypes
-  ).asJava
-
-  /** our schema registry client */
-  val schemaRegistryClient =
-    new CachedSchemaRegistryClient(url, cacheCapacity)
-
-  /** map to store the value, and optionally, key serializers */
-  val serializers: mutable.Map[String, KafkaAvroSerializer] =
-    mutable.Map(
-      "value" -> new KafkaAvroSerializer(
-        schemaRegistryClient,
-        serializerConfig
+  val sinkConfig: KafkaSinkConfig = {
+    val sc = config.getSinkConfig(sinkName)
+    if (sc.connector != FlinkConnectorName.Kafka)
+      throw new RuntimeException(
+        s"Requested sink $sinkName is not a kafka sink"
       )
-    )
-
-  /** add the key serializer if needed */
-  if (sinkConfig.isKeyed) {
-    val keySerializer = new KafkaAvroSerializer(schemaRegistryClient)
-    keySerializer.configure(serializerConfig, true)
-    serializers += ("key" -> keySerializer)
+    sc.asInstanceOf[KafkaSinkConfig]
   }
 
+  val schemaRegistryProps: util.HashMap[String, String] =
+    sinkConfig.propertiesMap
+
+  /** map to store the value, and optionally, key serializers */
+  val valueSerializer = new KafkaAvroSerializer(
+    schemaRegistryClient,
+    schemaRegistryProps
+  )
+
+  /** add the key serializer if needed */
+  val keySerializer: Option[KafkaAvroSerializer] =
+    if (sinkConfig.isKeyed) {
+      val ks = new KafkaAvroSerializer(schemaRegistryClient)
+      ks.configure(schemaRegistryProps, true)
+      Some(ks)
+    } else None
+
+  val topic: String = sinkConfig.topic
+
   /**
-   * Convert an element into a producer record of byte arrays. Must be
-   * defined by implementing classes.
+   * A helper method to serialize an arbitary key/value pair. This should
+   * be used by subclasses that implement the [[toKeyValue()]] method.
+   *
+   * @param key
+   *   the key
+   * @param value
+   *   the value
+   * @tparam K
+   *   the type of key
+   * @tparam V
+   *   the type of value
+   * @return
+   *   a tuple of byte arrays (with the key optional)
+   */
+//  def kvSerialize[K, V](key: K, value: V): (Array[Byte], Array[Byte]) = {
+//    (
+//      keySerializer.map(s => s.serialize(topic, key)).orNull,
+//      valueSerializer.serialize(topic, value)
+//    )
+//  }
+
+  /**
+   * Implementing subclasses must provide an instance of a schema registry
+   * client to use, for instance a <code>CachedSchemaRegistryClient</code>
+   * or a <code>MockSchemaRegistryClient</code> for testing.
+   */
+  def schemaRegistryClient: SchemaRegistryClient
+
+  /**
+   * Convert a flink runner ADT instance into a key/value pair of objects
+   * to serialize into a kafka message. This must be defined by
+   * implementing subclasses.
+   *
+   * The purpose of this method is to decouple the structure of the flink
+   * runner ADT from the avro schemas of the underlying kafka messages.
+   *
    * @param element
    *   an instance of the flinkrunner ADT
    * @return
-   *   ProducerRecord of bytes
+   *   (Option[AnyRef], AnyRef)
    */
-  def toProducerRecord(
-      element: E): ProducerRecord[Array[Byte], Array[Byte]]
+  def toKeyValue(element: E): (Option[AnyRef], AnyRef)
 
   override def serialize(
       element: E,
       context: KafkaRecordSerializationSchema.KafkaSinkContext,
-      timestamp: lang.Long): ProducerRecord[Array[Byte], Array[Byte]] =
-    toProducerRecord(element)
+      timestamp: lang.Long): ProducerRecord[Array[Byte], Array[Byte]] = {
+    val (k, v) = toKeyValue(element)
+    val key    =
+      keySerializer.flatMap(ks => k.map(kk => ks.serialize(topic, kk)))
+    val value  = valueSerializer.serialize(topic, v)
+    new ProducerRecord(topic, null, element.$timestamp, key.orNull, value)
+  }
 
-}
-
-object ConfluentAvroRegistryKafkaRecordSerializationSchema {
-  val DEFAULT_CACHE_CAPACITY = "1000"
 }

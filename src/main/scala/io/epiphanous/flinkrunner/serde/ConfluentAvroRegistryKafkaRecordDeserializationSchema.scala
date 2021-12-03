@@ -1,27 +1,20 @@
 package io.epiphanous.flinkrunner.serde
 
 import com.typesafe.scalalogging.LazyLogging
-import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient
-import io.confluent.kafka.serializers.{
-  KafkaAvroDeserializer,
-  KafkaAvroDeserializerConfig
-}
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
+import io.confluent.kafka.serializers.KafkaAvroDeserializer
 import io.epiphanous.flinkrunner.model.{
   FlinkConfig,
+  FlinkConnectorName,
   FlinkEvent,
   KafkaSourceConfig
 }
-import io.epiphanous.flinkrunner.serde.ConfluentAvroRegistryKafkaRecordDeserializationSchema.DEFAULT_CACHE_CAPACITY
-import org.apache.avro.specific.SpecificRecord
 import org.apache.flink.api.common.typeinfo.{TypeHint, TypeInformation}
 import org.apache.flink.connector.kafka.source.reader.deserializer.KafkaRecordDeserializationSchema
-import org.apache.flink.formats.avro.registry.confluent.ConfluentRegistryAvroDeserializationSchema
 import org.apache.flink.util.Collector
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
 import java.util
-import scala.collection.JavaConverters.mapAsJavaMapConverter
-import scala.collection.mutable
 
 /**
  * A schema to deserialize bytes from kafka into an ADT event using a
@@ -45,68 +38,64 @@ abstract class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
 ) extends KafkaRecordDeserializationSchema[E]
     with LazyLogging {
 
-  val sourceConfig: KafkaSourceConfig =
-    config.getSourceConfig(sourceName).asInstanceOf[KafkaSourceConfig]
+  val sourceConfig: KafkaSourceConfig = {
+    val sc = config.getSourceConfig(sourceName)
+    if (sc.connector != FlinkConnectorName.Kafka)
+      throw new RuntimeException(
+        s"Requested source $sourceName is not a kafka source"
+      )
+    sc.asInstanceOf[KafkaSourceConfig]
+  }
+
+  val schemaRegistryProps: util.HashMap[String, String] =
+    sourceConfig.propertiesMap
 
   val topic: String = sourceConfig.topic
 
-  val url: String                    =
-    sourceConfig.properties.getProperty("schema.registry.url")
-  val cacheCapacity: Int             = sourceConfig.properties
-    .getProperty("schema.registry.cache.capacity", DEFAULT_CACHE_CAPACITY)
-    .toInt
-  val useSpecificAvroReader: Boolean = sourceConfig.properties
-    .getProperty("use.specific.avro.reader", "true")
-    .toBoolean
-  val useLogicalTypes: Boolean       = sourceConfig.properties
-    .getProperty("use.logical.type.converters", "true")
-    .toBoolean
+  /**
+   * Implementing subclasses must provide an instance of a schema registry
+   * client to use, for instance a <code>CachedSchemaRegistryClient</code>
+   * or a <code>MockSchemaRegistryClient</code> for testing.
+   */
+  def schemaRegistryClient: SchemaRegistryClient
 
-  /** create deserializer config */
-  val deserializerConfig: util.Map[String, Boolean] = Map(
-    KafkaAvroDeserializerConfig.SPECIFIC_AVRO_READER_CONFIG             -> useSpecificAvroReader,
-    KafkaAvroDeserializerConfig.AVRO_USE_LOGICAL_TYPE_CONVERTERS_CONFIG -> useLogicalTypes
-  ).asJava
+  val valueDeserializer = new KafkaAvroDeserializer(
+    schemaRegistryClient,
+    schemaRegistryProps
+  )
 
-  /** our schema registry client */
-  val schemaRegistryClient =
-    new CachedSchemaRegistryClient(url, cacheCapacity)
-
-  /** map to store the value, and optionally, key deserializers */
-  val deserializers: mutable.Map[String, KafkaAvroDeserializer] =
-    mutable.Map(
-      "value" -> new KafkaAvroDeserializer(
-        schemaRegistryClient,
-        deserializerConfig
-      )
-    )
-
-  /** add the key deserializer if needed */
-  if (sourceConfig.isKeyed) {
-    val keyDeserializer = new KafkaAvroDeserializer(schemaRegistryClient)
-    keyDeserializer.configure(deserializerConfig, true)
-    deserializers += ("key" -> keyDeserializer)
-  }
+  val keyDeserializer: Option[KafkaAvroDeserializer] =
+    if (sourceConfig.isKeyed) {
+      val ks = new KafkaAvroDeserializer(schemaRegistryClient)
+      ks.configure(schemaRegistryProps, true)
+      Some(ks)
+    } else None
 
   /**
-   * Convert a kafka consumer record instance into an instance of our
-   * produced event type. Must be defined by implementing classes.
-   * @param record
-   *   a kafka consumer record
+   * Convert a deserialized key/value pair of objects into an instance of
+   * the flink runner ADT. This method must be implemented by subclasses.
+   *
+   * The key and value are passed as AnyRefs, so implementing subclasses
+   * will need to pattern match.
+   *
+   * @param key
+   *   an optional deserialized key object
+   * @param value
+   *   a deserialized value object
    * @return
    *   an instance of the flink runner ADT
    */
-  def fromConsumerRecord(
-      record: ConsumerRecord[Array[Byte], Array[Byte]]): E
+  def fromKeyValue(key: Option[AnyRef], value: AnyRef): E
 
   override def deserialize(
       record: ConsumerRecord[Array[Byte], Array[Byte]],
-      out: Collector[E]): Unit = fromConsumerRecord(record)
+      out: Collector[E]): Unit = {
+    val key   =
+      keyDeserializer.map(ds => ds.deserialize(topic, record.key()))
+    val value = valueDeserializer.deserialize(topic, record.value())
+    if (Option(value).nonEmpty) out.collect(fromKeyValue(key, value))
+  }
 
   override def getProducedType: TypeInformation[E] =
     TypeInformation.of(new TypeHint[E] {})
-}
-
-object ConfluentAvroRegistryKafkaRecordDeserializationSchema {
-  val DEFAULT_CACHE_CAPACITY = "1000"
 }

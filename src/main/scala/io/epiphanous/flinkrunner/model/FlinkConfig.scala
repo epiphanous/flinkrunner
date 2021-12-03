@@ -180,6 +180,10 @@ class FlinkConfig[ADT <: FlinkEvent](
   def getBucketAssigner[E <: ADT](name: String) =
     factory.getBucketAssigner[E](name, this)
 
+  @deprecated(
+    "Use the ConfluentAvroRegistryKafkaRecordSerialization and ...Deserialization classes instead",
+    "4.0.0"
+  )
   def getAvroCoder(name: String) =
     factory.getAvroCoder(name, this)
 
