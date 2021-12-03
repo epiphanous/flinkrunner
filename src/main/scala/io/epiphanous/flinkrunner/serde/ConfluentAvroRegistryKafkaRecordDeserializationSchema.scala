@@ -17,25 +17,50 @@ import org.apache.kafka.clients.consumer.ConsumerRecord
 import java.util
 
 /**
- * A schema to deserialize bytes from kafka into an ADT event using a
- * confluent avro schema registry.
+ * A deserialization schema that uses the provided confluent avro schema
+ * registry client and `fromKV` partial function to deserialize a kafka
+ * key/value pair into an instance of a flink runner ADT.
  *
+ * In order to decouple the shape of the flink runner ADT types from the
+ * types that are serialized in kafka, a user of this class must provide a
+ * `fromKV` partial function that maps from the specific key and value pair
+ * (key is optional) deserialized from the kafka source into an instance of
+ * the flink runner ADT.
+ *
+ * Usually, `fromKV` is as simple as providing a set of cases. Consider the
+ * following example, where `A` and `B` are subclasses of the flink runner
+ * ADT, and `ASpecific` and `BSpecific` are corresponding Avro
+ * `SpecificRecord` classes generated from avro schemas. In this case, we
+ * ignore the key and have defined our ADT types to be wrappers around the
+ * deserialized records. However, you can use the deserialized key and
+ * value in any way that makes sense for your application.
+ * {{{
+ *   {
+ *     //    (key,value)     => ADT
+ *     case (_, a:ASpecific) => A(a)
+ *     case (_, b:BSpecific) => B(b)
+ *   }
+ * }}}
  * @param sourceName
- *   name of the source stream
+ *   name of the kafka source
  * @param config
  *   flink runner config
- * @tparam E
- *   the event type we are producing here, which is a member of the ADT
+ * @param schemaRegistryClient
+ *   the schema registry client
+ * @param fromKV
+ *   a partial function that should return a flink runner adt instance when
+ *   passed a deserialized kafka key/value pair
  * @tparam ADT
- *   the flink runner ADT
+ *   the flink runner ADT type
  */
-abstract class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
-    E <: ADT,
+class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
     ADT <: FlinkEvent
 ](
     sourceName: String,
-    config: FlinkConfig[ADT]
-) extends KafkaRecordDeserializationSchema[E]
+    config: FlinkConfig[ADT],
+    schemaRegistryClient: SchemaRegistryClient,
+    fromKV: PartialFunction[(Option[AnyRef], AnyRef), ADT]
+) extends KafkaRecordDeserializationSchema[ADT]
     with LazyLogging {
 
   val sourceConfig: KafkaSourceConfig = {
@@ -52,13 +77,6 @@ abstract class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
 
   val topic: String = sourceConfig.topic
 
-  /**
-   * Implementing subclasses must provide an instance of a schema registry
-   * client to use, for instance a <code>CachedSchemaRegistryClient</code>
-   * or a <code>MockSchemaRegistryClient</code> for testing.
-   */
-  def schemaRegistryClient: SchemaRegistryClient
-
   val valueDeserializer = new KafkaAvroDeserializer(
     schemaRegistryClient,
     schemaRegistryProps
@@ -71,31 +89,15 @@ abstract class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
       Some(ks)
     } else None
 
-  /**
-   * Convert a deserialized key/value pair of objects into an instance of
-   * the flink runner ADT. This method must be implemented by subclasses.
-   *
-   * The key and value are passed as AnyRefs, so implementing subclasses
-   * will need to pattern match.
-   *
-   * @param key
-   *   an optional deserialized key object
-   * @param value
-   *   a deserialized value object
-   * @return
-   *   an instance of the flink runner ADT
-   */
-  def fromKeyValue(key: Option[AnyRef], value: AnyRef): E
-
   override def deserialize(
       record: ConsumerRecord[Array[Byte], Array[Byte]],
-      out: Collector[E]): Unit = {
+      out: Collector[ADT]): Unit = {
     val key   =
       keyDeserializer.map(ds => ds.deserialize(topic, record.key()))
     val value = valueDeserializer.deserialize(topic, record.value())
-    if (Option(value).nonEmpty) out.collect(fromKeyValue(key, value))
+    if (Option(value).nonEmpty) out.collect(fromKV(key, value))
   }
 
-  override def getProducedType: TypeInformation[E] =
-    TypeInformation.of(new TypeHint[E] {})
+  override def getProducedType: TypeInformation[ADT] =
+    TypeInformation.of(new TypeHint[ADT] {})
 }

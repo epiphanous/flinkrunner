@@ -18,25 +18,49 @@ import java.{lang, util}
 
 /**
  * A schema to serialize an ADT event using a confluent avro schema
- * registry. An implementing class must provide a Flink
- * [[ConfluentRegistryAvroSerializationSchema]] to interface with the
- * schema registry. That registry is specific to a type that implements
- * Avro's [[SpecificRecord]] interface type.
+ * registry.
+ */
+
+/**
+ * A serialization schema that uses the provided confluent avro schema
+ * registry client to serialize an instance of a flink runner ADT into
+ * kafka. In order to decouple the shape of the flink runner ADT types from
+ * the types that are serialized in kafka, and to support providing both a
+ * key and a value to kafka, a user of this class must provide a `toKV`
+ * partial function that maps from the flink runner ADT instance to the
+ * specific key and value pair (key is optional) that will be serialized
+ * into the kafka sink.
+ *
+ * Usually, `toKV` is as simple as providing a set of cases like so, where
+ * `A` and `B` are subclasses of the flink runner ADT.
+ * {{{
+ *   {
+ *   //               key        value
+ *     case a:A => (Some(a.id), a.value)
+ *     case b:B => (Some(b.id), b.value)
+ *   }
+ * }}}
  * @param sinkName
- *   name of the sink stream
+ *   name of the kafka sink we serialize into
  * @param config
  *   flink runner config
- * @tparam E
- *   the event type we are serializing from, which is a member of the ADT
+ * @param schemaRegistryClient
+ *   an instance of a confluent schema registry client to use, for instance
+ *   a <code>CachedSchemaRegistryClient</code> or a
+ *   <code>MockSchemaRegistryClient</code> for testing
+ * @param toKV
+ *   a partial function that maps an instance of the flink runner ADT into
+ *   a key/value pair that will be serialized into the kafka sink
  * @tparam ADT
- *   the flink runner ADT
+ *   the flink runner ADT type
  */
-abstract class ConfluentAvroRegistryKafkaRecordSerializationSchema[
-    E <: ADT,
+case class ConfluentAvroRegistryKafkaRecordSerializationSchema[
     ADT <: FlinkEvent](
     sinkName: String,
-    config: FlinkConfig[ADT]
-) extends KafkaRecordSerializationSchema[E]
+    config: FlinkConfig[ADT],
+    schemaRegistryClient: SchemaRegistryClient,
+    toKV: PartialFunction[ADT, (Option[AnyRef], AnyRef)]
+) extends KafkaRecordSerializationSchema[ADT]
     with LazyLogging {
 
   val sinkConfig: KafkaSinkConfig = {
@@ -67,55 +91,11 @@ abstract class ConfluentAvroRegistryKafkaRecordSerializationSchema[
 
   val topic: String = sinkConfig.topic
 
-  /**
-   * A helper method to serialize an arbitary key/value pair. This should
-   * be used by subclasses that implement the [[toKeyValue()]] method.
-   *
-   * @param key
-   *   the key
-   * @param value
-   *   the value
-   * @tparam K
-   *   the type of key
-   * @tparam V
-   *   the type of value
-   * @return
-   *   a tuple of byte arrays (with the key optional)
-   */
-//  def kvSerialize[K, V](key: K, value: V): (Array[Byte], Array[Byte]) = {
-//    (
-//      keySerializer.map(s => s.serialize(topic, key)).orNull,
-//      valueSerializer.serialize(topic, value)
-//    )
-//  }
-
-  /**
-   * Implementing subclasses must provide an instance of a schema registry
-   * client to use, for instance a <code>CachedSchemaRegistryClient</code>
-   * or a <code>MockSchemaRegistryClient</code> for testing.
-   */
-  def schemaRegistryClient: SchemaRegistryClient
-
-  /**
-   * Convert a flink runner ADT instance into a key/value pair of objects
-   * to serialize into a kafka message. This must be defined by
-   * implementing subclasses.
-   *
-   * The purpose of this method is to decouple the structure of the flink
-   * runner ADT from the avro schemas of the underlying kafka messages.
-   *
-   * @param element
-   *   an instance of the flinkrunner ADT
-   * @return
-   *   (Option[AnyRef], AnyRef)
-   */
-  def toKeyValue(element: E): (Option[AnyRef], AnyRef)
-
   override def serialize(
-      element: E,
+      element: ADT,
       context: KafkaRecordSerializationSchema.KafkaSinkContext,
       timestamp: lang.Long): ProducerRecord[Array[Byte], Array[Byte]] = {
-    val (k, v) = toKeyValue(element)
+    val (k, v) = toKV(element)
     val key    =
       keySerializer.flatMap(ks => k.map(kk => ks.serialize(topic, kk)))
     val value  = valueSerializer.serialize(topic, v)

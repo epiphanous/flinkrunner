@@ -26,10 +26,10 @@ import java.nio.charset.StandardCharsets
  * @tparam ADT
  *   the flink runner ADT
  */
-class CirceJsonSerializationSchema[E <: ADT, ADT <: FlinkEvent](
+class CirceJsonSerializationSchema[ADT <: FlinkEvent](
     sinkName: String,
-    config: FlinkConfig[ADT])(implicit circeEncoder: Encoder[E])
-    extends SerializationSchema[E]
+    config: FlinkConfig[ADT])(implicit circeEncoder: Encoder[ADT])
+    extends SerializationSchema[ADT]
     with LazyLogging {
 
   val sourceConfig: SinkConfig = config.getSinkConfig(sinkName)
@@ -45,7 +45,7 @@ class CirceJsonSerializationSchema[E <: ADT, ADT <: FlinkEvent](
    * @return
    *   a json encoded byte array
    */
-  override def serialize(event: E): Array[Byte] =
+  override def serialize(event: ADT): Array[Byte] =
     toJson(event).getBytes(StandardCharsets.UTF_8)
 
   /**
@@ -61,7 +61,7 @@ class CirceJsonSerializationSchema[E <: ADT, ADT <: FlinkEvent](
    *   a json-encoded string
    */
   def toJson(
-      event: E,
+      event: ADT,
       pretty: Boolean = configPretty,
       sortKeys: Boolean = configSort): String = {
     val j = event.asJson

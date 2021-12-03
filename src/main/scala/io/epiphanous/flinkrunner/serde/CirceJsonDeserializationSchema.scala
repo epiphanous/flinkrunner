@@ -21,12 +21,12 @@ import java.nio.charset.StandardCharsets
  * @tparam ADT
  *   the algebraic data type of our events
  */
-class CirceJsonDeserializationSchema[E <: ADT, ADT <: FlinkEvent](
+class CirceJsonDeserializationSchema[ADT <: FlinkEvent](
     sourceName: String,
     config: FlinkConfig[ADT])(implicit
-    circeDecoder: Decoder[E],
-    ev: Null <:< E)
-    extends DeserializationSchema[E]
+    circeDecoder: Decoder[ADT],
+    ev: Null <:< ADT)
+    extends DeserializationSchema[ADT]
     with LazyLogging {
 
   val sourceConfig: SourceConfig = config.getSourceConfig(sourceName)
@@ -39,9 +39,9 @@ class CirceJsonDeserializationSchema[E <: ADT, ADT <: FlinkEvent](
    * @return
    *   an instance of an ADT event type
    */
-  override def deserialize(bytes: Array[Byte]): E = {
+  override def deserialize(bytes: Array[Byte]): ADT = {
     val payload = new String(bytes, StandardCharsets.UTF_8)
-    decode[E](payload).toOption match {
+    decode[ADT](payload).toOption match {
       case Some(event) => event
       case other       =>
         logger.error(
@@ -59,14 +59,14 @@ class CirceJsonDeserializationSchema[E <: ADT, ADT <: FlinkEvent](
    * @return
    *   false
    */
-  override def isEndOfStream(nextEvent: E): Boolean = false
+  override def isEndOfStream(nextEvent: ADT): Boolean = false
 
   /**
    * Compute the produced type when deserializing a byte array
    * @return
    *   TypeInformation[E]
    */
-  override def getProducedType: TypeInformation[E] =
-    TypeInformation.of(new TypeHint[E] {})
+  override def getProducedType: TypeInformation[ADT] =
+    TypeInformation.of(new TypeHint[ADT] {})
 
 }
