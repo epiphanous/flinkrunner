@@ -20,6 +20,10 @@ import org.apache.flink.streaming.connectors.kinesis.serialization.{
   KinesisDeserializationSchema,
   KinesisSerializationSchema
 }
+import org.apache.flink.streaming.connectors.rabbitmq.{
+  RMQDeserializationSchema,
+  RMQSinkPublishOptions
+}
 
 trait FlinkRunnerFactory[ADT <: FlinkEvent] {
 
@@ -81,4 +85,12 @@ trait FlinkRunnerFactory[ADT <: FlinkEvent] {
 
   def getAvroCoder(name: String, config: FlinkConfig[ADT]): AvroCoder[_] =
     ???
+
+  def getRMQDeserializationSchema[E <: ADT](
+      name: String,
+      config: FlinkConfig[ADT]): RMQDeserializationSchema[E] = ???
+
+  def getRabbitPublishOptions[E <: ADT](
+      name: String,
+      config: FlinkConfig[ADT]): Option[RMQSinkPublishOptions[E]] = None
 }

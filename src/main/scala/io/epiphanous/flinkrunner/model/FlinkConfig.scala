@@ -1,13 +1,35 @@
 package io.epiphanous.flinkrunner.model
 
-import com.typesafe.config.{ConfigFactory, ConfigObject}
+import com.typesafe.config.{Config, ConfigFactory, ConfigObject}
 import com.typesafe.scalalogging.LazyLogging
+import io.epiphanous.flinkrunner.FlinkRunnerFactory
+import io.epiphanous.flinkrunner.avro.AvroCoder
 import io.epiphanous.flinkrunner.model.ConfigToProps.RichConfigObject
-import io.epiphanous.flinkrunner.{FlinkRunnerFactory, SEE}
+import io.epiphanous.flinkrunner.operator.AddToJdbcBatchFunction
+import org.apache.flink.api.common.RuntimeExecutionMode
+import org.apache.flink.api.common.serialization.{
+  DeserializationSchema,
+  Encoder,
+  SerializationSchema
+}
 import org.apache.flink.api.java.utils.ParameterTool
+import org.apache.flink.connector.kafka.sink.KafkaRecordSerializationSchema
 import org.apache.flink.connector.kafka.source.reader.deserializer.KafkaRecordDeserializationSchema
 import org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackend
+import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
+import org.apache.flink.streaming.connectors.kafka.{
+  KafkaDeserializationSchema,
+  KafkaSerializationSchema
+}
+import org.apache.flink.streaming.connectors.kinesis.serialization.{
+  KinesisDeserializationSchema,
+  KinesisSerializationSchema
+}
+import org.apache.flink.streaming.connectors.rabbitmq.{
+  RMQDeserializationSchema,
+  RMQSinkPublishOptions
+}
 
 import java.io.File
 import java.time.Duration
@@ -35,7 +57,7 @@ class FlinkConfig[ADT <: FlinkEvent](
     (n, a, ParameterTool.fromArgs(a))
   }
 
-  val _config = {
+  val _config: Config = {
     val sc  =
       Seq(ConfigFactory.load(), ConfigFactory.load("flink-runner.conf"))
     val ocf =
@@ -49,17 +71,18 @@ class FlinkConfig[ADT <: FlinkEvent](
     )
   }
 
-  def getCollectionSource(name: String) =
+  def getCollectionSource(name: String): Seq[Array[Byte]] =
     sources.getOrElse(
       name,
       throw new RuntimeException(s"missing collection source $name")
     )
 
-  val systemName = _config.getString("system.name")
+  val systemName: String = _config.getString("system.name")
 
-  val jobs = _config.getObject("jobs").unwrapped().keySet().asScala.toSet
+  val jobs: Set[String] =
+    _config.getObject("jobs").unwrapped().keySet().asScala.toSet
 
-  def getJobConfig(name: String) = _config.getConfig(s"jobs.$name")
+  def getJobConfig(name: String): Config = _config.getConfig(s"jobs.$name")
 
   private def _s(path: String): (String, String) = {
     val jpath = _j(path)
@@ -86,11 +109,18 @@ class FlinkConfig[ADT <: FlinkEvent](
       case (_, p)   => _config.getString(p)
     }
 
+  def getStringOpt(path: String): Option[String] = Try(
+    getString(path)
+  ).toOption
+
   def getStringList(path: String): List[String] =
     _s(path) match {
       case ("a", p) => jobParams.get(p).split("[, ]+").toList
       case (_, p)   => _config.getStringList(p).asScala.toList
     }
+
+  def getStringListOpt(path: String): List[String] =
+    Try(getStringList(path)).getOrElse(List.empty[String])
 
   def getInt(path: String): Int =
     _s(path) match {
@@ -98,11 +128,15 @@ class FlinkConfig[ADT <: FlinkEvent](
       case (_, p)   => _config.getInt(p)
     }
 
+  def getIntOpt(path: String): Option[Int] = Try(getInt(path)).toOption
+
   def getLong(path: String): Long =
     _s(path) match {
       case ("a", p) => jobParams.getLong(p)
       case (_, p)   => _config.getLong(p)
     }
+
+  def getLongOpt(path: String): Option[Long] = Try(getLong(path)).toOption
 
   def getBoolean(path: String): Boolean =
     _s(path) match {
@@ -110,11 +144,19 @@ class FlinkConfig[ADT <: FlinkEvent](
       case (_, p)   => _config.getBoolean(p)
     }
 
+  def getBooleanOpt(path: String): Option[Boolean] = Try(
+    getBoolean(path)
+  ).toOption
+
   def getDouble(path: String): Double =
     _s(path) match {
       case ("a", p) => jobParams.getDouble(p)
       case (_, p)   => _config.getDouble(p)
     }
+
+  def getDoubleOpt(path: String): Option[Double] = Try(
+    getDouble(path)
+  ).toOption
 
   def getDuration(path: String): Duration =
     _s(path) match {
@@ -124,6 +166,10 @@ class FlinkConfig[ADT <: FlinkEvent](
           .getDuration(p)
       case (_, p)   => _config.getDuration(p)
     }
+
+  def getDurationOpt(path: String): Option[Duration] = Try(
+    getDuration(path)
+  ).toOption
 
   def getProperties(path: String): Properties =
     (_s(path) match {
@@ -146,45 +192,62 @@ class FlinkConfig[ADT <: FlinkEvent](
 
 //  def getJobInstance = factory.getJobInstance(jobName, this)
 
-  def getDeserializationSchema[E <: ADT](name: String) =
+  def getDeserializationSchema[E <: ADT](
+      name: String): DeserializationSchema[E] =
     factory.getDeserializationSchema[E](name, this)
 
-  def getKafkaDeserializationSchema[E <: ADT](name: String) =
+  def getKafkaDeserializationSchema[E <: ADT](
+      name: String): KafkaDeserializationSchema[E] =
     factory.getKafkaDeserializationSchema[E](name, this)
 
   def getKafkaRecordDeserializationSchema[E <: ADT](
       name: String): KafkaRecordDeserializationSchema[E] =
     factory.getKafkaRecordDeserializationSchema[E](name, this)
 
-  def getKinesisDeserializationSchema[E <: ADT](name: String) =
+  def getKinesisDeserializationSchema[E <: ADT](
+      name: String): KinesisDeserializationSchema[E] =
     factory.getKinesisDeserializationSchema[E](name, this)
 
-  def getSerializationSchema[E <: ADT](name: String) =
+  def getSerializationSchema[E <: ADT](
+      name: String): SerializationSchema[E] =
     factory.getSerializationSchema[E](name, this)
 
-  def getKafkaSerializationSchema[E <: ADT](name: String) =
+  def getKafkaSerializationSchema[E <: ADT](
+      name: String): KafkaSerializationSchema[E] =
     factory.getKafkaSerializationSchema[E](name, this)
 
-  def getKafkaRecordSerializationSchema[E <: ADT](name: String) =
+  def getKafkaRecordSerializationSchema[E <: ADT](
+      name: String): KafkaRecordSerializationSchema[E] =
     factory.getKafkaRecordSerializationSchema[E](name, this)
 
-  def getKinesisSerializationSchema[E <: ADT](name: String) =
+  def getKinesisSerializationSchema[E <: ADT](
+      name: String): KinesisSerializationSchema[E] =
     factory.getKinesisSerializationSchema[E](name, this)
 
-  def getEncoder[E <: ADT](name: String) =
+  def getEncoder[E <: ADT](name: String): Encoder[E] =
     factory.getEncoder[E](name, this)
 
-  def getAddToJdbcBatchFunction[E <: ADT](name: String) =
+  def getAddToJdbcBatchFunction[E <: ADT](
+      name: String): AddToJdbcBatchFunction[E] =
     factory.getAddToJdbcBatchFunction[E](name, this)
 
-  def getBucketAssigner[E <: ADT](name: String) =
+  def getBucketAssigner[E <: ADT](
+      name: String): BucketAssigner[E, String] =
     factory.getBucketAssigner[E](name, this)
+
+  def getRMQDeserializationSchema[E <: ADT](
+      name: String): RMQDeserializationSchema[E] =
+    factory.getRMQDeserializationSchema(name, this)
+
+  def getRabbitPublishOptions[E <: ADT](
+      name: String): Option[RMQSinkPublishOptions[E]] =
+    factory.getRabbitPublishOptions[E](name, this)
 
   @deprecated(
     "Use the ConfluentAvroRegistryKafkaRecordSerialization and ...Deserialization classes instead",
     "4.0.0"
   )
-  def getAvroCoder(name: String) =
+  def getAvroCoder(name: String): AvroCoder[_] =
     factory.getAvroCoder(name, this)
 
   def getSourceConfig(name: String): SourceConfig =
@@ -208,12 +271,13 @@ class FlinkConfig[ADT <: FlinkEvent](
         getObject("sinks").unwrapped().keySet().asScala.toSeq
     }
 
-  lazy val environment = getString("environment")
-  lazy val isDev       = environment.startsWith("dev")
-  lazy val isStage     = environment.startsWith("stag")
-  lazy val isProd      = environment.startsWith("prod")
+  lazy val environment: String =
+    getStringOpt("environment").getOrElse("production")
+  lazy val isDev: Boolean      = environment.startsWith("dev")
+  lazy val isStage: Boolean    = environment.startsWith("stag")
+  lazy val isProd: Boolean     = environment.startsWith("prod")
 
-  def configureStreamExecutionEnvironment: SEE = {
+  def configureStreamExecutionEnvironment: StreamExecutionEnvironment = {
     val env =
       if (isDev)
         StreamExecutionEnvironment.createLocalEnvironment(1)
@@ -242,10 +306,12 @@ class FlinkConfig[ADT <: FlinkEvent](
       env.getCheckpointConfig.setCheckpointStorage(checkpointUrl)
     }
 
+    env.setRuntimeMode(executionRuntimeMode)
+
     env
   }
 
-  def getWatermarkStrategy(ws: String) =
+  def getWatermarkStrategy(ws: String): String =
     ws.toLowerCase.replaceAll("[^a-z]", "") match {
       case "boundedlateness"       => "bounded lateness"
       case "boundedoutoforderness" => "bounded out of orderness"
@@ -257,24 +323,36 @@ class FlinkConfig[ADT <: FlinkEvent](
         )
     }
 
-  lazy val watermarkStrategy = getWatermarkStrategy(
+  lazy val watermarkStrategy: String = getWatermarkStrategy(
     getString("watermark.strategy")
   )
 
-  lazy val systemHelp              = _config.getString("system.help")
-  lazy val jobHelp                 = getString("help")
-  lazy val jobDescription          = getString("description")
-  lazy val globalParallelism       = getInt("global.parallelism")
-  lazy val checkpointInterval      = getLong("checkpoint.interval")
-  lazy val checkpointMinPause      = getDuration("checkpoint.min.pause")
-  lazy val checkpointMaxConcurrent = getInt("checkpoint.max.concurrent")
-  lazy val checkpointUrl           = getString("checkpoint.url")
-  lazy val checkpointFlash         = getBoolean("checkpoint.flash")
-  lazy val stateBackend            = getString("state.backend").toLowerCase
-  lazy val checkpointIncremental   = getBoolean("checkpoint.incremental")
-  lazy val showPlan                = getBoolean("show.plan")
-  lazy val mockEdges               = isDev && getBoolean("mock.edges")
-  lazy val maxLateness             = getDuration("max.lateness")
-  lazy val maxIdleness             = getDuration("max.idleness")
+  lazy val systemHelp: String                         = _config.getString("system.help")
+  lazy val jobHelp: String                            = getString("help")
+  lazy val jobDescription: String                     = getString("description")
+  lazy val globalParallelism: Int                     = getInt("global.parallelism")
+  lazy val checkpointInterval: Long                   = getLong("checkpoint.interval")
+  lazy val checkpointMinPause: Duration               = getDuration(
+    "checkpoint.min.pause"
+  )
+  lazy val checkpointMaxConcurrent: Int               = getInt(
+    "checkpoint.max.concurrent"
+  )
+  lazy val checkpointUrl: String                      = getString("checkpoint.url")
+  lazy val checkpointFlash: Boolean                   = getBoolean("checkpoint.flash")
+  lazy val stateBackend: String                       = getString("state.backend").toLowerCase
+  lazy val checkpointIncremental: Boolean             = getBoolean(
+    "checkpoint.incremental"
+  )
+  lazy val showPlan: Boolean                          = getBoolean("show.plan")
+  lazy val mockEdges: Boolean                         = isDev && getBoolean("mock.edges")
+  lazy val maxLateness: Duration                      = getDuration("max.lateness")
+  lazy val maxIdleness: Duration                      = getDuration("max.idleness")
+  lazy val executionRuntimeMode: RuntimeExecutionMode =
+    getStringOpt("execution.runtime-mode").map(_.toUpperCase) match {
+      case Some("BATCH")     => RuntimeExecutionMode.BATCH
+      case Some("AUTOMATIC") => RuntimeExecutionMode.AUTOMATIC
+      case _                 => RuntimeExecutionMode.STREAMING
+    }
 
 }

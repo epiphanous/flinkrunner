@@ -9,7 +9,6 @@ import io.epiphanous.flinkrunner.model.{
   FlinkEvent,
   KafkaSourceConfig
 }
-import org.apache.avro.specific.SpecificRecord
 import org.apache.flink.api.common.typeinfo.{TypeHint, TypeInformation}
 import org.apache.flink.connector.kafka.source.reader.deserializer.KafkaRecordDeserializationSchema
 import org.apache.flink.util.Collector
@@ -102,7 +101,7 @@ class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
     val key   =
       keyDeserializer.map(ds => ds.deserialize(topic, record.key()))
     val value = valueDeserializer.deserialize(topic, record.value())
-    if (Option(value).nonEmpty) fromKV(key, value).map(out.collect)
+    if (Option(value).nonEmpty) fromKV(key, value).foreach(out.collect)
   }
 
   override def getProducedType: TypeInformation[ADT] =

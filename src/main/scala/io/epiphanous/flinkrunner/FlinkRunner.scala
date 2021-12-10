@@ -2,11 +2,7 @@ package io.epiphanous.flinkrunner
 
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.operator.AddToJdbcBatchFunction
-import io.epiphanous.flinkrunner.util.{
-  BoundedLatenessWatermarkStrategy,
-  JdbcSink
-}
+import io.epiphanous.flinkrunner.util.BoundedLatenessWatermarkStrategy
 import org.apache.flink.api.common.eventtime.WatermarkStrategy
 import org.apache.flink.api.common.functions.RuntimeContext
 import org.apache.flink.api.common.serialization.{
@@ -15,6 +11,12 @@ import org.apache.flink.api.common.serialization.{
   SerializationSchema
 }
 import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.connector.jdbc.{
+  JdbcConnectionOptions,
+  JdbcExecutionOptions,
+  JdbcSink,
+  JdbcStatementBuilder
+}
 import org.apache.flink.connector.kafka.sink.KafkaSink
 import org.apache.flink.connector.kafka.source.KafkaSource
 import org.apache.flink.core.fs.Path
@@ -33,6 +35,7 @@ import org.apache.flink.streaming.api.functions.sink.filesystem.{
 }
 import org.apache.flink.streaming.api.scala.{DataStream, _}
 import org.apache.flink.streaming.connectors.cassandra.CassandraSink
+import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkBase.FlushBackoffType
 import org.apache.flink.streaming.connectors.elasticsearch.RequestIndexer
 import org.apache.flink.streaming.connectors.elasticsearch7.ElasticsearchSink
 import org.apache.flink.streaming.connectors.kinesis.serialization.KinesisSerializationSchema
@@ -40,12 +43,15 @@ import org.apache.flink.streaming.connectors.kinesis.{
   FlinkKinesisConsumer,
   FlinkKinesisProducer
 }
+import org.apache.flink.streaming.connectors.rabbitmq.{RMQSink, RMQSource}
+import org.apache.flink.table.api.bridge.scala.StreamTableEnvironment
 import org.apache.http.HttpHost
 import org.elasticsearch.client.Requests
 
 import java.io.{File, FileNotFoundException}
 import java.net.URL
 import java.nio.charset.StandardCharsets
+import java.sql.PreparedStatement
 import scala.collection.JavaConverters._
 import scala.util.matching.Regex
 
@@ -59,9 +65,11 @@ class FlinkRunner[ADT <: FlinkEvent](
     optConfig: Option[String] = None)
     extends LazyLogging {
 
-  val config: FlinkConfig[ADT] =
+  val config: FlinkConfig[ADT]         =
     factory.getFlinkConfig(args, sources, optConfig)
-  val env: SEE                 = config.configureStreamExecutionEnvironment
+  val env: StreamExecutionEnvironment  =
+    config.configureStreamExecutionEnvironment
+  val tableEnv: StreamTableEnvironment = StreamTableEnvironment.create(env)
 
   /**
    * Invoke a job based on the job name and arguments passed in. If the job
@@ -220,6 +228,7 @@ class FlinkRunner[ADT <: FlinkEvent](
     val stream = (src match {
       case src: KafkaSourceConfig      => fromKafka(src)
       case src: KinesisSourceConfig    => fromKinesis(src)
+      case src: RabbitMQSourceConfig   => fromRabbitMQ(src)
       case src: FileSourceConfig       => fromFile(src)
       case src: SocketSourceConfig     => fromSocket(src)
       case src: CollectionSourceConfig => fromCollection(src)
@@ -239,19 +248,23 @@ class FlinkRunner[ADT <: FlinkEvent](
    */
   def fromKafka[E <: ADT: TypeInformation](
       srcConfig: KafkaSourceConfig
-  ): DataStream[E] =
+  ): DataStream[E] = {
+    val ksb             = KafkaSource
+      .builder[E]()
+      .setProperties(srcConfig.properties)
+      .setStartingOffsets(srcConfig.startingOffsets)
+      .setDeserializer(
+        config
+          .getKafkaRecordDeserializationSchema[E](
+            srcConfig.name
+          )
+      )
+    val kafkaSrcBuilder =
+      if (srcConfig.bounded) ksb.setBounded(srcConfig.stoppingOffsets)
+      else ksb
     env
       .fromSource(
-        KafkaSource
-          .builder[E]()
-          .setProperties(srcConfig.properties)
-          .setDeserializer(
-            config
-              .getKafkaRecordDeserializationSchema[E](
-                srcConfig.name
-              )
-          )
-          .build(),
+        kafkaSrcBuilder.build(),
         srcConfig.watermarkStrategy match {
           case "bounded out of order" =>
             boundedOutOfOrderWatermarks[E]()
@@ -260,6 +273,7 @@ class FlinkRunner[ADT <: FlinkEvent](
         },
         srcConfig.label
       )
+  }
 
   /**
    * Configure stream from kinesis.
@@ -273,17 +287,15 @@ class FlinkRunner[ADT <: FlinkEvent](
    */
   def fromKinesis[E <: ADT: TypeInformation](
       srcConfig: KinesisSourceConfig
-  ): DataStream[E] = {
-    val consumer =
+  ): DataStream[E] =
+    env.addSource(
       new FlinkKinesisConsumer[E](
         srcConfig.stream,
         config
           .getKinesisDeserializationSchema[E](srcConfig.name),
         srcConfig.properties
       )
-    env
-      .addSource(consumer)
-  }
+    )
 
   /**
    * Configure stream from file source.
@@ -362,6 +374,32 @@ class FlinkRunner[ADT <: FlinkEvent](
       )
 
   /**
+   * Configure a stream from rabbitmq.
+   * @param srcConfig
+   *   a RabbitMQSourceConfig instance
+   * @tparam E
+   *   instance type of flink runner ADT
+   * @return
+   *   DataStream[E]
+   */
+  def fromRabbitMQ[E <: ADT: TypeInformation](
+      srcConfig: RabbitMQSourceConfig): DataStream[E] = {
+    val name                  = srcConfig.name
+    val connConfig            = srcConfig.connectionInfo.rmqConfig
+    val deserializationSchema = config.getRMQDeserializationSchema[E](name)
+    env
+      .addSource(
+        new RMQSource(
+          connConfig,
+          srcConfig.queue,
+          srcConfig.useCorrelationId,
+          deserializationSchema
+        )
+      )
+      .setParallelism(1) // required to get exactly once semantics
+  }
+
+  /**
    * Returns the actual path to a resource file named filename or
    * filename.gz.
    *
@@ -433,6 +471,7 @@ class FlinkRunner[ADT <: FlinkEvent](
         toKafka[E](stream, s).uid(label).name(label)
       case s: KinesisSinkConfig       =>
         toKinesis[E](stream, s).uid(label).name(label)
+      case s: RabbitMQSinkConfig      => toRabbitMQ[E](stream, s)
       case s: FileSinkConfig          => toFile[E](stream, s).uid(label).name(label)
       case s: SocketSinkConfig        =>
         toSocket[E](stream, s).uid(label).name(label)
@@ -510,30 +549,60 @@ class FlinkRunner[ADT <: FlinkEvent](
       }
 
   /**
-   * Send stream to a socket sink.
-   *
+   * A jdbc sink.
    * @param stream
-   *   the data stream
+   *   a data stream
    * @param sinkConfig
-   *   a sink configuration
+   *   a JdbcSinkConfig object
    * @tparam E
-   *   stream element type
+   *   the type of elements in the data stream
    * @return
-   *   DataStreamSink[E]
+   *   DataStreamSink
    */
   def toJdbc[E <: ADT: TypeInformation](
       stream: DataStream[E],
       sinkConfig: JdbcSinkConfig
-  ): DataStreamSink[E] =
-    stream
-      .addSink(
-        new JdbcSink[E](
-          sinkConfig,
-          config
-            .getAddToJdbcBatchFunction(sinkConfig.name)
-            .asInstanceOf[AddToJdbcBatchFunction[E]]
-        )
+  ): DataStreamSink[E] = {
+    val sinkProps              = sinkConfig.properties
+    val addToJdbcBatchFunction =
+      config.getAddToJdbcBatchFunction[E](sinkConfig.name)
+    val statementBuilder = {
+      new JdbcStatementBuilder[E] {
+        override def accept(ps: PreparedStatement, element: E): Unit =
+          addToJdbcBatchFunction.addToJdbcStatement(element, ps)
+      }
+    }
+    val executionOptions       = JdbcExecutionOptions
+      .builder()
+      .withMaxRetries(
+        Option(sinkProps.getProperty("max.retries"))
+          .map(o => o.toInt)
+          .getOrElse(JdbcExecutionOptions.DEFAULT_MAX_RETRY_TIMES)
       )
+      .withBatchSize(
+        Option(sinkProps.getProperty("batch.size"))
+          .map(o => o.toInt)
+          .getOrElse(JdbcExecutionOptions.DEFAULT_SIZE)
+      )
+      .withBatchIntervalMs(
+        Option(sinkProps.getProperty("batch.interval.ms"))
+          .map(o => o.toLong)
+          .getOrElse(60L)
+      )
+      .build()
+    val connectionOptions      =
+      new JdbcConnectionOptions.JdbcConnectionOptionsBuilder()
+        .withUrl(sinkConfig.url)
+        .build()
+    stream.addSink(
+      JdbcSink.sink(
+        sinkConfig.query,
+        statementBuilder,
+        executionOptions,
+        connectionOptions
+      )
+    )
+  }
 
   /**
    * Send stream to a rolling file sink.
@@ -691,21 +760,17 @@ class FlinkRunner[ADT <: FlinkEvent](
       stream: DataStream[E],
       sinkConfig: ElasticsearchSinkConfig
   ): DataStreamSink[E] = {
-    val hosts  = sinkConfig.transports.map { s =>
+    val hosts         = sinkConfig.transports.map { s =>
       val url      = new URL(if (s.startsWith("http")) s else s"http://$s")
       val hostname = url.getHost
       val port     = if (url.getPort < 0) 9200 else url.getPort
       new HttpHost(hostname, port, url.getProtocol)
     }.asJava
-    val esSink = new ElasticsearchSink.Builder[E](
+    val esSinkBuilder = new ElasticsearchSink.Builder[E](
       hosts,
       (element: E, _: RuntimeContext, indexer: RequestIndexer) => {
         val data = element.getClass.getDeclaredFields
-          .filterNot(f =>
-            Seq("$id", "$key", "$timestamp", "$action").contains(
-              f.getName
-            )
-          )
+          .filterNot(f => f.getName.startsWith("$"))
           .foldLeft(Map.empty[String, Any]) { case (a, f) =>
             f.setAccessible(true)
             val name = f.getName
@@ -719,8 +784,76 @@ class FlinkRunner[ADT <: FlinkEvent](
         val req  = Requests.indexRequest(sinkConfig.index).source(data)
         indexer.add(req)
       }
-    ).build()
-    stream.addSink(esSink)
+    )
+
+    val props = sinkConfig.properties
+    Option(props.getProperty("bulk.flush.backoff.enable"))
+      .map(_.toBoolean)
+      .foreach(esSinkBuilder.setBulkFlushBackoff)
+    Option(props.getProperty("bulk.flush.backoff.type"))
+      .map(_.toUpperCase() match {
+        case "CONSTANT"    => FlushBackoffType.CONSTANT
+        case "EXPONENTIAL" => FlushBackoffType.EXPONENTIAL
+        case t             =>
+          logger.warn(
+            s"invalid bulk.flush.backoff.type value '$t'; using CONSTANT"
+          )
+          FlushBackoffType.CONSTANT
+      })
+      .foreach(esSinkBuilder.setBulkFlushBackoffType)
+    Option(
+      props.getProperty("bulk.flush.backoff.delay")
+    ).map(_.toLong)
+      .foreach(esSinkBuilder.setBulkFlushBackoffDelay)
+    Option(props.getProperty("bulk.flush.backoff.retries"))
+      .map(_.toInt)
+      .foreach(esSinkBuilder.setBulkFlushBackoffRetries)
+    Option(props.getProperty("bulk.flush.max.actions"))
+      .map(_.toInt)
+      .foreach(esSinkBuilder.setBulkFlushMaxActions)
+    Option(props.getProperty("bulk.flush.max.size.mb"))
+      .map(_.toInt)
+      .foreach(esSinkBuilder.setBulkFlushMaxSizeMb)
+    Option(props.getProperty("bulk.flush.interval.ms"))
+      .map(_.toLong)
+      .foreach(esSinkBuilder.setBulkFlushInterval)
+    stream.addSink(esSinkBuilder.build())
+  }
+
+  /**
+   * Configure streaming to a rabbitmq sink.
+   * @param stream
+   *   the stream to send to the sink
+   * @param sinkConfig
+   *   a RabbitMQSinkConfig instance
+   * @tparam E
+   *   type of the flink runner ADT events in the stream
+   * @return
+   *   DataStreamSink[E]
+   */
+  def toRabbitMQ[E <: ADT: TypeInformation](
+      stream: DataStream[E],
+      sinkConfig: RabbitMQSinkConfig
+  ): DataStreamSink[E] = {
+
+    val name                = sinkConfig.name
+    val connConfig          = sinkConfig.connectionInfo.rmqConfig
+    val serializationSchema =
+      config.getSerializationSchema[E](sinkConfig.name)
+
+    stream.addSink(
+      config.getRabbitPublishOptions[E](sinkConfig.name) match {
+        case Some(p) => new RMQSink(connConfig, serializationSchema, p)
+        case None    =>
+          sinkConfig.queue match {
+            case Some(q) => new RMQSink(connConfig, q, serializationSchema)
+            case None    =>
+              throw new RuntimeException(
+                s"RabbitMQ config requires either a queue name or publishing options for sink $name"
+              )
+          }
+      }
+    )
   }
 
 }

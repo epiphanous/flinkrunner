@@ -1,12 +1,16 @@
 package io.epiphanous.flinkrunner.flink
 
 import com.typesafe.scalalogging.LazyLogging
+import io.epiphanous.flinkrunner.FlinkRunner
 import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkEvent}
 import io.epiphanous.flinkrunner.util.StreamUtils.Pipe
-import io.epiphanous.flinkrunner.{FlinkRunner, SEE}
 import org.apache.flink.api.common.JobExecutionResult
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.streaming.api.scala.DataStream
+import org.apache.flink.streaming.api.scala.{
+  DataStream,
+  StreamExecutionEnvironment
+}
+import org.apache.flink.table.api.bridge.scala.StreamTableEnvironment
 
 import scala.util.Try
 
@@ -28,8 +32,9 @@ abstract class BaseFlinkJob[
     ADT <: FlinkEvent: TypeInformation](runner: FlinkRunner[ADT])
     extends LazyLogging {
 
-  val config: FlinkConfig[ADT] = runner.config
-  val env: SEE                 = runner.env
+  val config: FlinkConfig[ADT]         = runner.config
+  val env: StreamExecutionEnvironment  = runner.env
+  val tableEnv: StreamTableEnvironment = runner.tableEnv
 
   /**
    * A pipeline for transforming a single stream. Passes the output of

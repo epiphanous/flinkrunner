@@ -24,4 +24,6 @@ object FlinkConnectorName extends Enum[FlinkConnectorName] {
 
   case object Collection extends FlinkConnectorName
 
+  case object RabbitMQ extends FlinkConnectorName
+
 }

@@ -9,9 +9,7 @@ import io.epiphanous.flinkrunner.model.{
   FlinkEvent,
   KafkaSinkConfig
 }
-import org.apache.avro.specific.SpecificRecord
 import org.apache.flink.connector.kafka.sink.KafkaRecordSerializationSchema
-import org.apache.flink.formats.avro.registry.confluent.ConfluentRegistryAvroSerializationSchema
 import org.apache.kafka.clients.producer.ProducerRecord
 
 import java.{lang, util}

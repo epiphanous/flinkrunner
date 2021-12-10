@@ -45,16 +45,21 @@ val V = new {
 
 val flinkDeps =
   Seq(
-    "org.apache.flink" %% s"flink-scala"                    % V.flink % Provided,
-    "org.apache.flink" %% s"flink-streaming-scala"          % V.flink % Provided,
-    "org.apache.flink" %% s"flink-cep-scala"                % V.flink % Provided,
-    "org.apache.flink" %% s"flink-connector-kafka"          % V.flink,
-    "org.apache.flink" %% s"flink-connector-kinesis"        % V.flink,
-    "org.apache.flink" %% s"flink-connector-cassandra"      % V.flink,
-    "org.apache.flink" %% s"flink-connector-elasticsearch7" % V.flink,
-    "org.apache.flink" %% s"flink-statebackend-rocksdb"     % V.flink,
-    "org.apache.flink"  % s"flink-avro-confluent-registry"  % V.flink,
-    "org.apache.flink" %% s"flink-test-utils"               % V.flink % Test
+    "org.apache.flink" %% "flink-scala"                    % V.flink % Provided,
+    "org.apache.flink" %% "flink-streaming-scala"          % V.flink % Provided,
+    "org.apache.flink" %% "flink-cep-scala"                % V.flink % Provided,
+    "org.apache.flink" %% "flink-table-planner"            % V.flink % Provided,
+    "org.apache.flink" %% "flink-connector-kafka"          % V.flink,
+    "org.apache.flink" %% "flink-connector-kinesis"        % V.flink,
+    "org.apache.flink" %% "flink-connector-cassandra"      % V.flink,
+    "org.apache.flink" %% "flink-connector-elasticsearch7" % V.flink,
+    "org.apache.flink" %% "flink-connector-jdbc"           % V.flink,
+    "org.apache.flink" %% "flink-connector-rabbitmq"       % V.flink,
+    "org.apache.flink"  % "flink-connector-files"          % V.flink,
+    "org.apache.flink" %% "flink-table-api-scala-bridge"   % V.flink,
+    "org.apache.flink" %% "flink-statebackend-rocksdb"     % V.flink,
+    "org.apache.flink"  % "flink-avro-confluent-registry"  % V.flink,
+    "org.apache.flink" %% "flink-test-utils"               % V.flink % Test
   )
 
 val loggingDeps = Seq(

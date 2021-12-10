@@ -63,6 +63,7 @@ object SinkConfig {
             JdbcSinkConfig(
               connector,
               name,
+              config.getString(s"$p.url"),
               config.getString(s"$p.query"),
               config.getProperties(s"$p.config")
             )
@@ -84,7 +85,19 @@ object SinkConfig {
               config.getProperties(s"$p.config")
             )
 
-          case other =>
+          case RabbitMQ =>
+            val c   = config.getProperties(s"$p.config")
+            val uri = config.getString(s"$p.uri")
+            RabbitMQSinkConfig(
+              connector,
+              name,
+              uri,
+              config.getBoolean(s"$p.use.correlation.id"),
+              RabbitMQConnectionInfo(uri, c),
+              Option(c.getProperty("queue")),
+              c
+            )
+          case other    =>
             throw new RuntimeException(
               s"$other $name connector not valid sink (job ${config.jobName}"
             )
@@ -140,6 +153,7 @@ final case class SocketSinkConfig(
 final case class JdbcSinkConfig(
     connector: FlinkConnectorName = Jdbc,
     name: String,
+    url: String,
     query: String,
     properties: Properties)
     extends SinkConfig
@@ -158,5 +172,15 @@ final case class ElasticsearchSinkConfig(
     transports: List[String],
     index: String,
     `type`: String,
+    properties: Properties)
+    extends SinkConfig
+
+final case class RabbitMQSinkConfig(
+    connector: FlinkConnectorName = RabbitMQ,
+    name: String,
+    uri: String,
+    useCorrelationId: Boolean,
+    connectionInfo: RabbitMQConnectionInfo,
+    queue: Option[String],
     properties: Properties)
     extends SinkConfig

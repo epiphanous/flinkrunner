@@ -5,11 +5,11 @@ import com.google.common.cache.{CacheBuilder, CacheLoader}
 import com.typesafe.scalalogging.LazyLogging
 import io.circe.Decoder
 import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkEvent}
-import org.apache.flink.util.concurrent.Executors
 import org.apache.flink.streaming.api.scala.async.{
   AsyncFunction,
   ResultFuture
 }
+import org.apache.flink.util.concurrent.Executors
 import org.http4s.EntityDecoder
 import org.http4s.circe.jsonOf
 import org.http4s.client.blaze.BlazeClientBuilder

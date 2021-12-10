@@ -1,7 +1,7 @@
 package io.epiphanous.flinkrunner.algorithm.membership
 
-import com.google.common.hash.{Funnel, HashFunction}
 import com.google.common.hash.Hashing.murmur3_128
+import com.google.common.hash.{Funnel, HashFunction}
 
 import java.nio.ByteBuffer
 import scala.util.Random

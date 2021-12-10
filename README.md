@@ -41,7 +41,7 @@
 ## Maven Dependency
 
 `Flinkrunner 4` is [available on maven central](https://mvnrepository.com/artifact/io.epiphanous/flinkrunner_2.12),
-built against Flink 1.13 with Scala 2.12 and JDK 11.
+built against Flink 1.14 with Scala 2.12 and JDK 11.
 
 ```sbtshell
 libraryDependencies += "io.epiphanous" %% "flinkrunner" % <flinkrunner-version>
@@ -201,10 +201,10 @@ abstract class BaseFlinkJob[DS, OUT <: FlinkEvent: TypeInformation] extends Lazy
     * @param config implicit flink job config
     * @return data output stream
     */
-  def flow()(implicit config: FlinkConfig, env: SEE): DataStream[OUT] =
+  def flow()(implicit config: FlinkConfig, env: StreamExecutionEnvironment): DataStream[OUT] =
     source |> transform |# maybeSink
 
-  def run()(implicit config: FlinkConfig, env: SEE): Either[Iterator[OUT], Unit] = {
+  def run()(implicit config: FlinkConfig, env: StreamExecutionEnvironment): Either[Iterator[OUT], Unit] = {
 
     logger.info(s"\nSTARTING FLINK JOB: ${config.jobName} ${config.jobArgs.mkString(" ")}\n")
 
@@ -222,7 +222,7 @@ abstract class BaseFlinkJob[DS, OUT <: FlinkEvent: TypeInformation] extends Lazy
     * Returns source data stream to pass into [[transform()]]. This must be overridden by subclasses.
     * @return input data stream
     */
-  def source()(implicit config: FlinkConfig, env: SEE): DS
+  def source()(implicit config: FlinkConfig, env: StreamExecutionEnvironment): DS
 
   /**
     * Primary method to transform the source data stream into the output data stream. The output of
@@ -232,7 +232,7 @@ abstract class BaseFlinkJob[DS, OUT <: FlinkEvent: TypeInformation] extends Lazy
     * @param config implicit flink job config
     * @return output data stream
     */
-  def transform(in: DS)(implicit config: FlinkConfig, env: SEE): DataStream[OUT]
+  def transform(in: DS)(implicit config: FlinkConfig, env: StreamExecutionEnvironment): DataStream[OUT]
 
   /**
     * Writes the transformed data stream to configured output sinks.
@@ -240,7 +240,7 @@ abstract class BaseFlinkJob[DS, OUT <: FlinkEvent: TypeInformation] extends Lazy
     * @param out a transformed stream from [[transform()]]
     * @param config implicit flink job config
     */
-  def sink(out: DataStream[OUT])(implicit config: FlinkConfig, env: SEE): Unit =
+  def sink(out: DataStream[OUT])(implicit config: FlinkConfig, env: StreamExecutionEnvironment): Unit =
     config.getSinkNames.foreach(name => out.toSink(name))
 
   /**
@@ -250,7 +250,7 @@ abstract class BaseFlinkJob[DS, OUT <: FlinkEvent: TypeInformation] extends Lazy
     * @param out the output data stream to pass into [[sink()]]
     * @param config implicit flink job config
     */
-  def maybeSink(out: DataStream[OUT])(implicit config: FlinkConfig, env: SEE): Unit =
+  def maybeSink(out: DataStream[OUT])(implicit config: FlinkConfig, env: StreamExecutionEnvironment): Unit =
     if (!config.mockEdges) sink(out)
 
 }
@@ -274,7 +274,7 @@ abstract class FlinkJob[IN <: FlinkEvent: TypeInformation, OUT <: FlinkEvent: Ty
     * Returns source data stream to pass into [[transform()]]. This can be overridden by subclasses.
     * @return input data stream
     */
-  def source()(implicit config: FlinkConfig, env: SEE): DataStream[IN] =
+  def source()(implicit config: FlinkConfig, env: StreamExecutionEnvironment): DataStream[IN] =
     fromSource[IN](getEventSourceName) |# maybeAssignTimestampsAndWatermarks
 
 }

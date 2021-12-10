@@ -36,6 +36,7 @@ import scala.util.{Failure, Success, Try}
  * @tparam E
  *   the class of sink elements.
  */
+@deprecated("Use org.apache.flink.connector.jdbc.JdbcSink instead", "4.0")
 class JdbcSink[E: TypeInformation](
     sinkConfig: JdbcSinkConfig,
     batchFunction: AddToJdbcBatchFunction[E]
