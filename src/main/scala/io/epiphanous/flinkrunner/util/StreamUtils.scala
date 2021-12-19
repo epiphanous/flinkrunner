@@ -1,6 +1,11 @@
 package io.epiphanous.flinkrunner.util
 
+import com.google.common.collect.Maps
+import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
+
+import java.util
+import java.util.Properties
 
 object StreamUtils extends LazyLogging {
 
@@ -36,4 +41,11 @@ object StreamUtils extends LazyLogging {
     }
   }
 
+  implicit class RichConfig(val c: Config) {}
+
+  implicit class RichProps(val p: Properties) {
+    def asJavaMap: util.HashMap[String, String] =
+      Maps.newHashMap(Maps.fromProperties(p))
+
+  }
 }

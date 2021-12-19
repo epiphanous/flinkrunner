@@ -1,13 +1,13 @@
 package io.epiphanous.flinkrunner.model.aggregate
 
-import io.epiphanous.flinkrunner.BasePropSpec
+import io.epiphanous.flinkrunner.PropSpec
 import io.epiphanous.flinkrunner.model.UnitMapper
 import squants.Kilograms
 import squants.mass.Mass
 
 import java.time.Instant
 
-class StandardDeviationSpec extends BasePropSpec {
+class StandardDeviationSpec extends PropSpec {
 
   property("updateQuantity property") {
     val s = StandardDeviation(Mass.name, Kilograms.symbol)

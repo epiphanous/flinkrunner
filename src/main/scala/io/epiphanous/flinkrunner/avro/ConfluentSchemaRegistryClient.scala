@@ -24,7 +24,7 @@ import scala.util.{Failure, Success, Try}
   "4.0.0"
 )
 class ConfluentSchemaRegistryClient[ADT <: FlinkEvent: TypeInformation](
-    config: FlinkConfig[ADT])(implicit
+    config: FlinkConfig)(implicit
     decoder: Decoder[ConfluentSchemaRegistryResponse])
     extends AvroSchemaRegistryClient[ConfluentSchemaRegistryContext]
     with StringUtils

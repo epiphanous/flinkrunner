@@ -28,7 +28,7 @@ import java.nio.charset.StandardCharsets
  */
 class CirceJsonSerializationSchema[ADT <: FlinkEvent](
     sinkName: String,
-    config: FlinkConfig[ADT])(implicit circeEncoder: Encoder[ADT])
+    config: FlinkConfig)(implicit circeEncoder: Encoder[ADT])
     extends SerializationSchema[ADT]
     with LazyLogging {
 

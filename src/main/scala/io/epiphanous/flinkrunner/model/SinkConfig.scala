@@ -20,9 +20,7 @@ sealed trait SinkConfig {
 }
 
 object SinkConfig {
-  def apply[ADT <: FlinkEvent](
-      name: String,
-      config: FlinkConfig[ADT]): SinkConfig = {
+  def apply(name: String, config: FlinkConfig): SinkConfig = {
     val p = s"sinks.$name"
     FlinkConnectorName.withNameInsensitiveOption(
       config.getString(s"$p.connector")
@@ -57,6 +55,8 @@ object SinkConfig {
               name,
               config.getString(s"$p.host"),
               config.getInt(s"$p.port"),
+              config.getIntOpt(s"$p.max.retries"),
+              config.getBooleanOpt(s"$p.auto.flush"),
               config.getProperties(s"$p.config")
             )
           case Jdbc              =>
@@ -147,6 +147,8 @@ final case class SocketSinkConfig(
     name: String,
     host: String,
     port: Int,
+    maxRetries: Option[Int] = None,
+    autoFlush: Option[Boolean] = None,
     properties: Properties)
     extends SinkConfig
 

@@ -1,12 +1,11 @@
 package io.epiphanous.flinkrunner.algorithm.membership
 
 import com.google.common.hash.Funnels
-import io.epiphanous.flinkrunner.BaseSpec
-import org.scalatest.flatspec.AnyFlatSpec
+import io.epiphanous.flinkrunner.UnitSpec
 
 import java.nio.charset.StandardCharsets
 
-class StableBloomFilterTest extends AnyFlatSpec with BaseSpec {
+class StableBloomFilterTest extends UnitSpec {
 
   val bfBuilder: StableBloomFilterBuilder[CharSequence] =
     StableBloomFilterBuilder(

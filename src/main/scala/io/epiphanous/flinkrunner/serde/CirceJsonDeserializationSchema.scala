@@ -23,7 +23,7 @@ import java.nio.charset.StandardCharsets
  */
 class CirceJsonDeserializationSchema[ADT <: FlinkEvent](
     sourceName: String,
-    config: FlinkConfig[ADT])(implicit
+    config: FlinkConfig)(implicit
     circeDecoder: Decoder[ADT],
     ev: Null <:< ADT)
     extends DeserializationSchema[ADT]

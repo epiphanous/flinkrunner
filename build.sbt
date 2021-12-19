@@ -27,20 +27,19 @@ resolvers += "Local Maven Repository" at "file://" + Path.userHome.absolutePath 
 resolvers += "Confluent Repository" at "https://packages.confluent.io/maven/"
 
 val V = new {
-  val flink          = "1.14.0"
-  val logback        = "1.2.7"
-  val scalaLogging   = "3.9.4"
-  val scalaTest      = "3.2.10"
-  val scalaCheck     = "1.15.4"
-  val circe          = "0.14.1"
-  val http4s         = "0.21.29"
-  val enumeratum     = "1.7.0"
-  val typesafeConfig = "1.4.1"
-  val guava          = "31.0.1-jre" //"29.0-jre"
-  val squants        = "1.8.3"
-  val avro           = "1.11.0"
-  val avro4s         = "4.0.11"
-  val schemaRegistry = "7.0.0"
+  val flink              = "1.14.1"
+  val logback            = "1.2.7"
+  val scalaLogging       = "3.9.4"
+  val scalaTest          = "3.2.10"
+  val scalaCheck         = "3.2.9.0"
+  val circe              = "0.14.1"
+  val http4s             = "0.21.29"
+  val enumeratum         = "1.7.0"
+  val typesafeConfig     = "1.4.1"
+  val guava              = "31.0.1-jre" //"29.0-jre"
+  val squants            = "1.8.3"
+  val avro4s             = "4.0.11"
+  val confluentAvroSerde = "7.0.1"
 }
 
 val flinkDeps =
@@ -82,17 +81,15 @@ val circeDeps  = Seq(
 ).map(d => "io.circe" %% s"circe-$d" % V.circe)
 
 val otherDeps  = Seq(
-//  "io.confluent"         % "kafka-schema-registry-client" % V.schemaRegistry,
-  "io.confluent"         % "kafka-streams-avro-serde" % "7.0.0",
+  "io.confluent"         % "kafka-streams-avro-serde" % V.confluentAvroSerde,
   "com.beachape"        %% "enumeratum"               % V.enumeratum,
-//  "org.apache.avro"      % "avro"                     % V.avro,
   "com.typesafe"         % "config"                   % V.typesafeConfig,
   "com.google.guava"     % "guava"                    % V.guava,
   "org.typelevel"       %% "squants"                  % V.squants,
   "com.sksamuel.avro4s" %% "avro4s-core"              % V.avro4s,
   "org.scalactic"       %% "scalactic"                % V.scalaTest  % Test,
   "org.scalatest"       %% "scalatest"                % V.scalaTest  % Test,
-  "org.scalacheck"      %% "scalacheck"               % V.scalaCheck % Test
+  "org.scalatestplus"   %% "scalacheck-1-15"          % V.scalaCheck % Test
 )
 
 /**

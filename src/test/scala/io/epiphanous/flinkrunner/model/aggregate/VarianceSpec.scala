@@ -1,13 +1,13 @@
 package io.epiphanous.flinkrunner.model.aggregate
 
-import io.epiphanous.flinkrunner.BasePropSpec
+import io.epiphanous.flinkrunner.PropSpec
 import io.epiphanous.flinkrunner.model.UnitMapper
 import squants.Kilograms
 import squants.mass.Mass
 
 import java.time.Instant
 
-class VarianceSpec extends BasePropSpec {
+class VarianceSpec extends PropSpec {
 
   property("updateQuantity property") {
     val v = Variance(Mass.name, Kilograms.symbol)

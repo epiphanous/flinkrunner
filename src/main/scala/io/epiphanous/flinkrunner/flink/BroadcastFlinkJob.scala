@@ -89,8 +89,8 @@ abstract class BroadcastFlinkJob[
    *   connected broadcast + events stream
    */
   override def source(): BroadcastConnectedStream[IN, BC] =
-    (runner
-      .fromSource[IN](getEventSourceName))
+    runner
+      .fromSource[IN](getEventSourceName)
       .keyBy((in: IN) => in.$key)
       .connect(broadcastSource)
 
@@ -100,10 +100,6 @@ abstract class BroadcastFlinkJob[
    *
    * @param in
    *   connected broadcast + data stream created by source()
-   * @param config
-   *   implicit flink job config
-   * @param env
-   *   implicit streaming execution environment
    * @return
    *   output data stream
    */

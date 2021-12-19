@@ -2,34 +2,11 @@ package io.epiphanous.flinkrunner.model
 
 import com.typesafe.config.{Config, ConfigFactory, ConfigObject}
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.FlinkRunnerFactory
-import io.epiphanous.flinkrunner.avro.AvroCoder
 import io.epiphanous.flinkrunner.model.ConfigToProps.RichConfigObject
-import io.epiphanous.flinkrunner.operator.AddToJdbcBatchFunction
 import org.apache.flink.api.common.RuntimeExecutionMode
-import org.apache.flink.api.common.serialization.{
-  DeserializationSchema,
-  Encoder,
-  SerializationSchema
-}
 import org.apache.flink.api.java.utils.ParameterTool
-import org.apache.flink.connector.kafka.sink.KafkaRecordSerializationSchema
-import org.apache.flink.connector.kafka.source.reader.deserializer.KafkaRecordDeserializationSchema
 import org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackend
-import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
-import org.apache.flink.streaming.connectors.kafka.{
-  KafkaDeserializationSchema,
-  KafkaSerializationSchema
-}
-import org.apache.flink.streaming.connectors.kinesis.serialization.{
-  KinesisDeserializationSchema,
-  KinesisSerializationSchema
-}
-import org.apache.flink.streaming.connectors.rabbitmq.{
-  RMQDeserializationSchema,
-  RMQSinkPublishOptions
-}
 
 import java.io.File
 import java.time.Duration
@@ -38,9 +15,8 @@ import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
 @SerialVersionUID(1544548116L)
-class FlinkConfig[ADT <: FlinkEvent](
+class FlinkConfig(
     args: Array[String],
-    factory: FlinkRunnerFactory[ADT],
     sources: Map[String, Seq[Array[Byte]]] = Map.empty,
     optConfig: Option[String] = None)
     extends LazyLogging
@@ -189,66 +165,6 @@ class FlinkConfig[ADT <: FlinkEvent](
       .getDeclaredConstructor()
       .newInstance()
       .asInstanceOf[T]
-
-//  def getJobInstance = factory.getJobInstance(jobName, this)
-
-  def getDeserializationSchema[E <: ADT](
-      name: String): DeserializationSchema[E] =
-    factory.getDeserializationSchema[E](name, this)
-
-  def getKafkaDeserializationSchema[E <: ADT](
-      name: String): KafkaDeserializationSchema[E] =
-    factory.getKafkaDeserializationSchema[E](name, this)
-
-  def getKafkaRecordDeserializationSchema[E <: ADT](
-      name: String): KafkaRecordDeserializationSchema[E] =
-    factory.getKafkaRecordDeserializationSchema[E](name, this)
-
-  def getKinesisDeserializationSchema[E <: ADT](
-      name: String): KinesisDeserializationSchema[E] =
-    factory.getKinesisDeserializationSchema[E](name, this)
-
-  def getSerializationSchema[E <: ADT](
-      name: String): SerializationSchema[E] =
-    factory.getSerializationSchema[E](name, this)
-
-  def getKafkaSerializationSchema[E <: ADT](
-      name: String): KafkaSerializationSchema[E] =
-    factory.getKafkaSerializationSchema[E](name, this)
-
-  def getKafkaRecordSerializationSchema[E <: ADT](
-      name: String): KafkaRecordSerializationSchema[E] =
-    factory.getKafkaRecordSerializationSchema[E](name, this)
-
-  def getKinesisSerializationSchema[E <: ADT](
-      name: String): KinesisSerializationSchema[E] =
-    factory.getKinesisSerializationSchema[E](name, this)
-
-  def getEncoder[E <: ADT](name: String): Encoder[E] =
-    factory.getEncoder[E](name, this)
-
-  def getAddToJdbcBatchFunction[E <: ADT](
-      name: String): AddToJdbcBatchFunction[E] =
-    factory.getAddToJdbcBatchFunction[E](name, this)
-
-  def getBucketAssigner[E <: ADT](
-      name: String): BucketAssigner[E, String] =
-    factory.getBucketAssigner[E](name, this)
-
-  def getRMQDeserializationSchema[E <: ADT](
-      name: String): RMQDeserializationSchema[E] =
-    factory.getRMQDeserializationSchema(name, this)
-
-  def getRabbitPublishOptions[E <: ADT](
-      name: String): Option[RMQSinkPublishOptions[E]] =
-    factory.getRabbitPublishOptions[E](name, this)
-
-  @deprecated(
-    "Use the ConfluentAvroRegistryKafkaRecordSerialization and ...Deserialization classes instead",
-    "4.0.0"
-  )
-  def getAvroCoder(name: String): AvroCoder[_] =
-    factory.getAvroCoder(name, this)
 
   def getSourceConfig(name: String): SourceConfig =
     SourceConfig(name, this)

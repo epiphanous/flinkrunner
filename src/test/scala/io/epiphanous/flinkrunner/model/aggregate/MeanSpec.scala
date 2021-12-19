@@ -1,13 +1,13 @@
 package io.epiphanous.flinkrunner.model.aggregate
 
-import io.epiphanous.flinkrunner.BasePropSpec
+import io.epiphanous.flinkrunner.PropSpec
 import io.epiphanous.flinkrunner.model.UnitMapper
 import squants.Kilograms
 import squants.mass.Mass
 
 import java.time.Instant
 
-class MeanSpec extends BasePropSpec {
+class MeanSpec extends PropSpec {
 
   property("updateQuantity property") {
     val m = Mean(Mass.name, Kilograms.symbol)
@@ -18,7 +18,7 @@ class MeanSpec extends BasePropSpec {
       m2 <- m1.update(Kilograms(20), t, u)
       m3 <- m2.update(Kilograms(75), t, u)
     } yield m3.value
-    q.value shouldBe (35)
+    q.value shouldBe 35
   }
 
 }

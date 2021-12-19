@@ -27,70 +27,63 @@ import org.apache.flink.streaming.connectors.rabbitmq.{
 
 trait FlinkRunnerFactory[ADT <: FlinkEvent] {
 
-  def getFlinkConfig(
-      args: Array[String],
-      sources: Map[String, Seq[Array[Byte]]] = Map.empty,
-      optConfig: Option[String] = None) =
-    new FlinkConfig[ADT](args, this, sources, optConfig)
-
   def getJobInstance[DS, OUT <: ADT](
       name: String,
       runner: FlinkRunner[ADT]): BaseFlinkJob[DS, OUT, ADT]
 
   def getDeserializationSchema[E <: ADT](
       name: String,
-      config: FlinkConfig[ADT]): DeserializationSchema[E] = ???
+      config: FlinkConfig): DeserializationSchema[E] = ???
 
   def getKafkaDeserializationSchema[E <: ADT](
       name: String,
-      config: FlinkConfig[ADT]): KafkaDeserializationSchema[E] =
+      config: FlinkConfig): KafkaDeserializationSchema[E] =
     ???
 
   def getKafkaRecordSerializationSchema[E <: ADT](
       name: String,
-      config: FlinkConfig[ADT]): KafkaRecordSerializationSchema[E] = ???
+      config: FlinkConfig): KafkaRecordSerializationSchema[E] = ???
 
   def getKafkaRecordDeserializationSchema[E <: ADT](
       name: String,
-      config: FlinkConfig[ADT]): KafkaRecordDeserializationSchema[E] = ???
+      config: FlinkConfig): KafkaRecordDeserializationSchema[E] = ???
 
   def getKinesisDeserializationSchema[E <: ADT](
       name: String,
-      config: FlinkConfig[ADT]): KinesisDeserializationSchema[E] = ???
+      config: FlinkConfig): KinesisDeserializationSchema[E] = ???
 
   def getSerializationSchema[E <: ADT](
       name: String,
-      config: FlinkConfig[ADT]): SerializationSchema[E] = ???
+      config: FlinkConfig): SerializationSchema[E] = ???
 
   def getKafkaSerializationSchema[E <: ADT](
       name: String,
-      config: FlinkConfig[ADT]): KafkaSerializationSchema[E] = ???
+      config: FlinkConfig): KafkaSerializationSchema[E] = ???
 
   def getKinesisSerializationSchema[E <: ADT](
       name: String,
-      config: FlinkConfig[ADT]): KinesisSerializationSchema[E] = ???
+      config: FlinkConfig): KinesisSerializationSchema[E] = ???
 
-  def getEncoder[E <: ADT](
-      name: String,
-      config: FlinkConfig[ADT]): Encoder[E] = ???
+  def getEncoder[E <: ADT](name: String, config: FlinkConfig): Encoder[E] =
+    ???
 
   def getAddToJdbcBatchFunction[E <: ADT](
       name: String,
-      config: FlinkConfig[ADT]): AddToJdbcBatchFunction[E] = ???
+      config: FlinkConfig): AddToJdbcBatchFunction[E] = ???
 
   def getBucketAssigner[E <: ADT](
       name: String,
-      config: FlinkConfig[ADT]): BucketAssigner[E, String] =
+      config: FlinkConfig): BucketAssigner[E, String] =
     ???
 
-  def getAvroCoder(name: String, config: FlinkConfig[ADT]): AvroCoder[_] =
+  def getAvroCoder(name: String, config: FlinkConfig): AvroCoder[_] =
     ???
 
   def getRMQDeserializationSchema[E <: ADT](
       name: String,
-      config: FlinkConfig[ADT]): RMQDeserializationSchema[E] = ???
+      config: FlinkConfig): RMQDeserializationSchema[E] = ???
 
   def getRabbitPublishOptions[E <: ADT](
       name: String,
-      config: FlinkConfig[ADT]): Option[RMQSinkPublishOptions[E]] = None
+      config: FlinkConfig): Option[RMQSinkPublishOptions[E]] = None
 }

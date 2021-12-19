@@ -63,7 +63,7 @@ import java.util
 class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
     ADT <: FlinkEvent](
     sourceName: String,
-    config: FlinkConfig[ADT],
+    config: FlinkConfig,
     schemaRegistryClient: SchemaRegistryClient,
     fromKV: PartialFunction[(Option[AnyRef], AnyRef), Seq[ADT]]
 ) extends KafkaRecordDeserializationSchema[ADT]

@@ -55,7 +55,7 @@ import java.{lang, util}
 case class ConfluentAvroRegistryKafkaRecordSerializationSchema[
     ADT <: FlinkEvent](
     sinkName: String,
-    config: FlinkConfig[ADT],
+    config: FlinkConfig,
     schemaRegistryClient: SchemaRegistryClient,
     toKV: PartialFunction[ADT, (Option[AnyRef], AnyRef)]
 ) extends KafkaRecordSerializationSchema[ADT]

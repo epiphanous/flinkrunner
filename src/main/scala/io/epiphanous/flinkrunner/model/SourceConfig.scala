@@ -1,7 +1,7 @@
 package io.epiphanous.flinkrunner.model
 
-import com.google.common.collect.Maps
 import io.epiphanous.flinkrunner.model.FlinkConnectorName._
+import io.epiphanous.flinkrunner.util.StreamUtils._
 import org.apache.flink.connector.kafka.source.enumerator.initializer.{
   NoStoppingOffsetsInitializer,
   OffsetsInitializer
@@ -26,13 +26,11 @@ sealed trait SourceConfig {
   def properties: Properties
 
   def propertiesMap: util.HashMap[String, String] =
-    Maps.newHashMap(Maps.fromProperties(properties))
+    properties.asJavaMap
 }
 
 object SourceConfig {
-  def apply[ADT <: FlinkEvent](
-      name: String,
-      config: FlinkConfig[ADT]): SourceConfig = {
+  def apply(name: String, config: FlinkConfig): SourceConfig = {
     val p                  = s"sources.$name"
     val maxAllowedLateness = Try(
       config.getDuration(s"$p.max.allowed.lateness")

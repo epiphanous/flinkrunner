@@ -66,7 +66,7 @@ abstract class EnrichmentAsyncFunction[
     configPrefix: String,
     cacheLoaderOpt: Option[CacheLoader[String, Option[CV]]] = None,
     preloaded: Map[String, CV] = Map.empty[String, CV],
-    config: FlinkConfig[ADT]
+    config: FlinkConfig
 )(implicit decoder: Decoder[CV])
     extends AsyncFunction[IN, OUT]
     with LazyLogging {

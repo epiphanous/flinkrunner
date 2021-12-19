@@ -1,12 +1,12 @@
 package io.epiphanous.flinkrunner.model.aggregate
 
-import io.epiphanous.flinkrunner.BasePropSpec
+import io.epiphanous.flinkrunner.PropSpec
 import io.epiphanous.flinkrunner.model.UnitMapper
 import squants.Each
 
 import java.time.Instant
 
-class CountSpec extends BasePropSpec {
+class CountSpec extends PropSpec {
 
   property("updateQuantity property") {
     val c = Count()
@@ -16,7 +16,7 @@ class CountSpec extends BasePropSpec {
       c1 <- c.update(Each(1), t, u)
       c2 <- c1.update(Each(1), t, u)
     } yield c2.value
-    q.value shouldBe (2)
+    q.value shouldBe 2
   }
 
 }

@@ -1,23 +1,21 @@
 package io.epiphanous.flinkrunner.serde
 
 import io.confluent.kafka.schemaregistry.avro.AvroSchema
-
-import scala.language.higherKinds
 import io.confluent.kafka.schemaregistry.client.{
   MockSchemaRegistryClient,
   SchemaMetadata
 }
-import io.epiphanous.flinkrunner.UnitSpec
+import io.epiphanous.flinkrunner.PropSpec
 import io.epiphanous.flinkrunner.model._
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericDatumWriter
 import org.apache.avro.io.EncoderFactory
 
 import java.io.{ByteArrayOutputStream, DataOutputStream}
-import java.time.Instant
+import scala.language.higherKinds
 
 class ConfluentAvroRegistryKafkaRecordSerializationSchemaTest
-    extends UnitSpec {
+    extends PropSpec {
   val factory              = new NoJobFactory[MyAvroADT]
   val optConfig: String    =
     s"""
@@ -35,9 +33,8 @@ class ConfluentAvroRegistryKafkaRecordSerializationSchemaTest
       |  }
       |}
       |""".stripMargin
-  val config               = new FlinkConfig[MyAvroADT](
+  val config               = new FlinkConfig(
     Array.empty[String],
-    factory,
     Map.empty,
     Some(optConfig)
   )
@@ -85,9 +82,8 @@ class ConfluentAvroRegistryKafkaRecordSerializationSchemaTest
   }
 
   // some test fixtures
-  val aRecord: ARecord   = ARecord("a123", 17, 32.2, Instant.now())
-  val aWrapper: AWrapper = AWrapper(aRecord)
-  val aName: String      = className(aRecord)
+  val aName: String = className(genOne[ARecord])
+  val bName: String = className(genOne[BRecord])
 
   val stringSchema: AvroSchema = new AvroSchema("""{"type":"string"}""")
   schemaRegistryClient.register(
@@ -98,6 +94,10 @@ class ConfluentAvroRegistryKafkaRecordSerializationSchemaTest
     aName,
     new AvroSchema(ARecord.SCHEMA$)
   )
+  schemaRegistryClient.register(
+    bName,
+    new AvroSchema(BRecord.SCHEMA$)
+  )
 
   val keySchemaInfo: SchemaMetadata =
     serde.schemaRegistryClient.getLatestSchemaMetadata("test-key")
@@ -105,28 +105,36 @@ class ConfluentAvroRegistryKafkaRecordSerializationSchemaTest
     serde.schemaRegistryClient.getLatestSchemaMetadata(
       aName
     )
+  val bSchemaInfo: SchemaMetadata   =
+    serde.schemaRegistryClient.getLatestSchemaMetadata(
+      bName
+    )
 
-  behavior of "ConfluentAvroSerializationSchema"
-
-  it should "find the right schema for a key" in {
+  property("find the right schema for a key") {
     keySchemaInfo.getSchema shouldEqual "\"string\""
   }
 
-  it should "find the right schema for a class" in {
+  property("find the right schema for a value class") {
     aSchemaInfo.getSchema shouldEqual ARecord.SCHEMA$.toString
+    bSchemaInfo.getSchema shouldEqual BRecord.SCHEMA$.toString
   }
 
-  it should "serialize to a producer record" in {
-    val (aKey, aValue)                                = serde.toKV(aWrapper)
-    val aWrapperKeyExpectedBytes: Option[Array[Byte]] =
-      aKey.map(k => binaryEncode(k, keySchemaInfo))
-    val aWrapperValueExpectedBytes: Array[Byte]       =
-      binaryEncode(aValue, aSchemaInfo)
-    val result                                        = serde.serialize(aWrapper, null, aWrapper.$timestamp)
-    result.key() shouldEqual aWrapperKeyExpectedBytes.value
-    result.value() shouldEqual aWrapperValueExpectedBytes
-    result.timestamp() shouldEqual aWrapper.$timestamp
-    result.topic() shouldEqual serde.topic
+  property("serialize a MyAvroADT instance to a producer record") {
+    forAll { (event: MyAvroADT) =>
+      val (key, value)                          = serde.toKV(event)
+      val expectedKeyBytes: Option[Array[Byte]] =
+        key.map(k => binaryEncode(k, keySchemaInfo))
+      val schemaInfo                            = event match {
+        case _: AWrapper => aSchemaInfo
+        case _: BWrapper => bSchemaInfo
+      }
+      val expectedValueBytes: Array[Byte]       = binaryEncode(value, schemaInfo)
+      val serialized                            = serde.serialize(event, null, event.$timestamp)
+      serialized.key() shouldEqual expectedKeyBytes.value
+      serialized.value() shouldEqual expectedValueBytes
+      serialized.timestamp() shouldEqual event.$timestamp
+      serialized.topic() shouldEqual serde.topic
+    }
   }
 
 }
