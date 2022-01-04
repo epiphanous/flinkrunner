@@ -184,12 +184,13 @@ class ConfluentSchemaRegistryClient()(implicit
             optContext.getOrElse(ConfluentSchemaRegistryContext()).version
           )
         )
-        .map(schema => putCache(schema, url(schema.id.toInt)))
-    magic <- Try {
+        .map(schema => putCache(schema, url(schema.id)))
+      magic <- Try {
+        logger.info(s"I am here")
                ByteBuffer
-                 .wrap(new Array[Byte](5))
+                 .wrap(new Array[Byte](50))
                  .put(0x0.toByte)
-                 .putInt(schema.id.toInt)
+                 .put(schema.id.getBytes())
                  .array()
              }
   } yield (schema, magic)
