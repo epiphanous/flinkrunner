@@ -11,7 +11,7 @@ object TableFormat extends Enum[TableFormat] {
   case object CSV           extends TableFormat
   case object JSON          extends TableFormat
   case object Avro          extends TableFormat
-  case object ConfluentAvro extends TableFormat
+  case object AvroConfluent extends TableFormat
   case object Debezium      extends TableFormat
   case object Canal         extends TableFormat
   case object Maxwell       extends TableFormat

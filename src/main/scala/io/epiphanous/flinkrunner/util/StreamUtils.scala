@@ -6,6 +6,7 @@ import com.typesafe.scalalogging.LazyLogging
 
 import java.util
 import java.util.Properties
+import scala.collection.mutable
 
 object StreamUtils extends LazyLogging {
 
@@ -47,5 +48,11 @@ object StreamUtils extends LazyLogging {
     def asJavaMap: util.HashMap[String, String] =
       Maps.newHashMap(Maps.fromProperties(p))
 
+  }
+
+  implicit class RichMutableMap[K, V](val m: mutable.Map[K, V]) {
+    def getFirst(keys: Seq[K]): Option[V]                = keys.flatMap(m.get).headOption
+    def getFirstOrElse(keys: Seq[K], defaultValue: V): V =
+      getFirst(keys).getOrElse(defaultValue)
   }
 }
