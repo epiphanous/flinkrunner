@@ -73,12 +73,12 @@ object TableConfig extends LazyLogging {
     val columns   = config.getProperties(s"$p.columns").asScala
     val options   = config.getProperties(s"$p.options").asScala
     // make sure our connector is property formatted
-    options += ("connector", connector.entryName)
+    options += "connector" -> connector.entryName
     if (options.getFirst(Seq(OPT_VALUE_FORMAT, OPT_FORMAT)).isEmpty) {
       if (options.contains(OPT_KEY_FORMAT))
-        options += (OPT_VALUE_FORMAT, format)
+        options += OPT_VALUE_FORMAT -> format.entryName
       else {
-        options += (OPT_FORMAT, format.entryName)
+        options += OPT_FORMAT -> format.entryName
       }
     }
     // maybe auto load from schema registry
@@ -90,7 +90,7 @@ object TableConfig extends LazyLogging {
           .contains(AVRO_CONFLUENT)
       ) {
         schemaRegistryClient.foreach(c =>
-          columns += loadFromSchema(c, name, options)
+          columns ++= loadFromSchema(c, name, options)
         )
       }
     }
@@ -161,9 +161,8 @@ object TableConfig extends LazyLogging {
       logicalType: LogicalType,
       prefix: String = ""): Map[String, String] = {
     logicalType match {
-      case rowType: RowType =>
-      case mapType: MapType =>
-      case arrayType: Arr   =>
+      case rowType: RowType => Map.empty[String, String]
+      case mapType: MapType => Map.empty[String, String]
     }
   }
 }

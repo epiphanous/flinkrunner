@@ -33,7 +33,7 @@ val V = new {
   val scalaTest          = "3.2.10"
   val scalaCheck         = "3.2.9.0"
   val circe              = "0.14.1"
-  val http4s             = "0.21.29"
+  val http4s             = "0.23.7"
   val enumeratum         = "1.7.0"
   val typesafeConfig     = "1.4.1"
   val guava              = "31.0.1-jre" //"29.0-jre"
@@ -44,20 +44,24 @@ val V = new {
 
 val flinkDeps =
   Seq(
-    "org.apache.flink" %% "flink-scala"                    % V.flink % Provided,
-    "org.apache.flink" %% "flink-streaming-scala"          % V.flink % Provided,
+    "org.apache.flink" %% "flink-scala"                    % V.flink % Provided, // scala
+    "org.apache.flink" %% "flink-streaming-scala"          % V.flink % Provided, // ds api scala
+    "org.apache.flink" %% "flink-table-api-scala-bridge"   % V.flink % Provided, // table api scala
+    "org.apache.flink" %% "flink-statebackend-rocksdb"     % V.flink % Provided,
     "org.apache.flink" %% "flink-cep-scala"                % V.flink % Provided,
-    "org.apache.flink" %% "flink-table-planner"            % V.flink % Provided,
-    "org.apache.flink" %% "flink-connector-kafka"          % V.flink,
-    "org.apache.flink" %% "flink-connector-kinesis"        % V.flink,
-    "org.apache.flink" %% "flink-connector-cassandra"      % V.flink,
-    "org.apache.flink" %% "flink-connector-elasticsearch7" % V.flink,
-    "org.apache.flink" %% "flink-connector-jdbc"           % V.flink,
-    "org.apache.flink" %% "flink-connector-rabbitmq"       % V.flink,
-    "org.apache.flink"  % "flink-connector-files"          % V.flink,
-    "org.apache.flink" %% "flink-table-api-scala-bridge"   % V.flink,
-    "org.apache.flink" %% "flink-statebackend-rocksdb"     % V.flink,
-    "org.apache.flink"  % "flink-avro-confluent-registry"  % V.flink,
+    "org.apache.flink" %% "flink-table-planner"            % V.flink % Provided, // table api
+    "org.apache.flink"  % "flink-connector-base"           % V.flink % Provided, // ds hybrid source
+    "org.apache.flink"  % "flink-connector-files"          % V.flink % Provided, // ds text files
+    "org.apache.flink" %% "flink-connector-kafka"          % V.flink % Provided,
+    "org.apache.flink" %% "flink-connector-kinesis"        % V.flink % Provided,
+    "org.apache.flink" %% "flink-connector-cassandra"      % V.flink % Provided,
+    "org.apache.flink" %% "flink-connector-elasticsearch7" % V.flink % Provided,
+    "org.apache.flink" %% "flink-connector-jdbc"           % V.flink % Provided,
+    "org.apache.flink" %% "flink-connector-rabbitmq"       % V.flink % Provided,
+    "org.apache.flink"  % "flink-csv"                      % V.flink % Provided, // table api csv format
+    "org.apache.flink"  % "flink-json"                     % V.flink % Provided, // table api json format
+    "org.apache.flink"  % "flink-avro"                     % V.flink % Provided, // ds and table avro format
+    "org.apache.flink"  % "flink-avro-confluent-registry"  % V.flink % Provided, // ds and table avro registry format
     "org.apache.flink" %% "flink-test-utils"               % V.flink % Test
   )
 

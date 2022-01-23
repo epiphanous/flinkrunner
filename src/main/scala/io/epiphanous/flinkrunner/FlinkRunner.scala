@@ -1,7 +1,6 @@
 package io.epiphanous.flinkrunner
 
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.avro.AvroCoder
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.operator.AddToJdbcBatchFunction
 import io.epiphanous.flinkrunner.util.BoundedLatenessWatermarkStrategy
@@ -215,13 +214,6 @@ class FlinkRunner[ADT <: FlinkEvent](
   def getRabbitPublishOptions[E <: ADT](
       name: String): Option[RMQSinkPublishOptions[E]] =
     factory.getRabbitPublishOptions[E](name, config)
-
-  @deprecated(
-    "Use the ConfluentAvroRegistryKafkaRecordSerialization and ...Deserialization classes instead",
-    "4.0.0"
-  )
-  def getAvroCoder(name: String): AvroCoder[_] =
-    factory.getAvroCoder(name, config)
 
   val RESOURCE_PATTERN: Regex = "resource://(.*)".r
 
