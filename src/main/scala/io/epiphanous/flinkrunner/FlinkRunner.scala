@@ -12,6 +12,9 @@ import org.apache.flink.api.common.serialization.{
   SerializationSchema
 }
 import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.connector.file.sink.FileSink
+import org.apache.flink.connector.file.src.FileSource
+import org.apache.flink.connector.file.src.reader.TextLineFormat
 import org.apache.flink.connector.jdbc.{
   JdbcConnectionOptions,
   JdbcExecutionOptions,
@@ -25,6 +28,7 @@ import org.apache.flink.connector.kafka.sink.{
 import org.apache.flink.connector.kafka.source.KafkaSource
 import org.apache.flink.connector.kafka.source.reader.deserializer.KafkaRecordDeserializationSchema
 import org.apache.flink.core.fs.Path
+import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner
 import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.{
   BasePathBucketAssigner,
   DateTimeBucketAssigner
@@ -32,10 +36,6 @@ import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.
 import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.{
   DefaultRollingPolicy,
   OnCheckpointRollingPolicy
-}
-import org.apache.flink.streaming.api.functions.sink.filesystem.{
-  BucketAssigner,
-  StreamingFileSink
 }
 import org.apache.flink.streaming.api.functions.sink.{
   SinkFunction,
@@ -72,6 +72,7 @@ import java.io.{File, FileNotFoundException}
 import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.sql.PreparedStatement
+import java.time.Duration
 import scala.collection.JavaConverters._
 import scala.util.matching.Regex
 
@@ -272,13 +273,34 @@ class FlinkRunner[ADT <: FlinkEvent](
       in: DataStream[E],
       srcConfig: SourceConfig
   ): DataStream[E] =
-    in.assignTimestampsAndWatermarks(srcConfig.watermarkStrategy match {
+    srcConfig match {
+      case _: KafkaSourceConfig => in
+      case _                    =>
+        in.assignTimestampsAndWatermarks(
+          getWatermarkStrategy[E](srcConfig)
+        ).name(s"wm:${in.name}")
+          .uid(s"wm:${in.name}")
+    }
+
+  /**
+   * Return a watermark strategy based on the source configuration
+   * @param srcConfig
+   *   a [[SourceConfig]]
+   * @tparam E
+   *   an ADT type
+   * @return
+   *   [[WatermarkStrategy]] [E]
+   */
+  def getWatermarkStrategy[E <: ADT: TypeInformation](
+      srcConfig: SourceConfig): WatermarkStrategy[E] = {
+    srcConfig.watermarkStrategy match {
+      case "none"                 => WatermarkStrategy.noWatermarks[E]()
       case "bounded out of order" =>
-        boundedOutOfOrderWatermarks()
-      case "ascending timestamps" => ascendingTimestampsWatermarks()
-      case _                      => boundedLatenessWatermarks(in.name)
-    }).name(s"wm:${in.name}")
-      .uid(s"wm:${in.name}")
+        boundedOutOfOrderWatermarks[E]()
+      case "ascending timestamps" => ascendingTimestampsWatermarks[E]()
+      case _                      => boundedLatenessWatermarks[E](srcConfig.name)
+    }
+  }
 
   /**
    * Configure stream source from configuration.
@@ -293,11 +315,11 @@ class FlinkRunner[ADT <: FlinkEvent](
   def fromSource[E <: ADT: TypeInformation](
       sourceName: String = ""
   ): DataStream[E] = {
-    val name   =
+    val name      =
       if (sourceName.isEmpty) config.getSourceNames.head else sourceName
-    val src    = config.getSourceConfig(name)
-    val uid    = src.label
-    val stream = (src match {
+    val srcConfig = config.getSourceConfig(name)
+    val uid       = srcConfig.label
+    val stream    = (srcConfig match {
       case src: KafkaSourceConfig      => fromKafka(src)
       case src: KinesisSourceConfig    => fromKinesis(src)
       case src: RabbitMQSourceConfig   => fromRabbitMQ(src)
@@ -305,7 +327,7 @@ class FlinkRunner[ADT <: FlinkEvent](
       case src: SocketSourceConfig     => fromSocket(src)
       case src: CollectionSourceConfig => fromCollection(src)
     }).name(uid).uid(uid)
-    maybeAssignTimestampsAndWatermarks(stream, src)
+    maybeAssignTimestampsAndWatermarks(stream, srcConfig)
   }
 
   /**
@@ -336,14 +358,11 @@ class FlinkRunner[ADT <: FlinkEvent](
     env
       .fromSource(
         kafkaSrcBuilder.build(),
-        srcConfig.watermarkStrategy match {
-          case "bounded out of order" =>
-            boundedOutOfOrderWatermarks[E]()
-          case "ascending timestamps" => ascendingTimestampsWatermarks[E]()
-          case _                      => boundedLatenessWatermarks[E](srcConfig.name)
-        },
+        getWatermarkStrategy(srcConfig),
         srcConfig.label
       )
+      .name(s"wm:${srcConfig.label}")
+      .uid(s"wm:${srcConfig.label}")
   }
 
   /**
@@ -368,7 +387,10 @@ class FlinkRunner[ADT <: FlinkEvent](
     )
 
   /**
-   * Configure stream from file source.
+   * Configure stream from text file source. This requires a
+   * deserialization schema to be provided by the flink runner factory that
+   * will get each line of the text file as a byte array, and must convert
+   * it into an ADT type.
    *
    * @param srcConfig
    *   a source config
@@ -384,16 +406,28 @@ class FlinkRunner[ADT <: FlinkEvent](
       case RESOURCE_PATTERN(p) => getSourceFilePath(p)
       case other               => other
     }
+    val src  = {
+      val fs      = FileSource
+        .forRecordStreamFormat(new TextLineFormat(), new Path(path))
+      val monitor = srcConfig.propertiesMap
+        .getOrDefault("monitor.continuously", "0")
+        .toLong
+      if (monitor > 0) fs.monitorContinuously(Duration.ofSeconds(monitor))
+      else fs
+    }.build()
     val ds   = getDeserializationSchema[E](srcConfig.name)
     env
-      .readTextFile(path)
+      .fromSource(src, WatermarkStrategy.noWatermarks(), srcConfig.label)
       .name(s"raw:${srcConfig.label}")
       .uid(s"raw:${srcConfig.label}")
       .map(line => ds.deserialize(line.getBytes(StandardCharsets.UTF_8)))
   }
 
   /**
-   * Configure stream from socket source.
+   * Configure stream from socket source. This requires a deserialization
+   * schema to be provided by the flink runner factory that will get each
+   * line of text from the socket as a byte array, and must convert it into
+   * an ADT type.
    *
    * @param srcConfig
    *   a source config
@@ -404,19 +438,20 @@ class FlinkRunner[ADT <: FlinkEvent](
    */
   def fromSocket[E <: ADT: TypeInformation](
       srcConfig: SocketSourceConfig
-  ): DataStream[E] =
+  ): DataStream[E] = {
+    val ds = getDeserializationSchema(srcConfig.name)
     env
       .socketTextStream(srcConfig.host, srcConfig.port)
       .name(s"raw:${srcConfig.label}")
       .uid(s"raw:${srcConfig.label}")
-      .map(line =>
-        getDeserializationSchema(srcConfig.name)
-          .asInstanceOf[DeserializationSchema[E]]
-          .deserialize(line.getBytes(StandardCharsets.UTF_8))
-      )
+      .map(line => ds.deserialize(line.getBytes(StandardCharsets.UTF_8)))
+  }
 
   /**
-   * Configure stream from collection source.
+   * Configure stream from collection source. This requires a
+   * deserialization schema to be provided by the flink runner factory that
+   * will get each byte array in the collection, and must convert it into
+   * an ADT type.
    *
    * @param srcConfig
    *   a source config
@@ -436,7 +471,6 @@ class FlinkRunner[ADT <: FlinkEvent](
       .uid(s"raw:${srcConfig.label}")
       .map(bytes =>
         getDeserializationSchema(srcConfig.name)
-          .asInstanceOf[DeserializationSchema[E]]
           .deserialize(bytes)
       )
 
@@ -547,7 +581,7 @@ class FlinkRunner[ADT <: FlinkEvent](
       case s: JdbcSinkConfig          =>
         stream.addSink(getJdbcSink[E](s)).uid(label).name(label)
       case s: FileSinkConfig          =>
-        stream.addSink(getFileSink[E](s)).uid(label).name(label)
+        stream.sinkTo(getFileSink[E](s)).uid(label).name(label)
       case s: SocketSinkConfig        =>
         stream.addSink(getSocketSink[E](s)).uid(label).name(label)
       case s: ElasticsearchSinkConfig =>
@@ -657,18 +691,18 @@ class FlinkRunner[ADT <: FlinkEvent](
   }
 
   /**
-   * Get a rolling file sink.
+   * Get a file sink.
    *
    * @param sinkConfig
    *   a sink configuration
    * @tparam E
    *   stream element type
    * @return
-   *   StreamingFileSink[E]
+   *   [[FileSink]] [E]
    */
   def getFileSink[E <: ADT: TypeInformation](
       sinkConfig: FileSinkConfig
-  ): StreamingFileSink[E] = {
+  ): FileSink[E] = {
     val path                = sinkConfig.path
     val p                   = sinkConfig.properties
     val bucketCheckInterval =
@@ -695,7 +729,7 @@ class FlinkRunner[ADT <: FlinkEvent](
     val sink                = encoderFormat match {
       case "row"  =>
         val builder       =
-          StreamingFileSink.forRowFormat(
+          FileSink.forRowFormat(
             new Path(path),
             getEncoder(sinkConfig.name).asInstanceOf[Encoder[E]]
           )
@@ -864,11 +898,11 @@ class FlinkRunner[ADT <: FlinkEvent](
   /**
    * Configure streaming to a rabbitmq sink.
    * @param sinkConfig
-   *   a RabbitMQSinkConfig instance
+   *   a [[RabbitMQSinkConfig]] instance
    * @tparam E
    *   type of the flink runner ADT events in the stream
    * @return
-   *   DataStreamSink[E]
+   *   [[RMQSink]] [E]
    */
   def getRabbitMQ[E <: ADT: TypeInformation](
       sinkConfig: RabbitMQSinkConfig

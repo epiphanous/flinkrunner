@@ -38,7 +38,7 @@
   </a></sub>
 </div>
 
-## Maven Dependency
+## Dependencies
 
 `Flinkrunner 4` is [available on maven central](https://mvnrepository.com/artifact/io.epiphanous/flinkrunner_2.12),
 built against Flink 1.14 with Scala 2.12 and JDK 11.
@@ -50,36 +50,96 @@ libraryDependencies += "io.epiphanous" %% "flinkrunner" % <flinkrunner-version>
 replacing `<flinkrunner-version>` with the currently released version of [flinkrunner on
 maven](https://mvnrepository.com/artifact/io.epiphanous/flinkrunner_2.12).
 
+### Connectors 
+
+Flinkrunner is built to support many common sinks and sources, including:
+
+| Connector     | Dependency                     | Source | Sink |
+|:--------------|:-------------------------------|:------:|:----:|
+| file system   | flink-connector-files          |  yes   | yes  |
+| kafka         | flink-connector-kafka          |  yes   | yes  |
+| kinesis       | flink-connector-kinesis        |  yes   | yes  |
+| cassandra     | flink-connector-cassandra      |   no   | yes  |
+| elasticsearch | flink-connector-elasticsearch7 |   no   | yes  |
+| rabbit mq     | flink-connector-rabbitmq       |  yes   | yes  |
+| hybrid source | flink-connector-base           |  yes   |  no  |
+
+You can add a dependency for a connector you want to use by dropping the library into flink's `lib` directory during
+deployment of your jobs. You should make sure to match the library's version with the compiled flink and scala versions
+of flinkrunner.
+
+### S3 Support
+
+S3 configuration is important for most flink usage scenarios. Flink has two different implementations to support S3:
+`flink-s3-fs-presto` and `flink-s3-fs-hadoop`.
+
+* `flink-s3-fs-presto` is registered under the schemes `s3://` and `s3p://` and is preferred for checkpointing to s3.
+* `flink-s3-fs-hadoop` is registered under the schemes `s3://` and `s3a://` and is required for using the streaming file
+  sink.
+
+During deployment you should copy both s3 dependencies from flink's `opt` directory into the `plugins` directory:
+
+```bash
+cd $FLINK_DIR
+mkdir -p ./plugins/s3
+cp ./opt/flink-s3-fs-presto-1.14.3.jar .plugins/s3
+cp ./opt/flink-s3-fs-hadoop-1.14.3.jar .plugins/s3
+```
+
+> *NOTE*:  Do not copy them into flink's `lib` directory, as this will not work!
+
+Further, you'll need to [configure access](https://nightlies.apache.org/flink/flink-docs-release-1.14/docs/deployment/filesystems/s3/#configure-access-credentials) from your job to AWS S3. That is outside the scope of this readme.
+
+### Complex Event Processing
+
+If you want to use the complex event processing library, add this dependency:
+```
+"org.apache.flink" % "flink-cep-scala_2.12" % "1.14.3"
+```
+### Avro Support
+
+Add the following dependencies if you need Avro support, for either 
+data stream or table API jobs:
+```
+"org.apache.flink" % "flink-avro"                     % "1.14.3"
+"org.apache.flink" % "flink-avro-confluent-registry"  % "1.14.3"
+```
+
+### Table/SQL API
+If you are building table api or sql api jobs, add these dependencies:
+```
+"org.apache.flink" % "flink-table-api-scala-bridge_2.12" % "1.14.3"
+"org.apache.flink" % "flink-table-planner_2.12"          % "1.14.3"
+"org.apache.flink" % "flink-csv"                         % "1.14.3"
+"org.apache.flink" % "flink-json"                        % "1.14.3"
+```
+
 ## What is FlinkRunner?
 
-You have a set of related flink jobs that deal in a related set of
-data event types. `Flinkrunner` helps you build one application to run
-those related jobs and coordinate the types. It also simplifies setting
-up common sources and sinks to the point where you control them purely
-with configuration and not code. `Flinkrunner` supports a variety of sources
-and sinks out of the box, including `kafka`, `kinesis`, `jdbc`, `elasticsearch 7+` (sink only),
-`cassandra` (sink only),  `filesystems` (including `s3`) and `sockets`. It also has many common
-operators to help you in writing your own transformation logic. Finally, `FlinkRunner`
-makes it easy to test your transformation logic with property-based testing.
+You have a set of related flink jobs that deal in a related set of data event types. `Flinkrunner` helps you build one
+application to run those related jobs and coordinate the types. It also simplifies setting up common sources and sinks
+to the point where you control them purely with configuration and not code. `Flinkrunner` supports a variety of sources
+and sinks out of the box, including `kafka`, `kinesis`, `jdbc`, `elasticsearch 7+` (sink only), `cassandra` (sink only),
+`filesystems` (including `s3`) and `sockets`. It also has many common operators to help you in writing your own
+transformation logic. Finally, `FlinkRunner` makes it easy to test your transformation logic with property-based
+testing.
 
-`FlinkRunner` helps you think about your flink jobs at a high level,
-so you can focus on the event pipeline, not the plumbing.
+`FlinkRunner` helps you think about your flink jobs at a high level, so you can focus on the event pipeline, not the
+plumbing.
 
 ## Get Started
 
 * Define an
-[*algebraic data type*](http://tpolecat.github.io/presentations/algebraic_types.html#1)
-(ADT) containing the types that will be used in your flink jobs. Your top level type
-should inherit from `FlinkEvent`. This will force your types to implement the following
-methods/fields:
+[*algebraic data type*](http://tpolecat.github.io/presentations/algebraic_types.html#1) (ADT) containing the types that
+will be used in your flink jobs. Your top level type should inherit from `FlinkEvent`. This will force your types to
+implement the following methods/fields:
 
   * `$timestamp: Long` - the event time
   * `$id: String` - a unique id for the event
   * `$key: String` - a key to group events
 
-  Additionally, a `FlinkEvent` has an `$active: Boolean` method that defaults to `false`.
-  This is used by `FlinkRunner` in some of its abstract job types that you may or may not
-  use. We'll discuss those details later.
+Additionally, a `FlinkEvent` has an `$active: Boolean` method that defaults to `false`. This is used by `FlinkRunner` in
+some of its abstract job types that you may or may not use. We'll discuss those details later.
 
   ```scala
   sealed trait MyADTEvent extends FlinkEvent

@@ -27,7 +27,7 @@ resolvers += "Local Maven Repository" at "file://" + Path.userHome.absolutePath 
 resolvers += "Confluent Repository" at "https://packages.confluent.io/maven/"
 
 val V = new {
-  val flink              = "1.14.2"
+  val flink              = "1.14.3"
   val logback            = "1.2.7"
   val scalaLogging       = "3.9.4"
   val scalaTest          = "3.2.10"
@@ -38,18 +38,18 @@ val V = new {
   val typesafeConfig     = "1.4.1"
   val guava              = "31.0.1-jre" //"29.0-jre"
   val squants            = "1.8.3"
-  val avro4s             = "4.0.11"
+//  val avro4s             = "4.0.11"
   val confluentAvroSerde = "7.0.1"
 }
 
 val flinkDeps =
   Seq(
-    "org.apache.flink" %% "flink-scala"                    % V.flink % Provided, // scala
-    "org.apache.flink" %% "flink-streaming-scala"          % V.flink % Provided, // ds api scala
-    "org.apache.flink" %% "flink-table-api-scala-bridge"   % V.flink % Provided, // table api scala
-    "org.apache.flink" %% "flink-statebackend-rocksdb"     % V.flink % Provided,
+    "org.apache.flink" %% "flink-scala"                    % V.flink, // scala
+    "org.apache.flink" %% "flink-streaming-scala"          % V.flink, // ds api scala
+    "org.apache.flink" %% "flink-statebackend-rocksdb"     % V.flink,
+    // complex event processing
     "org.apache.flink" %% "flink-cep-scala"                % V.flink % Provided,
-    "org.apache.flink" %% "flink-table-planner"            % V.flink % Provided, // table api
+    // connectors
     "org.apache.flink"  % "flink-connector-base"           % V.flink % Provided, // ds hybrid source
     "org.apache.flink"  % "flink-connector-files"          % V.flink % Provided, // ds text files
     "org.apache.flink" %% "flink-connector-kafka"          % V.flink % Provided,
@@ -58,10 +58,15 @@ val flinkDeps =
     "org.apache.flink" %% "flink-connector-elasticsearch7" % V.flink % Provided,
     "org.apache.flink" %% "flink-connector-jdbc"           % V.flink % Provided,
     "org.apache.flink" %% "flink-connector-rabbitmq"       % V.flink % Provided,
-    "org.apache.flink"  % "flink-csv"                      % V.flink % Provided, // table api csv format
-    "org.apache.flink"  % "flink-json"                     % V.flink % Provided, // table api json format
+    // avro support
     "org.apache.flink"  % "flink-avro"                     % V.flink % Provided, // ds and table avro format
     "org.apache.flink"  % "flink-avro-confluent-registry"  % V.flink % Provided, // ds and table avro registry format
+    // table api support
+    "org.apache.flink" %% "flink-table-api-scala-bridge"   % V.flink % Provided, // table api scala
+    "org.apache.flink" %% "flink-table-planner"            % V.flink % Provided, // table api
+    "org.apache.flink"  % "flink-csv"                      % V.flink % Provided, // table api csv format
+    "org.apache.flink"  % "flink-json"                     % V.flink % Provided, // table api json format
+    // test support
     "org.apache.flink" %% "flink-test-utils"               % V.flink % Test
   )
 
@@ -85,15 +90,15 @@ val circeDeps  = Seq(
 ).map(d => "io.circe" %% s"circe-$d" % V.circe)
 
 val otherDeps  = Seq(
-  "io.confluent"         % "kafka-streams-avro-serde" % V.confluentAvroSerde,
-  "com.beachape"        %% "enumeratum"               % V.enumeratum,
-  "com.typesafe"         % "config"                   % V.typesafeConfig,
-  "com.google.guava"     % "guava"                    % V.guava,
-  "org.typelevel"       %% "squants"                  % V.squants,
-  "com.sksamuel.avro4s" %% "avro4s-core"              % V.avro4s,
-  "org.scalactic"       %% "scalactic"                % V.scalaTest  % Test,
-  "org.scalatest"       %% "scalatest"                % V.scalaTest  % Test,
-  "org.scalatestplus"   %% "scalacheck-1-15"          % V.scalaCheck % Test
+  "io.confluent"       % "kafka-streams-avro-serde" % V.confluentAvroSerde,
+  "com.beachape"      %% "enumeratum"               % V.enumeratum,
+  "com.typesafe"       % "config"                   % V.typesafeConfig,
+  "com.google.guava"   % "guava"                    % V.guava,
+  "org.typelevel"     %% "squants"                  % V.squants,
+//  "com.sksamuel.avro4s" %% "avro4s-core"              % V.avro4s,
+  "org.scalactic"     %% "scalactic"                % V.scalaTest  % Test,
+  "org.scalatest"     %% "scalatest"                % V.scalaTest  % Test,
+  "org.scalatestplus" %% "scalacheck-1-15"          % V.scalaCheck % Test
 )
 
 /**
