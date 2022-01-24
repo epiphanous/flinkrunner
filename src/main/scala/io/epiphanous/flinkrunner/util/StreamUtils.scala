@@ -13,7 +13,6 @@ import org.apache.flink.api.common.serialization.{
 }
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.core.fs.Path
-import org.apache.flink.streaming.api.TimeCharacteristic
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.{
   BasePathBucketAssigner,
@@ -153,16 +152,14 @@ object StreamUtils extends LazyLogging {
   def maybeAssignTimestampsAndWatermarks[E <: FlinkEvent: TypeInformation](
       in: DataStream[E],
       srcConfig: SourceConfig
-  )(implicit config: FlinkConfig, env: SEE): DataStream[E] =
-    if (srcConfig.timeCharacteristic == TimeCharacteristic.EventTime) {
-      in.assignTimestampsAndWatermarks(srcConfig.watermarkStrategy match {
-        case "bounded out of orderness" =>
-          boundedOutofOrdernessWatermarks()
-        case "ascending timestamps"     => ascendingTimestampsWatermarks()
-        case _                          => boundedLatenessWatermarks(in.name)
-      }).name(s"wm:${in.name}")
-        .uid(s"wm:${in.name}")
-    } else in
+  )(implicit config: FlinkConfig): DataStream[E] =
+    in.assignTimestampsAndWatermarks(srcConfig.watermarkStrategy match {
+      case "bounded out of orderness" =>
+        boundedOutofOrdernessWatermarks()
+      case "ascending timestamps"     => ascendingTimestampsWatermarks()
+      case _                          => boundedLatenessWatermarks(in.name)
+    }).name(s"wm:${in.name}")
+      .uid(s"wm:${in.name}")
 
   /**
    * Configure stream source from configuration.

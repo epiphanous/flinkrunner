@@ -26,19 +26,19 @@ Test / fork := true
 resolvers += "Local Maven Repository" at "file://" + Path.userHome.absolutePath + "/.m2/repository"
 
 val V = new {
-  val flink          = "1.13.2"
-  val logback        = "1.2.6"
+  val flink          = "1.14.3"
+  val logback        = "1.2.10"
   val scalaLogging   = "3.9.4"
   val scalaTest      = "3.2.10"
   val scalaCheck     = "1.15.4"
   val circe          = "0.14.1"
-  val http4s         = "0.21.29"
+  val http4s         = "0.23.7"
   val enumeratum     = "1.7.0"
   val typesafeConfig = "1.4.1"
-  val guava          = "29.0-jre"
+  val guava          = "31.0.1-jre"
   val squants        = "1.8.3"
-  val avro           = "1.10.2"
-  val avro4s         = "4.0.11"
+  val avro           = "1.11.0"
+  val avro4s         = "4.0.12"
 }
 
 val flinkDeps   =

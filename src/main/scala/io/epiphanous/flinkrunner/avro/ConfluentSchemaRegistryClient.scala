@@ -1,21 +1,20 @@
 package io.epiphanous.flinkrunner.avro
 
-import cats.effect.{ContextShift, IO, Resource, Timer}
+import cats.effect.unsafe.implicits.global
+import cats.effect.{IO, Resource}
 import com.google.common.cache.{CacheBuilder, CacheLoader, LoadingCache}
 import com.typesafe.scalalogging.LazyLogging
 import io.circe.Decoder
 import io.epiphanous.flinkrunner.model.FlinkConfig
 import io.epiphanous.flinkrunner.util.StringUtils
 import org.apache.avro.Schema.Parser
-import org.apache.flink.runtime.concurrent.Executors.directExecutionContext
 import org.http4s.EntityDecoder
 import org.http4s.circe.jsonOf
 import org.http4s.client.Client
-import org.http4s.client.blaze.BlazeClientBuilder
+import org.http4s.blaze.client.BlazeClientBuilder
 
 import java.nio.ByteBuffer
 import java.util.concurrent.TimeUnit
-import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
 class ConfluentSchemaRegistryClient()(implicit
@@ -37,17 +36,8 @@ class ConfluentSchemaRegistryClient()(implicit
     jsonOf[IO, ConfluentSchemaRegistryResponse]
 
   @transient
-  lazy implicit val ec: ExecutionContext = directExecutionContext()
-
-  @transient
-  lazy implicit val cs: ContextShift[IO] = IO.contextShift(ec)
-
-  @transient
-  lazy implicit val timer: Timer[IO] = IO.timer(ec)
-
-  @transient
   lazy val api: Resource[IO, Client[IO]] =
-    BlazeClientBuilder[IO](ec).resource
+    BlazeClientBuilder[IO].resource
 
   @transient
   lazy val parser = new Parser()

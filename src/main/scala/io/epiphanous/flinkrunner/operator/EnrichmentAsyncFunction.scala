@@ -1,22 +1,29 @@
 package io.epiphanous.flinkrunner.operator
 
-import cats.effect.{ContextShift, IO, Timer}
-import com.google.common.cache.{CacheBuilder, CacheLoader}
+import cats.effect.IO
+import cats.effect.kernel.Resource
+import cats.effect.unsafe.implicits.global
+import com.google.common.cache.{CacheBuilder, CacheLoader, LoadingCache}
 import com.typesafe.scalalogging.LazyLogging
 import io.circe.Decoder
 import io.epiphanous.flinkrunner.model.FlinkConfig
-import org.apache.flink.runtime.concurrent.Executors.directExecutionContext
 import org.apache.flink.streaming.api.scala.async.{
   AsyncFunction,
   ResultFuture
 }
+import org.apache.flink.util.concurrent.Executors
 import org.http4s.EntityDecoder
+import org.http4s.blaze.client.BlazeClientBuilder
 import org.http4s.circe.jsonOf
-import org.http4s.client.blaze.BlazeClientBuilder
+import org.http4s.client.Client
 
 import java.io.{PrintWriter, StringWriter}
 import java.util.concurrent.TimeUnit
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{
+  ExecutionContext,
+  ExecutionContextExecutor,
+  Future
+}
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -70,16 +77,11 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
   lazy implicit val entityDecoder: EntityDecoder[IO, CV] = jsonOf[IO, CV]
 
   @transient
-  lazy implicit val ec: ExecutionContext = directExecutionContext()
+  lazy implicit val executionContext: ExecutionContextExecutor =
+    ExecutionContext.fromExecutor(Executors.directExecutor())
 
   @transient
-  lazy implicit val cs: ContextShift[IO] = IO.contextShift(ec)
-
-  @transient
-  lazy implicit val timer: Timer[IO] = IO.timer(ec)
-
-  @transient
-  lazy val api = BlazeClientBuilder[IO](ec).resource
+  lazy val api: Resource[IO, Client[IO]] = BlazeClientBuilder[IO].resource
 
   /**
    * The default cache loader implementation. This uses a blaze client to
@@ -88,28 +90,29 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
    * constructor (usually just done for testing).
    */
   @transient
-  lazy val defaultCacheLoader = new CacheLoader[String, Option[CV]] {
-    override def load(uri: String): Option[CV] = {
-      logger.debug(s"=== cache load $uri")
-      preloaded.get(uri) match {
-        case Some(cv) => Some(cv)
-        case None     =>
-          api
-            .use { client =>
-              client.expect[CV](uri).attempt
+  lazy val defaultCacheLoader: CacheLoader[String, Option[CV]] =
+    new CacheLoader[String, Option[CV]] {
+      override def load(uri: String): Option[CV] = {
+        logger.debug(s"=== cache load $uri")
+        preloaded.get(uri) match {
+          case Some(cv) => Some(cv)
+          case None     =>
+            api
+              .use { client =>
+                client.expect[CV](uri).attempt
+              }
+              .unsafeRunSync() match {
+              case Left(failure) =>
+                logger.error(s"Can't load key $uri: ${failure.getMessage}")
+                None
+              case Right(value)  => Some(value)
             }
-            .unsafeRunSync() match {
-            case Left(failure) =>
-              logger.error(s"Can't load key $uri: ${failure.getMessage}")
-              None
-            case Right(value)  => Some(value)
-          }
+        }
       }
     }
-  }
 
   @transient
-  lazy val cache = {
+  lazy val cache: LoadingCache[String, Option[CV]] = {
     logger.debug("=== initializing new cache")
     val expireAfter =
       config.getDuration(s"$configPrefix.cache.expire.after")
@@ -135,7 +138,7 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
    *
    * @return
    */
-  def getConfigPrefix = configPrefix
+  def getConfigPrefix: String = configPrefix
 
   override def asyncInvoke(in: IN, collector: ResultFuture[OUT]): Unit =
     asyncInvokeF(in) foreach {
