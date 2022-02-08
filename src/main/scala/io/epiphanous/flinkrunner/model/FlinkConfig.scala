@@ -3,13 +3,9 @@ package io.epiphanous.flinkrunner.model
 import com.typesafe.config.{ConfigFactory, ConfigObject}
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.{FlinkRunnerFactory, SEE}
+import org.apache.flink.api.common.RuntimeExecutionMode
 import org.apache.flink.api.java.utils.ParameterTool
-import org.apache.flink.contrib.streaming.state.{
-  PredefinedOptions,
-  RocksDBStateBackend
-}
-import org.apache.flink.runtime.state.filesystem.FsStateBackend
-import org.apache.flink.streaming.api.TimeCharacteristic
+import org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackend
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 
 import java.io.File
@@ -232,9 +228,6 @@ class FlinkConfig(
       else
         StreamExecutionEnvironment.getExecutionEnvironment
 
-    // use event time
-    env.setStreamTimeCharacteristic(timeCharacteristic)
-
     // set parallelism
     env.setParallelism(globalParallelism)
 
@@ -250,46 +243,21 @@ class FlinkConfig(
         checkpointMaxConcurrent
       )
 
-      val backend = if (stateBackend == "rocksdb") {
-        logger.info(s"Using ROCKS DB state backend at $checkpointUrl")
-        val rocksBackend =
-          new RocksDBStateBackend(checkpointUrl, checkpointIncremental)
-        if (checkpointFlash)
-          rocksBackend.setPredefinedOptions(
-            PredefinedOptions.FLASH_SSD_OPTIMIZED
-          )
-        rocksBackend
-      } else {
-        logger.info(s"Using FILE SYSTEM state backend at $checkpointUrl")
-        new FsStateBackend(checkpointUrl)
-      }
-      /* this deprecation is annoying; its due to rocksdb's state backend
-         extending AbstractStateBackend which is deprecated */
-      env.setStateBackend(backend)
+      logger.info(s"Using ROCKS DB state backend at $checkpointUrl")
+      env.setStateBackend(
+        new EmbeddedRocksDBStateBackend(checkpointIncremental)
+      )
+      env.getCheckpointConfig.setCheckpointStorage(checkpointUrl)
     }
+
+    env.setRuntimeMode(executionRuntimeMode)
 
     env
   }
 
-  def getTimeCharacteristic(tc: String): TimeCharacteristic = {
-    tc.toLowerCase
-      .replaceFirst("\\s*time$", "") match {
-      case "event"      => TimeCharacteristic.EventTime
-      case "processing" => TimeCharacteristic.ProcessingTime
-      case "ingestion"  => TimeCharacteristic.IngestionTime
-      case unknown      =>
-        throw new RuntimeException(
-          s"Unknown time.characteristic setting: '$unknown'"
-        )
-    }
-  }
-
-  lazy val timeCharacteristic = getTimeCharacteristic(
-    getString("time.characteristic")
-  )
-
-  def getWatermarkStrategy(ws: String) =
+  def getWatermarkStrategy(ws: String): String =
     ws.toLowerCase.replaceAll("[^a-z]", "") match {
+      case "none"                  => "none"
       case "boundedlateness"       => "bounded lateness"
       case "boundedoutoforderness" => "bounded out of orderness"
       case "ascendingtimestamps"   => "ascending timestamps"
@@ -304,20 +272,31 @@ class FlinkConfig(
     getString("watermark.strategy")
   )
 
-  lazy val systemHelp              = _config.getString("system.help")
-  lazy val jobHelp                 = getString("help")
-  lazy val jobDescription          = getString("description")
-  lazy val globalParallelism       = getInt("global.parallelism")
-  lazy val checkpointInterval      = getLong("checkpoint.interval")
-  lazy val checkpointMinPause      = getDuration("checkpoint.min.pause")
-  lazy val checkpointMaxConcurrent = getInt("checkpoint.max.concurrent")
-  lazy val checkpointUrl           = getString("checkpoint.url")
-  lazy val checkpointFlash         = getBoolean("checkpoint.flash")
-  lazy val stateBackend            = getString("state.backend").toLowerCase
-  lazy val checkpointIncremental   = getBoolean("checkpoint.incremental")
-  lazy val showPlan                = getBoolean("show.plan")
-  lazy val mockEdges               = isDev && getBoolean("mock.edges")
-  lazy val maxLateness             = getDuration("max.lateness")
-  lazy val maxIdleness             = getDuration("max.idleness")
+  lazy val systemHelp: String             = _config.getString("system.help")
+  lazy val jobHelp: String                = getString("help")
+  lazy val jobDescription: String         = getString("description")
+  lazy val globalParallelism: Int         = getInt("global.parallelism")
+  lazy val checkpointInterval: Long       = getLong("checkpoint.interval")
+  lazy val checkpointMinPause: Duration   = getDuration(
+    "checkpoint.min.pause"
+  )
+  lazy val checkpointMaxConcurrent: Int   = getInt(
+    "checkpoint.max.concurrent"
+  )
+  lazy val checkpointUrl: String          = getString("checkpoint.url")
+  lazy val checkpointIncremental: Boolean = getBoolean(
+    "checkpoint.incremental"
+  )
+  lazy val showPlan: Boolean              = getBoolean("show.plan")
+  lazy val mockEdges: Boolean             = isDev && getBoolean("mock.edges")
+  lazy val maxLateness: Duration          = getDuration("max.lateness")
+  lazy val maxIdleness: Duration          = getDuration("max.idleness")
 
+  lazy val executionRuntimeMode: RuntimeExecutionMode =
+    Try(getString("execution.runtime-mode")).toOption
+      .map(_.toUpperCase) match {
+      case Some("BATCH")     => RuntimeExecutionMode.BATCH
+      case Some("AUTOMATIC") => RuntimeExecutionMode.AUTOMATIC
+      case _                 => RuntimeExecutionMode.STREAMING
+    }
 }

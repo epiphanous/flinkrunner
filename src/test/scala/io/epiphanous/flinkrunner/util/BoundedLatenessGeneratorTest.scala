@@ -91,6 +91,7 @@ class BoundedLatenessGeneratorTest extends UnitSpec {
     val wmo         = new WatermarkOutput {
       override def emitWatermark(watermark: Watermark): Unit = {}
       override def markIdle(): Unit = {}
+      override def markActive(): Unit = {}
     }
     var maxTs       = 0L
     val result      = testEvents
