@@ -1,8 +1,9 @@
 package io.epiphanous.flinkrunner
 
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.flink.BaseFlinkJob
+import io.epiphanous.flinkrunner.flink.{BaseFlinkJob, FlinkJob}
 import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkEvent}
+import org.apache.flink.streaming.api.scala.DataStream
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 
@@ -18,13 +19,14 @@ trait BaseSpec
 
   val nothingFactory: FlinkRunnerFactory[NothingADT] =
     new FlinkRunnerFactory[NothingADT] {
-      override def getJobInstance(
+      override def getJobInstance[DS, OUT <: NothingADT](
           name: String,
-          config: FlinkConfig): BaseFlinkJob[_, _ <: NothingADT] = ???
+          runner: FlinkRunner[NothingADT])
+          : BaseFlinkJob[DS, OUT, NothingADT] = ???
     }
 
   implicit val nothingConfig: FlinkConfig =
-    new FlinkConfig(Array.empty[String], nothingFactory)
+    new FlinkConfig(Array.empty[String])
 
   val nothingFlinkRunner =
     new FlinkRunner[NothingADT](Array.empty[String], nothingFactory)

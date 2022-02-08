@@ -1,15 +1,18 @@
 package io.epiphanous.flinkrunner.operator
 
 import io.circe.generic.auto._
-import io.epiphanous.flinkrunner.BasePropSpec
+import io.epiphanous.flinkrunner.PropSpec
 
-class EnrichmentAsyncFunctionSpec extends BasePropSpec {
+class EnrichmentAsyncFunctionSpec extends PropSpec {
 
   case class MyOrigin(origin: String)
 
   property("defaultCacheLoader") {
     val eaf =
-      new EnrichmentAsyncFunction[String, String, MyOrigin]("prefix") {
+      new EnrichmentAsyncFunction[String, String, MyOrigin](
+        "prefix",
+        nothingConfig
+      ) {
         override def getCacheKey(in: String): String = in
         override def enrichEvent(
             in: String,
