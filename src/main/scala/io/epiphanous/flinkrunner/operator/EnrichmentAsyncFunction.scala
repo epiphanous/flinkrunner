@@ -19,7 +19,11 @@ import org.http4s.client.Client
 
 import java.io.{PrintWriter, StringWriter}
 import java.util.concurrent.TimeUnit
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{
+  ExecutionContext,
+  ExecutionContextExecutor,
+  Future
+}
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -78,14 +82,8 @@ abstract class EnrichmentAsyncFunction[
   lazy implicit val entityDecoder: EntityDecoder[IO, CV] = jsonOf[IO, CV]
 
   @transient
-  lazy implicit val ec: ExecutionContext =
+  lazy implicit val executionContext: ExecutionContextExecutor =
     ExecutionContext.fromExecutor(Executors.directExecutor())
-
-//  @transient
-//  lazy implicit val cs: ContextShift[IO] = IO.contextShift(ec)
-
-//  @transient
-//  lazy implicit val timer: Timer[IO] = IO.timer(ec)
 
   @transient
   lazy val api: Resource[IO, Client[IO]] = BlazeClientBuilder[IO].resource

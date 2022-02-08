@@ -229,6 +229,7 @@ class FlinkConfig(
 
   def getWatermarkStrategy(ws: String): String =
     ws.toLowerCase.replaceAll("[^a-z]", "") match {
+      case "none"                  => "none"
       case "boundedlateness"       => "bounded lateness"
       case "boundedoutoforderness" => "bounded out of orderness"
       case "ascendingtimestamps"   => "ascending timestamps"
@@ -270,5 +271,4 @@ class FlinkConfig(
       case Some("AUTOMATIC") => RuntimeExecutionMode.AUTOMATIC
       case _                 => RuntimeExecutionMode.STREAMING
     }
-
 }
