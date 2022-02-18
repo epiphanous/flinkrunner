@@ -80,13 +80,10 @@ import scala.util.matching.Regex
  * Flink Job Invoker
  */
 class FlinkRunner[ADT <: FlinkEvent](
-    args: Array[String],
-    factory: FlinkRunnerFactory[ADT],
-    sources: Map[String, Seq[Array[Byte]]] = Map.empty,
-    optConfig: Option[String] = None)
+    val config: FlinkConfig,
+    factory: FlinkRunnerFactory[ADT])
     extends LazyLogging {
 
-  val config: FlinkConfig              = new FlinkConfig(args, sources, optConfig)
   val env: StreamExecutionEnvironment  =
     config.configureStreamExecutionEnvironment
   val tableEnv: StreamTableEnvironment = StreamTableEnvironment.create(env)

@@ -3,13 +3,13 @@ package io.epiphanous.flinkrunner.flink
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.FlinkRunner
 import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkEvent}
+import io.epiphanous.flinkrunner.util.StreamUtils.Pipe
 import org.apache.flink.api.common.JobExecutionResult
+import org.apache.flink.api.common.state.MapStateDescriptor
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.streaming.api.scala.{
-  DataStream,
-  StreamExecutionEnvironment
-}
+import org.apache.flink.streaming.api.scala._
 import org.apache.flink.table.api.bridge.scala.StreamTableEnvironment
+import org.apache.flink.util.Collector
 
 import scala.util.Try
 
@@ -21,7 +21,81 @@ abstract class StreamJob[OUT <: ADT: TypeInformation, ADT <: FlinkEvent](
   val env: StreamExecutionEnvironment  = runner.env
   val tableEnv: StreamTableEnvironment = runner.tableEnv
 
-  def flow(): DataStream[OUT]
+  def transform: DataStream[OUT]
+
+  def singleSource[IN <: ADT: TypeInformation](
+      name: String): DataStream[IN] =
+    runner.fromSource[IN](name)
+
+  def connectedSource[
+      IN1 <: ADT: TypeInformation,
+      IN2 <: ADT: TypeInformation](
+      source1Name: String,
+      source2Name: String): ConnectedStreams[IN1, IN2] = {
+    val source1 = singleSource[IN1](source1Name)
+    val source2 = singleSource[IN2](source2Name)
+    source1.connect(source2).keyBy[String](_.$key, _.$key)
+  }
+
+  def filterByControlSource[
+      CONTROL <: ADT: TypeInformation,
+      DATA <: ADT: TypeInformation](
+      controlName: String,
+      dataName: String): DataStream[DATA] = {
+    val controlLockoutDuration =
+      config.getDuration("control.lockout.duration").toMillis
+
+    connectedSource[CONTROL, DATA](
+      controlName,
+      dataName
+    ).map[Either[CONTROL, DATA]](
+      (c: CONTROL) => Left(c),
+      (d: DATA) => Right(d)
+    ).keyBy[String]((cd: Either[CONTROL, DATA]) => cd.fold(_.$key, _.$key))
+      .filterWithState[(Long, Boolean)] { case (cd, lastControlOpt) =>
+        cd match {
+          case Left(control) =>
+            (
+              false,
+              if (
+                lastControlOpt.forall { case (_, active) =>
+                  control.$active != active
+                }
+              ) Some(control.$timestamp, control.$active)
+              else lastControlOpt
+            )
+          case Right(data)   =>
+            (
+              lastControlOpt.exists { case (ts, active) =>
+                active && ((data.$timestamp - ts) >= controlLockoutDuration)
+              },
+              lastControlOpt
+            )
+        }
+      }
+      .flatMap[DATA](
+        (cd: Either[CONTROL, DATA], collector: Collector[DATA]) =>
+          cd.foreach(d => collector.collect(d))
+      )
+  }
+
+  def broadcastConnectedSource[
+      IN <: ADT: TypeInformation,
+      BC <: ADT: TypeInformation](
+      keyedSourceName: String,
+      broadcastSourceName: String): BroadcastConnectedStream[IN, BC] = {
+    val keyedSource     =
+      singleSource[IN](keyedSourceName).keyBy((in: IN) => in.$key)
+    val broadcastSource =
+      singleSource[BC](broadcastSourceName).broadcast(
+        new MapStateDescriptor[String, BC](
+          s"$keyedSourceName-$broadcastSourceName-state",
+          createTypeInformation[String],
+          createTypeInformation[BC]
+        )
+      )
+    keyedSource.connect(broadcastSource)
+  }
 
   /**
    * Writes the transformed data stream to configured output sinks.
@@ -57,7 +131,7 @@ abstract class StreamJob[OUT <: ADT: TypeInformation, ADT <: FlinkEvent](
       s"\nSTARTING FLINK JOB: ${config.jobName} ${config.jobArgs.mkString(" ")}\n"
     )
 
-    val stream = flow()
+    val stream = transform |# maybeSink
 
     if (config.showPlan)
       logger.info(s"PLAN:\n${env.getExecutionPlan}\n")

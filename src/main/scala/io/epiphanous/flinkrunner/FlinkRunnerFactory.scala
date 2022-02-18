@@ -1,6 +1,6 @@
 package io.epiphanous.flinkrunner
 
-import io.epiphanous.flinkrunner.flink.BaseFlinkJob
+import io.epiphanous.flinkrunner.flink.StreamJob
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.operator.AddToJdbcBatchFunction
 import org.apache.flink.api.common.serialization.{
@@ -39,16 +39,14 @@ trait FlinkRunnerFactory[ADT <: FlinkEvent] {
    *   name of the job
    * @param runner
    *   a [[FlinkRunner]] [ADT]
-   * @tparam DS
-   *   a flink data stream input type
    * @tparam OUT
    *   an ADT type that is the output type of the job
    * @return
    *   Subclass of [[BaseFlinkJob]] [DS, OUT, ADT]
    */
-  def getJobInstance[DS, OUT <: ADT](
+  def getJobInstance[OUT <: ADT](
       name: String,
-      runner: FlinkRunner[ADT]): BaseFlinkJob[DS, OUT, ADT]
+      runner: FlinkRunner[ADT]): StreamJob[OUT, ADT]
 
   /**
    * Provide a deserialization schema for a kafka or kinesis topic

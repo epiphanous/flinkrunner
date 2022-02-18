@@ -2,7 +2,12 @@ package io.epiphanous.flinkrunner.model
 
 import com.typesafe.config.{Config, ConfigFactory, ConfigObject}
 import com.typesafe.scalalogging.LazyLogging
+import io.confluent.kafka.schemaregistry.client.{
+  CachedSchemaRegistryClient,
+  SchemaRegistryClient
+}
 import io.epiphanous.flinkrunner.model.ConfigToProps.RichConfigObject
+import io.epiphanous.flinkrunner.util.StreamUtils.RichProps
 import org.apache.flink.api.common.RuntimeExecutionMode
 import org.apache.flink.api.java.utils.ParameterTool
 import org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackend
@@ -271,4 +276,14 @@ class FlinkConfig(
       case Some("AUTOMATIC") => RuntimeExecutionMode.AUTOMATIC
       case _                 => RuntimeExecutionMode.STREAMING
     }
+
+  lazy val schemaRegistryClient: SchemaRegistryClient = {
+    val baseUrl       = getString("schema.registry.url")
+    val cacheCapacity =
+      getIntOpt("schema.registry.cache.capacity").getOrElse(1000)
+    val props         = getProperties("schema.registry.props").asJavaMap
+    val headers       = getProperties("schema.registry.headers").asJavaMap
+    new CachedSchemaRegistryClient(baseUrl, cacheCapacity, props, headers)
+  }
+
 }
