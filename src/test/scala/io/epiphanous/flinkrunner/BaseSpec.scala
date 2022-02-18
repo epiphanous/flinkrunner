@@ -31,7 +31,7 @@ trait BaseSpec
     new FlinkConfig(Array.empty[String])
 
   val nothingFlinkRunner =
-    new FlinkRunner[NothingADT](Array.empty[String], nothingFactory)
+    new FlinkRunner[NothingADT](nothingConfig, nothingFactory)
 
   val mySimpleFactory: FlinkRunnerFactory[MySimpleADT] =
     new FlinkRunnerFactory[MySimpleADT] {
@@ -42,5 +42,5 @@ trait BaseSpec
     }
   val mySimpleConfig: FlinkConfig                      = new FlinkConfig(Array.empty[String])
   val mySimpleFlinkRunner                              =
-    new FlinkRunner[MySimpleADT](Array.empty, mySimpleFactory)
+    new FlinkRunner[MySimpleADT](mySimpleConfig, mySimpleFactory)
 }
