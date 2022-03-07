@@ -23,7 +23,7 @@ class StreamJobTest extends PropSpec {
 class SingleSourceTestJob(runner: FlinkRunner[MyAvroADT])
     extends StreamJob[AWrapper, MyAvroADT](runner) {
   override def transform: DataStream[AWrapper] =
-    singleSource[BWrapper]("dog").flatMap { bw =>
+    singleSource[BWrapper](Some("dog")).flatMap { bw =>
       val b = bw.value
       b.b2
         .map(d =>

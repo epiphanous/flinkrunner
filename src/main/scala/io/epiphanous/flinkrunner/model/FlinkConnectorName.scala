@@ -14,6 +14,8 @@ object FlinkConnectorName extends Enum[FlinkConnectorName] {
 
   case object File extends FlinkConnectorName
 
+  case object BulkFile extends FlinkConnectorName
+
   case object Socket extends FlinkConnectorName
 
   case object CassandraSink extends FlinkConnectorName

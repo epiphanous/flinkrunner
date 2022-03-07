@@ -1,10 +1,7 @@
 package io.epiphanous.flinkrunner.serde
 
 import io.confluent.kafka.schemaregistry.avro.AvroSchema
-import io.confluent.kafka.schemaregistry.client.{
-  MockSchemaRegistryClient,
-  SchemaMetadata
-}
+import io.confluent.kafka.schemaregistry.client.SchemaMetadata
 import io.epiphanous.flinkrunner.PropSpec
 import io.epiphanous.flinkrunner.model._
 import org.apache.avro.Schema
@@ -16,9 +13,19 @@ import scala.language.higherKinds
 
 class ConfluentAvroRegistryKafkaRecordSerializationSchemaTest
     extends PropSpec {
-  val factory              = new NoJobFactory[MyAvroADT]
-  val optConfig: String    =
+  val optConfig: String =
     s"""
+      |jobs {
+      |  DeduplicationJob {
+      |    sourceNames = [ observations ]
+      |    sinkNames = [ test ]
+      |  }
+      |}
+      |sources {
+      |  observations {
+      |    connector = collection
+      |  }
+      |}
       |sinks {
       |  test {
       |    connector = kafka
@@ -33,23 +40,28 @@ class ConfluentAvroRegistryKafkaRecordSerializationSchemaTest
       |  }
       |}
       |""".stripMargin
-  val config               = new FlinkConfig(
+  val config            = new FlinkConfig(
     Array.empty[String],
-    Map.empty,
     Some(optConfig)
   )
-  val schemaRegistryClient = new MockSchemaRegistryClient()
 
-  val serde =
-    new ConfluentAvroRegistryKafkaRecordSerializationSchema[MyAvroADT](
-      "test", // sink name must match this
-      config,
-      schemaRegistryClient,
-      toKV = {
-        case a: AWrapper => (Some(a.$id), a.value)
-        case b: BWrapper => (Some(b.$id), b.value)
-      }
-    )
+  def getSerializerFor[E <: MyAvroADT](
+      event: E): ConfluentAvroRegistryKafkaRecordSerializationSchema[E] =
+    new ConfluentAvroRegistryKafkaRecordSerializationSchema[E](
+      config
+        .getSinkConfig("test")
+        .asInstanceOf[KafkaSinkConfig], // sink name must match this
+      config
+    ) {
+      override def toKV(element: E): (Option[AnyRef], AnyRef) =
+        element match {
+          case aw: AWrapper => (Some(aw.$id), aw.value)
+          case bw: BWrapper => (Some(bw.$id), bw.value)
+        }
+
+      override def eventTime(element: E, timestamp: Long): Long =
+        element.$timestamp
+    }
 
   // helper to return the class name of the object passed in (without a $ at the end)
   def className[T](obj: T): String = {
@@ -86,27 +98,27 @@ class ConfluentAvroRegistryKafkaRecordSerializationSchemaTest
   val bName: String = className(genOne[BRecord])
 
   val stringSchema: AvroSchema = new AvroSchema("""{"type":"string"}""")
-  schemaRegistryClient.register(
+  config.schemaRegistryClient.register(
     s"test-key",
     stringSchema
   )
-  schemaRegistryClient.register(
+  config.schemaRegistryClient.register(
     aName,
     new AvroSchema(ARecord.SCHEMA$)
   )
-  schemaRegistryClient.register(
+  config.schemaRegistryClient.register(
     bName,
     new AvroSchema(BRecord.SCHEMA$)
   )
 
   val keySchemaInfo: SchemaMetadata =
-    serde.schemaRegistryClient.getLatestSchemaMetadata("test-key")
+    config.schemaRegistryClient.getLatestSchemaMetadata("test-key")
   val aSchemaInfo: SchemaMetadata   =
-    serde.schemaRegistryClient.getLatestSchemaMetadata(
+    config.schemaRegistryClient.getLatestSchemaMetadata(
       aName
     )
   val bSchemaInfo: SchemaMetadata   =
-    serde.schemaRegistryClient.getLatestSchemaMetadata(
+    config.schemaRegistryClient.getLatestSchemaMetadata(
       bName
     )
 
@@ -121,7 +133,8 @@ class ConfluentAvroRegistryKafkaRecordSerializationSchemaTest
 
   property("serialize a MyAvroADT instance to a producer record") {
     forAll { (event: MyAvroADT) =>
-      val (key, value)                          = serde.toKV(event)
+      val serializer                            = getSerializerFor(event)
+      val (key, value)                          = serializer.toKV(event)
       val expectedKeyBytes: Option[Array[Byte]] =
         key.map(k => binaryEncode(k, keySchemaInfo))
       val schemaInfo                            = event match {
@@ -129,11 +142,11 @@ class ConfluentAvroRegistryKafkaRecordSerializationSchemaTest
         case _: BWrapper => bSchemaInfo
       }
       val expectedValueBytes: Array[Byte]       = binaryEncode(value, schemaInfo)
-      val serialized                            = serde.serialize(event, null, event.$timestamp)
+      val serialized                            = serializer.serialize(event, null, event.$timestamp)
       serialized.key() shouldEqual expectedKeyBytes.value
       serialized.value() shouldEqual expectedValueBytes
       serialized.timestamp() shouldEqual event.$timestamp
-      serialized.topic() shouldEqual serde.topic
+      serialized.topic() shouldEqual serializer.topic
     }
   }
 

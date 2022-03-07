@@ -6,8 +6,7 @@ import cats.effect.unsafe.implicits.global
 import com.google.common.cache.{CacheBuilder, CacheLoader, LoadingCache}
 import com.typesafe.scalalogging.LazyLogging
 import io.circe.Decoder
-import io.epiphanous.flinkrunner.FlinkRunner
-import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkEvent}
+import io.epiphanous.flinkrunner.model.FlinkConfig
 import org.apache.flink.streaming.api.scala.async.{
   AsyncFunction,
   ResultFuture

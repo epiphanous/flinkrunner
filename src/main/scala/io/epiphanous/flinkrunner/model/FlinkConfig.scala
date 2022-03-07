@@ -4,8 +4,10 @@ import com.typesafe.config.{Config, ConfigFactory, ConfigObject}
 import com.typesafe.scalalogging.LazyLogging
 import io.confluent.kafka.schemaregistry.client.{
   CachedSchemaRegistryClient,
+  MockSchemaRegistryClient,
   SchemaRegistryClient
 }
+import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig
 import io.epiphanous.flinkrunner.model.ConfigToProps.RichConfigObject
 import io.epiphanous.flinkrunner.util.StreamUtils.RichProps
 import org.apache.flink.api.common.RuntimeExecutionMode
@@ -15,15 +17,13 @@ import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 
 import java.io.File
 import java.time.Duration
+import java.util
 import java.util.Properties
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
 @SerialVersionUID(1544548116L)
-class FlinkConfig(
-    args: Array[String],
-    sources: Map[String, Seq[Array[Byte]]] = Map.empty,
-    optConfig: Option[String] = None)
+class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
     extends LazyLogging
     with Serializable {
 
@@ -51,12 +51,6 @@ class FlinkConfig(
       z.withFallback(c)
     )
   }
-
-  def getCollectionSource(name: String): Seq[Array[Byte]] =
-    sources.getOrElse(
-      name,
-      throw new RuntimeException(s"missing collection source $name")
-    )
 
   val systemName: String = _config.getString("system.name")
 
@@ -164,20 +158,13 @@ class FlinkConfig(
         if (_config.hasPath(p)) Some(_config.getObject(p)) else None
     }).asProperties
 
-  def _classInstance[T](path: String): T =
-    Class
-      .forName(getString(path))
-      .getDeclaredConstructor()
-      .newInstance()
-      .asInstanceOf[T]
-
   def getSourceConfig(name: String): SourceConfig =
     SourceConfig(name, this)
 
   def getSinkConfig(name: String): SinkConfig = SinkConfig(name, this)
 
-  def getSourceNames: Seq[String] =
-    if (sources.nonEmpty) sources.keySet.toSeq
+  def getSourceNames(mockSourceNames: Seq[String]): Seq[String] =
+    if (mockSourceNames.nonEmpty) mockSourceNames
     else
       Try(getStringList("source.names")) match {
         case Success(sn) => sn
@@ -277,13 +264,54 @@ class FlinkConfig(
       case _                 => RuntimeExecutionMode.STREAMING
     }
 
+  lazy val schemaRegistryUrl: String        = getString(
+    AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG
+  )
+  lazy val schemaRegistryCacheCapacity: Int =
+    getIntOpt("schema.registry.cache.capacity").getOrElse(1000)
+
+  lazy val schemaRegistryProperties: util.HashMap[String, String] = {
+    val p = getProperties("schema.registry.props")
+    p.put(
+      AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG,
+      schemaRegistryUrl
+    )
+    p.asJavaMap
+  }
+
+  lazy val schemaRegistryHeaders: util.HashMap[String, String] =
+    getProperties("schema.registry.headers").asJavaMap
+
   lazy val schemaRegistryClient: SchemaRegistryClient = {
-    val baseUrl       = getString("schema.registry.url")
-    val cacheCapacity =
-      getIntOpt("schema.registry.cache.capacity").getOrElse(1000)
-    val props         = getProperties("schema.registry.props").asJavaMap
-    val headers       = getProperties("schema.registry.headers").asJavaMap
-    new CachedSchemaRegistryClient(baseUrl, cacheCapacity, props, headers)
+    if (mockEdges) new MockSchemaRegistryClient()
+    else {
+      new CachedSchemaRegistryClient(
+        schemaRegistryUrl,
+        schemaRegistryCacheCapacity,
+        schemaRegistryProperties,
+        schemaRegistryHeaders
+      )
+    }
+  }
+
+  def schemaRegistryPropsForSource(
+      sourceConfig: KafkaSourceConfig): util.HashMap[String, String] = {
+    val p =
+      schemaRegistryProperties
+        .clone()
+        .asInstanceOf[util.HashMap[String, String]]
+    p.putAll(sourceConfig.propertiesMap)
+    p
+  }
+
+  def schemaRegistryPropsForSink(
+      sinkConfig: KafkaSinkConfig): util.HashMap[String, String] = {
+    val p =
+      schemaRegistryProperties
+        .clone()
+        .asInstanceOf[util.HashMap[String, String]]
+    p.putAll(sinkConfig.propertiesMap)
+    p
   }
 
 }

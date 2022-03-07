@@ -43,10 +43,13 @@ object SinkConfig {
               config.getProperties(s"$p.config")
             )
           case File              =>
+            val format = config.getStringOpt(s"$p.format").getOrElse("row")
             FileSinkConfig(
               connector,
               name,
               config.getString(s"$p.path"),
+              format.equalsIgnoreCase("bulk"),
+              format,
               config.getProperties(s"$p.config")
             )
           case Socket            =>
@@ -126,19 +129,12 @@ final case class KinesisSinkConfig(
     properties: Properties)
     extends SinkConfig
 
-//Long("bucket.check.interval")
-//String("bucket.assigner")
-//String("bucket.assigner.datetime.format")
-//String("encoder.format")
-//String("bucket.rolling.policy")
-//Long("bucket.rolling.policy.inactivity.interval")
-//Long("bucket.rolling.policy.max.part.size")
-//Long("bucket.rolling.policy.rollover.interval")
-
 final case class FileSinkConfig(
     connector: FlinkConnectorName = File,
     name: String,
     path: String,
+    isBulk: Boolean,
+    format: String,
     properties: Properties)
     extends SinkConfig
 

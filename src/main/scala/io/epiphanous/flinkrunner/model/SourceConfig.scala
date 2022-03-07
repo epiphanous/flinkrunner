@@ -85,10 +85,14 @@ object SourceConfig {
               config.getProperties(s"$p.config")
             )
           case File       =>
+            val format =
+              config.getStringOpt(s"$p.format").getOrElse("stream")
             FileSourceConfig(
               connector,
               name,
               config.getString(s"$p.path"),
+              format.equalsIgnoreCase("bulk"),
+              format,
               watermarkStrategy,
               maxAllowedLateness,
               config.getProperties(s"$p.config")
@@ -165,6 +169,8 @@ final case class FileSourceConfig(
     connector: FlinkConnectorName = File,
     name: String,
     path: String,
+    isBulk: Boolean,
+    format: String,
     watermarkStrategy: String,
     maxAllowedLateness: Long,
     properties: Properties)

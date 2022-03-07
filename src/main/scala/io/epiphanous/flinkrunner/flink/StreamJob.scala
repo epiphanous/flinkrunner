@@ -11,10 +11,9 @@ import org.apache.flink.streaming.api.scala._
 import org.apache.flink.table.api.bridge.scala.StreamTableEnvironment
 import org.apache.flink.util.Collector
 
-import scala.util.Try
-
-abstract class StreamJob[OUT <: ADT: TypeInformation, ADT <: FlinkEvent](
-    runner: FlinkRunner[ADT])
+abstract class StreamJob[
+    OUT: TypeInformation,
+    ADT <: FlinkEvent: TypeInformation](runner: FlinkRunner[ADT])
     extends LazyLogging {
 
   val config: FlinkConfig              = runner.config
@@ -24,16 +23,16 @@ abstract class StreamJob[OUT <: ADT: TypeInformation, ADT <: FlinkEvent](
   def transform: DataStream[OUT]
 
   def singleSource[IN <: ADT: TypeInformation](
-      name: String): DataStream[IN] =
-    runner.fromSource[IN](name)
+      nameOpt: Option[String] = None): DataStream[IN] =
+    runner.fromSource[IN](nameOpt)
 
   def connectedSource[
       IN1 <: ADT: TypeInformation,
       IN2 <: ADT: TypeInformation](
       source1Name: String,
       source2Name: String): ConnectedStreams[IN1, IN2] = {
-    val source1 = singleSource[IN1](source1Name)
-    val source2 = singleSource[IN2](source2Name)
+    val source1 = singleSource[IN1](Some(source1Name))
+    val source2 = singleSource[IN2](Some(source2Name))
     source1.connect(source2).keyBy[String](_.$key, _.$key)
   }
 
@@ -85,9 +84,9 @@ abstract class StreamJob[OUT <: ADT: TypeInformation, ADT <: FlinkEvent](
       keyedSourceName: String,
       broadcastSourceName: String): BroadcastConnectedStream[IN, BC] = {
     val keyedSource     =
-      singleSource[IN](keyedSourceName).keyBy((in: IN) => in.$key)
+      singleSource[IN](Some(keyedSourceName)).keyBy((in: IN) => in.$key)
     val broadcastSource =
-      singleSource[BC](broadcastSourceName).broadcast(
+      singleSource[BC](Some(broadcastSourceName)).broadcast(
         new MapStateDescriptor[String, BC](
           s"$keyedSourceName-$broadcastSourceName-state",
           createTypeInformation[String],
@@ -104,7 +103,9 @@ abstract class StreamJob[OUT <: ADT: TypeInformation, ADT <: FlinkEvent](
    *   a transformed stream from transform()
    */
   def sink(out: DataStream[OUT]): Unit =
-    config.getSinkNames.foreach(name => runner.toSink[OUT](out, name))
+    config.getSinkNames.foreach(name =>
+      runner.toSink[OUT](out, Some(name))
+    )
 
   /**
    * The output stream will only be passed to BaseFlinkJob.sink if
@@ -138,8 +139,7 @@ abstract class StreamJob[OUT <: ADT: TypeInformation, ADT <: FlinkEvent](
 
     if (config.mockEdges) {
       val limit = limitOpt.getOrElse(
-        Try(config.getJobConfig(config.jobName).getInt("run.limit"))
-          .getOrElse(100)
+        config.getIntOpt("run.limit").getOrElse(100)
       )
       Left(stream.executeAndCollect(config.jobName, limit))
     } else

@@ -3,72 +3,61 @@ package io.epiphanous.flinkrunner.serde
 import com.typesafe.scalalogging.LazyLogging
 import io.circe.Encoder
 import io.circe.syntax._
-import io.epiphanous.flinkrunner.model.{
-  FlinkConfig,
-  FlinkEvent,
-  SinkConfig
-}
 import org.apache.flink.api.common.serialization.SerializationSchema
 
 import java.nio.charset.StandardCharsets
 
 /**
- * A JSON serialization schema that uses the circe json library.
- *
+ * Serialize an event instance into a json-encoded byte array. This
+ * requires an implicit circe encoder instance for the type to be
+ * available.
  * @param sinkName
  *   name of the sink we're serializing to
- * @param config
- *   a flink runner config
- * @param circeEncoder
- *   an implicit circe encoder
+ * @param pretty
+ *   if true, serialize with indentation and spacing
+ * @param sortKeys
+ *   if true, serialize with sorted keys
  * @tparam E
- *   the ADT member type we're serializing
- * @tparam ADT
- *   the flink runner ADT
+ *   the event type
  */
-class CirceJsonSerializationSchema[ADT <: FlinkEvent](
-    sinkName: String,
-    config: FlinkConfig)(implicit circeEncoder: Encoder[ADT])
-    extends SerializationSchema[ADT]
+class CirceJsonSerializationSchema[E](
+    sinkName: String = "unknown",
+    pretty: Boolean = false,
+    sortKeys: Boolean = false)(implicit circeEncoder: Encoder[E])
+    extends SerializationSchema[E]
     with LazyLogging {
 
-  val sourceConfig: SinkConfig = config.getSinkConfig(sinkName)
-  val configPretty: Boolean    =
-    sourceConfig.properties.getProperty("pretty", "false").toBoolean
-  val configSort: Boolean      =
-    sourceConfig.properties.getProperty("sort", "false").toBoolean
-
   /**
-   * Serialize an ADT event into json byte array
+   * Serialize an event into json-encoded byte array
    * @param event
-   *   an instance of an ADT event type
+   *   an event instance
    * @return
    *   a json encoded byte array
    */
-  override def serialize(event: ADT): Array[Byte] =
+  override def serialize(event: E): Array[Byte] =
     toJson(event).getBytes(StandardCharsets.UTF_8)
 
   /**
    * Utility method to convert an event into a JSON string with options for
    * pretty-printing and sorting keys
    * @param event
-   *   the ADT event instance to encode
-   * @param pretty
+   *   the event instance to encode
+   * @param _pretty
    *   true to encode with lines and 2 space indentation
-   * @param sortKeys
+   * @param _sortKeys
    *   true to sort the json keys
    * @return
    *   a json-encoded string
    */
   def toJson(
-      event: ADT,
-      pretty: Boolean = configPretty,
-      sortKeys: Boolean = configSort): String = {
+      event: E,
+      _pretty: Boolean = pretty,
+      _sortKeys: Boolean = sortKeys): String = {
     val j = event.asJson
-    if (pretty) {
-      if (sortKeys) j.spaces2SortKeys else j.spaces2
+    if (_pretty) {
+      if (_sortKeys) j.spaces2SortKeys else j.spaces2
     } else {
-      if (sortKeys) j.noSpacesSortKeys else j.noSpaces
+      if (_sortKeys) j.noSpacesSortKeys else j.noSpaces
     }
   }
 }

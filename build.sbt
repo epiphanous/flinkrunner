@@ -38,8 +38,8 @@ val V = new {
   val typesafeConfig     = "1.4.1"
   val guava              = "31.0.1-jre"
   val squants            = "1.8.3"
-//  val avro4s             = "4.0.11"
   val confluentAvroSerde = "7.0.1"
+  val parquet            = "1.12.2"
 }
 
 val flinkDeps =
@@ -52,6 +52,7 @@ val flinkDeps =
     // connectors
     "org.apache.flink"  % "flink-connector-base"           % V.flink % Provided, // ds hybrid source
     "org.apache.flink"  % "flink-connector-files"          % V.flink % Provided, // ds text files
+    "org.apache.flink" %% "flink-parquet"                  % V.flink % Provided, // parquet bulk sink
     "org.apache.flink" %% "flink-connector-kafka"          % V.flink % Provided,
     "org.apache.flink" %% "flink-connector-kinesis"        % V.flink % Provided,
     "org.apache.flink" %% "flink-connector-cassandra"      % V.flink % Provided,
@@ -62,8 +63,8 @@ val flinkDeps =
     "org.apache.flink"  % "flink-avro"                     % V.flink % Provided, // ds and table avro format
     "org.apache.flink"  % "flink-avro-confluent-registry"  % V.flink % Provided, // ds and table avro registry format
     // table api support
-    "org.apache.flink" %% "flink-table-api-scala-bridge"   % V.flink % Provided, // table api scala
-    "org.apache.flink" %% "flink-table-planner"            % V.flink % Provided, // table api
+    "org.apache.flink" %% "flink-table-api-scala-bridge"   % V.flink, // table api scala
+    "org.apache.flink" %% "flink-table-planner"            % V.flink, // table api
     "org.apache.flink"  % "flink-csv"                      % V.flink % Provided, // table api csv format
     "org.apache.flink"  % "flink-json"                     % V.flink % Provided, // table api json format
     // test support
@@ -91,14 +92,16 @@ val circeDeps  = Seq(
 
 val otherDeps  = Seq(
   "io.confluent"       % "kafka-streams-avro-serde" % V.confluentAvroSerde,
+  "org.apache.parquet" % "parquet-avro"             % V.parquet,
   "com.beachape"      %% "enumeratum"               % V.enumeratum,
   "com.typesafe"       % "config"                   % V.typesafeConfig,
   "com.google.guava"   % "guava"                    % V.guava,
   "org.typelevel"     %% "squants"                  % V.squants,
+  "io.kontainers"     %% "purecsv"                  % "1.3.10",
 //  "com.sksamuel.avro4s" %% "avro4s-core"              % V.avro4s,
-  "org.scalactic"     %% "scalactic"                % V.scalaTest  % Test,
-  "org.scalatest"     %% "scalatest"                % V.scalaTest  % Test,
-  "org.scalatestplus" %% "scalacheck-1-15"          % V.scalaCheck % Test
+  "org.scalactic"     %% "scalactic"                % V.scalaTest % Test,
+  "org.scalatest"     %% "scalatest"                % V.scalaTest % Test,
+  "org.scalatestplus" %% "scalacheck-1-15"          % V.scalaCheck
 )
 
 /**

@@ -1,13 +1,12 @@
 package io.epiphanous.flinkrunner
 
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.flink.StreamJob
 import io.epiphanous.flinkrunner.model.{
   FlinkConfig,
-  FlinkEvent,
   MySimpleADT,
   NothingADT
 }
+import org.apache.flink.api.common.JobExecutionResult
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{EitherValues, Inside, OptionValues, TryValues}
 
@@ -19,28 +18,21 @@ trait BaseSpec
     with Inside
     with LazyLogging {
 
-  val nothingFactory: FlinkRunnerFactory[NothingADT] =
-    new FlinkRunnerFactory[NothingADT] {
-      override def getJobInstance[OUT <: NothingADT](
-          name: String,
-          runner: FlinkRunner[NothingADT]): StreamJob[OUT, NothingADT] =
-        ???
-    }
-
   implicit val nothingConfig: FlinkConfig =
     new FlinkConfig(Array.empty[String])
 
-  val nothingFlinkRunner =
-    new FlinkRunner[NothingADT](nothingConfig, nothingFactory)
-
-  val mySimpleFactory: FlinkRunnerFactory[MySimpleADT] =
-    new FlinkRunnerFactory[MySimpleADT] {
-      override def getJobInstance[OUT <: MySimpleADT](
-          name: String,
-          runner: FlinkRunner[MySimpleADT]): StreamJob[OUT, MySimpleADT] =
-        ???
+  val nothingFlinkRunner: FlinkRunner[NothingADT] =
+    new FlinkRunner[NothingADT](nothingConfig) {
+      override def invoke(
+          jobName: String): Either[List[_], JobExecutionResult] = ???
     }
-  val mySimpleConfig: FlinkConfig                      = new FlinkConfig(Array.empty[String])
-  val mySimpleFlinkRunner                              =
-    new FlinkRunner[MySimpleADT](mySimpleConfig, mySimpleFactory)
+
+  val mySimpleConfig: FlinkConfig                   =
+    new FlinkConfig(Array.empty[String])
+  val mySimpleFlinkRunner: FlinkRunner[MySimpleADT] =
+    new FlinkRunner[MySimpleADT](mySimpleConfig) {
+      override def invoke(
+          jobName: String): Either[List[_], JobExecutionResult] = ???
+    }
+
 }
