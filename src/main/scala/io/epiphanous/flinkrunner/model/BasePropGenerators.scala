@@ -24,7 +24,7 @@ trait BasePropGenerators {
   implicit lazy val nameArb: Arbitrary[String]          = Arbitrary(nameGen("Arb"))
 
   def instantGen(
-      back: Duration = Duration.create(90, TimeUnit.DAYS),
+      back: Duration = Duration.create(60, TimeUnit.SECONDS),
       forward: Duration = Duration.Zero,
       fromInstant: Instant = Instant.now()): Gen[Instant] = {
     val start = fromInstant.minusMillis(back.toMillis).toEpochMilli

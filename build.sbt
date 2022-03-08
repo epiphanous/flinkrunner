@@ -35,11 +35,12 @@ val V = new {
   val circe              = "0.14.1"
   val http4s             = "0.23.9"
   val enumeratum         = "1.7.0"
-  val typesafeConfig     = "1.4.1"
+  val typesafeConfig     = "1.4.2"
   val guava              = "31.0.1-jre"
   val squants            = "1.8.3"
   val confluentAvroSerde = "7.0.1"
   val parquet            = "1.12.2"
+  val purecsv            = "1.3.10"
 }
 
 val flinkDeps =
@@ -92,16 +93,15 @@ val circeDeps  = Seq(
 
 val otherDeps  = Seq(
   "io.confluent"       % "kafka-streams-avro-serde" % V.confluentAvroSerde,
-  "org.apache.parquet" % "parquet-avro"             % V.parquet,
+  "org.apache.parquet" % "parquet-avro"             % V.parquet   % Provided,
   "com.beachape"      %% "enumeratum"               % V.enumeratum,
   "com.typesafe"       % "config"                   % V.typesafeConfig,
   "com.google.guava"   % "guava"                    % V.guava,
   "org.typelevel"     %% "squants"                  % V.squants,
-  "io.kontainers"     %% "purecsv"                  % "1.3.10",
-//  "com.sksamuel.avro4s" %% "avro4s-core"              % V.avro4s,
+  "io.kontainers"     %% "purecsv"                  % V.purecsv,
+  "org.scalatestplus" %% "scalacheck-1-15"          % V.scalaCheck,
   "org.scalactic"     %% "scalactic"                % V.scalaTest % Test,
-  "org.scalatest"     %% "scalatest"                % V.scalaTest % Test,
-  "org.scalatestplus" %% "scalacheck-1-15"          % V.scalaCheck
+  "org.scalatest"     %% "scalatest"                % V.scalaTest % Test
 )
 
 /**

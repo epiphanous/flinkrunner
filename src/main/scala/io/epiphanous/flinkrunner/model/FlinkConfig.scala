@@ -54,6 +54,12 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
 
   val systemName: String = _config.getString("system.name")
 
+  val logFile: String =
+    Try(ConfigFactory.systemProperties().getString("log.file")).getOrElse(
+      Try(_config.getString("log.file")).getOrElse("/tmp/flinkrunner.log")
+    )
+  System.setProperty("log.file", logFile)
+
   val jobs: Set[String] =
     _config.getObject("jobs").unwrapped().keySet().asScala.toSet
 

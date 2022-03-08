@@ -108,10 +108,8 @@ data stream or table API jobs:
 ### Table/SQL API
 If you are building table api or sql api jobs, add these dependencies:
 ```
-"org.apache.flink" % "flink-table-api-scala-bridge_2.12" % "1.14.3"
-"org.apache.flink" % "flink-table-planner_2.12"          % "1.14.3"
-"org.apache.flink" % "flink-csv"                         % "1.14.3"
-"org.apache.flink" % "flink-json"                        % "1.14.3"
+"org.apache.flink" % "flink-csv"   % "1.14.3"
+"org.apache.flink" % "flink-json"  % "1.14.3"
 ```
 
 ## What is FlinkRunner?

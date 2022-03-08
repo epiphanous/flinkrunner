@@ -1,5 +1,6 @@
 package io.epiphanous.flinkrunner
 
+import com.typesafe.config.ConfigRenderOptions
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.serde.TextLineDecoder

@@ -40,7 +40,7 @@ object SourceConfig {
       .getOrElse(config.watermarkStrategy)
 
     FlinkConnectorName.withNameInsensitiveOption(
-      config.getString(s"$p.connector")
+      config.getStringOpt(s"$p.connector").getOrElse("collection")
     ) match {
       case Some(connector) =>
         connector match {

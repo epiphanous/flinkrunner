@@ -5,25 +5,48 @@ import io.epiphanous.flinkrunner.model.{
   ARecord,
   AWrapper,
   BWrapper,
+  FlinkConfig,
   MyAvroADT,
   MySimpleADT,
   SimpleA,
   SimpleB,
   SimpleC
 }
+import org.apache.flink.api.common.JobExecutionResult
 import org.apache.flink.streaming.api.functions.co.KeyedBroadcastProcessFunction
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.util.Collector
 
 class StreamJobTest extends PropSpec {
 
-  property("singleSource") {}
+  property("singleSource") {
+    val in     = genPop[BWrapper](10)
+    val outLen = in.count(_.value.b2.nonEmpty)
+    val config = new FlinkConfig(Array("singleSource"))
+    new FlinkRunner[MyAvroADT](
+      config,
+      Map("in" -> in),
+      out => {
+        println("========================================")
+        out.foreach(println)
+        out.length shouldEqual outLen
+        out.forall(_.isInstanceOf[AWrapper]) shouldBe true
+      }
+    ) {
+      override def invoke(
+          jobName: String): Either[List[_], JobExecutionResult] = {
+        jobName match {
+          case "singleSource" => new SingleSourceTestJob(this).run()
+        }
+      }
+    }.process()
+  }
 }
 
 class SingleSourceTestJob(runner: FlinkRunner[MyAvroADT])
     extends StreamJob[AWrapper, MyAvroADT](runner) {
   override def transform: DataStream[AWrapper] =
-    singleSource[BWrapper](Some("dog")).flatMap { bw =>
+    singleSource[BWrapper]().flatMap { bw =>
       val b = bw.value
       b.b2
         .map(d =>
