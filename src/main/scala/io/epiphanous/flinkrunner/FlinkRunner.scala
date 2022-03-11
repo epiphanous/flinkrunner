@@ -245,7 +245,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
   /**
    * Return a watermark strategy based on the source configuration
    * @param sourceConfig
-   *   a [[SourceConfig]]
+   *   a source configuration
    * @tparam E
    *   an ADT type
    * @return

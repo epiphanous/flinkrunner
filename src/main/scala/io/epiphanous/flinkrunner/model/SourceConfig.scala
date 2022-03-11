@@ -6,6 +6,7 @@ import org.apache.flink.connector.kafka.source.enumerator.initializer.{
   NoStoppingOffsetsInitializer,
   OffsetsInitializer
 }
+import org.apache.kafka.clients.consumer.OffsetResetStrategy
 
 import java.util
 import java.util.Properties
@@ -38,106 +39,105 @@ object SourceConfig {
     val watermarkStrategy  = Try(config.getString(s"$p.watermark.strategy"))
       .map(config.getWatermarkStrategy)
       .getOrElse(config.watermarkStrategy)
+    val connector          = FlinkConnectorName
+      .fromSourceName(
+        name,
+        config.jobName,
+        config.getStringOpt(s"$p.connector"),
+        Some(Collection)
+      )
 
-    FlinkConnectorName.withNameInsensitiveOption(
-      config.getStringOpt(s"$p.connector").getOrElse("collection")
-    ) match {
-      case Some(connector) =>
-        connector match {
-          case Kafka      =>
-            KafkaSourceConfig(
-              connector,
-              name,
-              config.getString(s"$p.topic"),
-              config.getBoolean(s"$p.isKeyed"),
-              watermarkStrategy,
-              maxAllowedLateness,
-              config.getBooleanOpt(s"$p.bounded").getOrElse(false),
-              config.getStringOpt(s"$p.starting.offset") match {
-                case Some(o) if o.equalsIgnoreCase("earliest")  =>
-                  OffsetsInitializer.earliest()
-                case Some(o) if o.equalsIgnoreCase("latest")    =>
-                  OffsetsInitializer.latest()
-                case Some(o) if o.equalsIgnoreCase("committed") =>
-                  OffsetsInitializer.committedOffsets()
-                case Some(o) if o.matches("[0-9]+")             =>
-                  OffsetsInitializer.timestamp(o.toLong)
-                case _                                          => OffsetsInitializer.latest()
-              },
-              config.getStringOpt(s"$p.stopping.offset") match {
-                case Some(o) if o.equalsIgnoreCase("latest")    =>
-                  OffsetsInitializer.latest()
-                case Some(o) if o.equalsIgnoreCase("committed") =>
-                  OffsetsInitializer.committedOffsets()
-                case Some(o) if o.matches("[0-9]+")             =>
-                  OffsetsInitializer.timestamp(o.toLong)
-                case _                                          => new NoStoppingOffsetsInitializer()
-              },
-              config.getProperties(s"$p.config")
-            )
-          case Kinesis    =>
-            KinesisSourceConfig(
-              connector,
-              name,
-              config.getString(s"$p.stream"),
-              watermarkStrategy,
-              maxAllowedLateness,
-              config.getProperties(s"$p.config")
-            )
-          case File       =>
-            val format =
-              config.getStringOpt(s"$p.format").getOrElse("stream")
-            FileSourceConfig(
-              connector,
-              name,
-              config.getString(s"$p.path"),
-              format.equalsIgnoreCase("bulk"),
-              format,
-              watermarkStrategy,
-              maxAllowedLateness,
-              config.getProperties(s"$p.config")
-            )
-          case Socket     =>
-            SocketSourceConfig(
-              connector,
-              name,
-              config.getString(s"$p.host"),
-              config.getInt(s"$p.port"),
-              watermarkStrategy,
-              maxAllowedLateness,
-              config.getProperties(s"$p.config")
-            )
-          case Collection =>
-            CollectionSourceConfig(
-              connector,
-              name,
-              name,
-              watermarkStrategy,
-              maxAllowedLateness,
-              config.getProperties(s"$p.config")
-            )
-          case RabbitMQ   =>
-            val c   = config.getProperties(s"$p.config")
-            val uri = config.getString(s"$p.uri")
-            RabbitMQSourceConfig(
-              connector,
-              name,
-              uri,
-              config.getBoolean(s"$p.use.correlation.id"),
-              config.getString(s"$p.queue"),
-              watermarkStrategy,
-              maxAllowedLateness,
-              RabbitMQConnectionInfo(uri, c),
-              c
-            )
-          case other      =>
-            throw new RuntimeException(
-              s"$other $name connector not valid source (job ${config.jobName}"
-            )
-        }
-      case None            =>
+    connector match {
+      case Kafka      =>
+        KafkaSourceConfig(
+          connector,
+          name,
+          config.getString(s"$p.topic"),
+          config.getBoolean(s"$p.isKeyed"),
+          watermarkStrategy,
+          maxAllowedLateness,
+          config.getBooleanOpt(s"$p.bounded").getOrElse(false),
+          config.getStringOpt(s"$p.starting.offset") match {
+            case Some(o) if o.equalsIgnoreCase("earliest") =>
+              OffsetsInitializer.earliest()
+            case Some(o) if o.equalsIgnoreCase("latest")   =>
+              OffsetsInitializer.latest()
+            case Some(o) if o.matches("[0-9]+")            =>
+              OffsetsInitializer.timestamp(o.toLong)
+            case _                                         =>
+              OffsetsInitializer.committedOffsets(
+                OffsetResetStrategy.EARLIEST
+              )
+          },
+          config.getStringOpt(s"$p.stopping.offset") match {
+            case Some(o) if o.equalsIgnoreCase("latest")    =>
+              OffsetsInitializer.latest()
+            case Some(o) if o.equalsIgnoreCase("committed") =>
+              OffsetsInitializer.committedOffsets()
+            case Some(o) if o.matches("[0-9]+")             =>
+              OffsetsInitializer.timestamp(o.toLong)
+            case _                                          => new NoStoppingOffsetsInitializer()
+          },
+          config.getProperties(s"$p.config")
+        )
+      case Kinesis    =>
+        KinesisSourceConfig(
+          connector,
+          name,
+          config.getString(s"$p.stream"),
+          watermarkStrategy,
+          maxAllowedLateness,
+          config.getProperties(s"$p.config")
+        )
+      case File       =>
+        val format =
+          config.getStringOpt(s"$p.format").getOrElse("stream")
+        FileSourceConfig(
+          connector,
+          name,
+          config.getString(s"$p.path"),
+          format.equalsIgnoreCase("bulk"),
+          format,
+          watermarkStrategy,
+          maxAllowedLateness,
+          config.getProperties(s"$p.config")
+        )
+      case Socket     =>
+        SocketSourceConfig(
+          connector,
+          name,
+          config.getString(s"$p.host"),
+          config.getInt(s"$p.port"),
+          watermarkStrategy,
+          maxAllowedLateness,
+          config.getProperties(s"$p.config")
+        )
+      case Collection =>
+        CollectionSourceConfig(
+          connector,
+          name,
+          name,
+          watermarkStrategy,
+          maxAllowedLateness,
+          config.getProperties(s"$p.config")
+        )
+      case RabbitMQ   =>
+        val c   = config.getProperties(s"$p.config")
+        val uri = config.getString(s"$p.uri")
+        RabbitMQSourceConfig(
+          connector,
+          name,
+          uri,
+          config.getBoolean(s"$p.use.correlation.id"),
+          config.getString(s"$p.queue"),
+          watermarkStrategy,
+          maxAllowedLateness,
+          RabbitMQConnectionInfo(uri, c),
+          c
+        )
+      case _          =>
         throw new RuntimeException(
-          s"Invalid/missing source connector type for $name (job ${config.jobName}"
+          s"Don't know how to configure ${connector.entryName} source connector $name in job ${config.jobName}"
         )
     }
   }

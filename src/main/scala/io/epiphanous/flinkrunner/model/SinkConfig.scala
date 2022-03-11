@@ -22,93 +22,90 @@ sealed trait SinkConfig {
 object SinkConfig {
   def apply(name: String, config: FlinkConfig): SinkConfig = {
     val p = s"sinks.$name"
-    FlinkConnectorName.withNameInsensitiveOption(
-      config.getString(s"$p.connector")
-    ) match {
-      case Some(connector) =>
-        connector match {
-          case Kafka             =>
-            KafkaSinkConfig(
-              connector,
-              name,
-              config.getString(s"$p.topic"),
-              config.getBoolean(s"$p.isKeyed"),
-              config.getProperties(s"$p.config")
-            )
-          case Kinesis           =>
-            KinesisSinkConfig(
-              connector,
-              name,
-              config.getString(s"$p.stream"),
-              config.getProperties(s"$p.config")
-            )
-          case File              =>
-            val format = config.getStringOpt(s"$p.format").getOrElse("row")
-            FileSinkConfig(
-              connector,
-              name,
-              config.getString(s"$p.path"),
-              format.equalsIgnoreCase("bulk"),
-              format,
-              config.getProperties(s"$p.config")
-            )
-          case Socket            =>
-            SocketSinkConfig(
-              connector,
-              name,
-              config.getString(s"$p.host"),
-              config.getInt(s"$p.port"),
-              config.getIntOpt(s"$p.max.retries"),
-              config.getBooleanOpt(s"$p.auto.flush"),
-              config.getProperties(s"$p.config")
-            )
-          case Jdbc              =>
-            JdbcSinkConfig(
-              connector,
-              name,
-              config.getString(s"$p.url"),
-              config.getString(s"$p.query"),
-              config.getProperties(s"$p.config")
-            )
-          case CassandraSink     =>
-            CassandraSinkConfig(
-              connector,
-              name,
-              config.getString(s"$p.host"),
-              config.getString(s"$p.query"),
-              config.getProperties(s"$p.config")
-            )
-          case ElasticsearchSink =>
-            ElasticsearchSinkConfig(
-              connector,
-              name,
-              config.getStringList(s"$p.transports"),
-              config.getString(s"$p.index"),
-              config.getString(s"$p.type"),
-              config.getProperties(s"$p.config")
-            )
 
-          case RabbitMQ =>
-            val c   = config.getProperties(s"$p.config")
-            val uri = config.getString(s"$p.uri")
-            RabbitMQSinkConfig(
-              connector,
-              name,
-              uri,
-              config.getBoolean(s"$p.use.correlation.id"),
-              RabbitMQConnectionInfo(uri, c),
-              Option(c.getProperty("queue")),
-              c
-            )
-          case other    =>
-            throw new RuntimeException(
-              s"$other $name connector not valid sink (job ${config.jobName}"
-            )
+    val connector = FlinkConnectorName
+      .fromSinkName(
+        name,
+        config.jobName,
+        config.getStringOpt(s"$p.connector")
+      )
 
-        }
-      case None            =>
+    connector match {
+      case Kafka             =>
+        KafkaSinkConfig(
+          connector,
+          name,
+          config.getString(s"$p.topic"),
+          config.getBoolean(s"$p.isKeyed"),
+          config.getProperties(s"$p.config")
+        )
+      case Kinesis           =>
+        KinesisSinkConfig(
+          connector,
+          name,
+          config.getString(s"$p.stream"),
+          config.getProperties(s"$p.config")
+        )
+      case File              =>
+        val format = config.getStringOpt(s"$p.format").getOrElse("row")
+        FileSinkConfig(
+          connector,
+          name,
+          config.getString(s"$p.path"),
+          format.equalsIgnoreCase("bulk"),
+          format,
+          config.getProperties(s"$p.config")
+        )
+      case Socket            =>
+        SocketSinkConfig(
+          connector,
+          name,
+          config.getString(s"$p.host"),
+          config.getInt(s"$p.port"),
+          config.getIntOpt(s"$p.max.retries"),
+          config.getBooleanOpt(s"$p.auto.flush"),
+          config.getProperties(s"$p.config")
+        )
+      case Jdbc              =>
+        JdbcSinkConfig(
+          connector,
+          name,
+          config.getString(s"$p.url"),
+          config.getString(s"$p.query"),
+          config.getProperties(s"$p.config")
+        )
+      case CassandraSink     =>
+        CassandraSinkConfig(
+          connector,
+          name,
+          config.getString(s"$p.host"),
+          config.getString(s"$p.query"),
+          config.getProperties(s"$p.config")
+        )
+      case ElasticsearchSink =>
+        ElasticsearchSinkConfig(
+          connector,
+          name,
+          config.getStringList(s"$p.transports"),
+          config.getString(s"$p.index"),
+          config.getString(s"$p.type"),
+          config.getProperties(s"$p.config")
+        )
+      case RabbitMQ          =>
+        val c   = config.getProperties(s"$p.config")
+        val uri = config.getString(s"$p.uri")
+        RabbitMQSinkConfig(
+          connector,
+          name,
+          uri,
+          config.getBoolean(s"$p.use.correlation.id"),
+          RabbitMQConnectionInfo(uri, c),
+          Option(c.getProperty("queue")),
+          c
+        )
+      case _                 =>
         throw new RuntimeException(
-          s"Invalid/missing sink connector type for $name (job ${config.jobName}"
+          s"Don't know how to configure ${connector.entryName} sink connector $name (job ${config.jobName}"
         )
     }
   }

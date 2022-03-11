@@ -239,7 +239,9 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
     }
 
   lazy val watermarkStrategy: String = getWatermarkStrategy(
-    getString("watermark.strategy")
+    getStringOpt("watermark.strategy").getOrElse(
+      "bounded out of orderness"
+    )
   )
 
   lazy val systemHelp: String                         = _config.getString("system.help")
@@ -255,7 +257,9 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
   )
   lazy val checkpointUrl: String                      = getString("checkpoint.url")
   lazy val checkpointFlash: Boolean                   = getBoolean("checkpoint.flash")
-  lazy val stateBackend: String                       = getString("state.backend").toLowerCase
+  lazy val stateBackend: String                       = getString(
+    "checkpoint.backend"
+  ).toLowerCase
   lazy val checkpointIncremental: Boolean             = getBoolean(
     "checkpoint.incremental"
   )

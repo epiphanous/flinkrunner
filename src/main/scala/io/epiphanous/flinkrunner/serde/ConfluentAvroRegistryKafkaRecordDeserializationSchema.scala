@@ -16,8 +16,8 @@ import java.util
  * Implementing classes must provide a mapping `fromKV` method to create a
  * sequence of zero or more flink runner ADT instances from the key/value
  * pair deserialized from Kafka.
- * @param sourceName
- *   name of the kafka source
+ * @param sourceConfig
+ *   config for the kafka source
  * @param config
  *   flink runner config
  */
