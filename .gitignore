@@ -4,3 +4,4 @@ target
 project/target
 .bsp
 *.log
+*.log_*

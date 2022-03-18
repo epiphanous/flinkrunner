@@ -11,7 +11,7 @@ class EnrichmentAsyncFunctionSpec extends PropSpec {
     val eaf =
       new EnrichmentAsyncFunction[String, String, MyOrigin](
         "prefix",
-        nothingConfig
+        nothingFlinkRunner.config
       ) {
         override def getCacheKey(in: String): String = in
         override def enrichEvent(

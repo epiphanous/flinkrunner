@@ -1,10 +1,10 @@
 package io.epiphanous.flinkrunner
 
-import com.typesafe.config.ConfigRenderOptions
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.serde.TextLineDecoder
 import io.epiphanous.flinkrunner.util.BoundedLatenessWatermarkStrategy
+import io.epiphanous.flinkrunner.util.FileUtils.getResourceOrFile
 import org.apache.flink.api.common.JobExecutionResult
 import org.apache.flink.api.common.eventtime.WatermarkStrategy
 import org.apache.flink.api.common.functions.RuntimeContext
@@ -175,8 +175,6 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
     error.foreach(m => logger.error(m))
     println(usage)
   }
-
-  val RESOURCE_PATTERN: Regex = "resource://(.*)".r
 
   /**
    * Generates a timestamp and watermark assigner for a stream with a given
@@ -357,33 +355,6 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
       sourceConfig: FileSourceConfig): BulkFormat[E, FileSourceSplit] = ???
 
   /**
-   * Returns the actual path to a resource file named filename or
-   * filename.gz.
-   *
-   * @param filename
-   *   the name of file
-   * @return
-   *   String
-   */
-  @throws[FileNotFoundException]
-  def getSourceFilePath(filename: String): String = {
-    val loader   = getClass
-    val resource = Option(loader.getResource(filename)) match {
-      case Some(value) => value.toURI
-      case None        =>
-        Option(loader.getResource(s"$filename.gz")) match {
-          case Some(value) => value.toURI
-          case None        =>
-            throw new FileNotFoundException(
-              s"can't load resource $filename"
-            )
-        }
-    }
-    val file     = new File(resource)
-    file.getAbsolutePath
-  }
-
-  /**
    * Configure a file source
    * @param sourceConfig
    *   a source config
@@ -395,10 +366,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
   def fromFile[E <: ADT: TypeInformation](
       sourceConfig: FileSourceConfig
   ): DataStream[E] = {
-    val path    = new Path(sourceConfig.path match {
-      case RESOURCE_PATTERN(p) => getSourceFilePath(p)
-      case other               => other
-    })
+    val path    = new Path(getResourceOrFile(sourceConfig.path))
     val fsb     =
       if (sourceConfig.isBulk)
         FileSource.forBulkFileFormat(

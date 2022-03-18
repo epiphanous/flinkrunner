@@ -21,6 +21,7 @@ inThisBuild(
   )
 )
 
+Test / envVars := Map("TEST_ENV_EXISTS" -> "exists")
 Test / parallelExecution := false
 Test / fork := true
 resolvers += "Local Maven Repository" at "file://" + Path.userHome.absolutePath + "/.m2/repository"

@@ -8,7 +8,8 @@ import io.confluent.kafka.schemaregistry.client.{
   SchemaRegistryClient
 }
 import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig
-import io.epiphanous.flinkrunner.model.ConfigToProps.RichConfigObject
+import io.epiphanous.flinkrunner.util.ConfigToProps.RichConfigObject
+import io.epiphanous.flinkrunner.util.FileUtils.getResourceOrFile
 import io.epiphanous.flinkrunner.util.StreamUtils.RichProps
 import org.apache.flink.api.common.RuntimeExecutionMode
 import org.apache.flink.api.java.utils.ParameterTool
@@ -43,7 +44,11 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
       Seq(ConfigFactory.load(), ConfigFactory.load("flink-runner.conf"))
     val ocf =
       if (jobParams.has("config"))
-        Some(ConfigFactory.parseFile(new File(jobParams.get("config"))))
+        Some(
+          ConfigFactory.parseFile(
+            new File(getResourceOrFile(jobParams.get("config")))
+          )
+        )
       else None
     val ocs = optConfig.map(ConfigFactory.parseString)
     // precedence in config is from right to left...

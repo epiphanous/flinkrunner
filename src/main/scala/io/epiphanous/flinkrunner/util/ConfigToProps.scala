@@ -1,4 +1,4 @@
-package io.epiphanous.flinkrunner.model
+package io.epiphanous.flinkrunner.util
 
 import com.typesafe.config.ConfigObject
 
