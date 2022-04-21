@@ -23,7 +23,7 @@ final case class Count(
   override def updateQuantity[A <: Quantity[A]](
       current: A,
       quantity: A,
-      depAggs: Map[String, Aggregate]) =
+      depAggs: Map[String, Aggregate]): A =
     current + current.unit(1)
 
 }

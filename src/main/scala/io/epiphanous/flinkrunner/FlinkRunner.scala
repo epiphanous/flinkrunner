@@ -10,7 +10,6 @@ import org.apache.flink.api.common.eventtime.WatermarkStrategy
 import org.apache.flink.api.common.functions.RuntimeContext
 import org.apache.flink.api.common.serialization.{
   BulkWriter,
-  DeserializationSchema,
   Encoder,
   SerializationSchema
 }
@@ -73,11 +72,9 @@ import org.apache.flink.table.api.bridge.scala.StreamTableEnvironment
 import org.apache.http.HttpHost
 import org.elasticsearch.client.Requests
 
-import java.io.{File, FileNotFoundException}
 import java.net.URL
 import java.time.Duration
 import scala.collection.JavaConverters._
-import scala.util.matching.Regex
 
 /**
  * Flink Job Invoker
@@ -499,7 +496,6 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
    */
   def fromRabbitMQ[E <: ADT: TypeInformation](
       sourceConfig: RabbitMQSourceConfig): DataStream[E] = {
-    val name                  = sourceConfig.name
     val connConfig            = sourceConfig.connectionInfo.rmqConfig
     val deserializationSchema =
       getRMQDeserializationSchema[E](sourceConfig)
@@ -581,8 +577,8 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
    *
    * @param stream
    *   the data stream to send to sink
-   * @param sinkName
-   *   a sink name to obtain configuration
+   * @param sinkNameOpt
+   *   an optional sink name to obtain configuration
    * @tparam E
    *   stream element type
    * @return

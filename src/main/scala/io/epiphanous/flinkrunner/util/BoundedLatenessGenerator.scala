@@ -9,6 +9,7 @@ import org.apache.flink.api.common.eventtime.{
 }
 
 import java.time.Instant
+import scala.collection.mutable
 
 class BoundedLatenessGenerator[E <: FlinkEvent](
     val maxAllowedLateness: Long,
@@ -67,7 +68,7 @@ class BoundedLatenessGenerator[E <: FlinkEvent](
     if (timestamp < mostRecentTimestamp) {
       val lateness = mostRecentTimestamp - timestamp
       val allowed  = lateness <= maxAllowedLateness
-      val lateTags = new StringBuilder(
+      val lateTags = new mutable.StringBuilder(
         if (allowed) "ALLOWED" else "TOO LATE"
       )
       if (allowed && lateness > latestAllowed) {

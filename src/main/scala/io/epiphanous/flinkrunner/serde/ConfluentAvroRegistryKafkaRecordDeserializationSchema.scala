@@ -67,8 +67,8 @@ abstract class ConfluentAvroRegistryKafkaRecordDeserializationSchema[E](
     val value = valueDeserializer.deserialize(topic, record.value())
     if (Option(value).nonEmpty)
       fromKV(key, value)
-        .filter(a => a.isInstanceOf[E])
-        .map(a => a.asInstanceOf[E])
+        .filter(_.isInstanceOf[E])
+        .map(_.asInstanceOf[E])
         .foreach(out.collect)
   }
 

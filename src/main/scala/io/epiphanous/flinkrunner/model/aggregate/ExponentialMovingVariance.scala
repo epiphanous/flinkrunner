@@ -18,11 +18,11 @@ final case class ExponentialMovingVariance(
     ))
     extends Aggregate {
 
-  def alpha = params
+  def alpha: Double = params
     .getOrElse("alpha", ExponentialMovingVariance.defaultAlpha)
     .toDouble
 
-  override def getDependents = {
+  override def getDependents: Map[String, Aggregate] = {
     if (this.dependentAggregations.isEmpty)
       Map(
         "ExponentialMovingAverage" -> ExponentialMovingAverage(
@@ -37,7 +37,7 @@ final case class ExponentialMovingVariance(
   override def updateQuantity[A <: Quantity[A]](
       current: A,
       quantity: A,
-      depAggs: Map[String, Aggregate]) = {
+      depAggs: Map[String, Aggregate]): A = {
     if (count == 0) quantity.unit(0d)
     else {
       val currentEma = getDependents("ExponentialMovingAverage")
@@ -52,7 +52,7 @@ final case class ExponentialMovingVariance(
 object ExponentialMovingVariance {
   final val DEFAULT_ALPHA = 0.7
 
-  def defaultAlpha = DEFAULT_ALPHA.toString
+  def defaultAlpha: String = DEFAULT_ALPHA.toString
 
   def apply(
       dimension: String,

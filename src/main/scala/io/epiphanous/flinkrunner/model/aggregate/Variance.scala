@@ -16,7 +16,7 @@ final case class Variance(
     params: Map[String, String] = Map.empty[String, String])
     extends Aggregate {
 
-  override def getDependents = {
+  override def getDependents: Map[String, Aggregate] = {
     if (this.dependentAggregations.isEmpty)
       Map(
         "SumOfSquaredDeviations" -> SumOfSquaredDeviations(dimension, unit)
@@ -27,7 +27,7 @@ final case class Variance(
   override def updateQuantity[A <: Quantity[A]](
       current: A,
       quantity: A,
-      depAggs: Map[String, Aggregate]) = {
+      depAggs: Map[String, Aggregate]): A = {
     if (count < 2) current
     else {
       val k = count.doubleValue()

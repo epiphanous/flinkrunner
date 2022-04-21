@@ -19,7 +19,7 @@ final case class Sum(
   override def updateQuantity[A <: Quantity[A]](
       current: A,
       quantity: A,
-      depAggs: Map[String, Aggregate]) =
+      depAggs: Map[String, Aggregate]): A =
     current + quantity
 
 }

@@ -19,7 +19,7 @@ final case class Mean(
   override def updateQuantity[A <: Quantity[A]](
       current: A,
       quantity: A,
-      depAggs: Map[String, Aggregate]) = {
+      depAggs: Map[String, Aggregate]): A = {
     val n = count.doubleValue()
     (current * n + quantity) / (n + 1)
   }

@@ -35,7 +35,9 @@ final case class Histogram(
    *   the quantity to compute a bin of
    * @return
    */
-  def binOf[A <: Quantity[A]](q: A, unitMapper: UnitMapper) = {
+  def binOf[A <: Quantity[A]](
+      q: A,
+      unitMapper: UnitMapper): Option[String] = {
     unitMapper
       .createQuantity(q.dimension, value, unit)
       .map(_.unit)
@@ -64,7 +66,7 @@ final case class Histogram(
   override def update[A <: Quantity[A]](
       q: A,
       aggLU: Instant,
-      unitMapper: UnitMapper) =
+      unitMapper: UnitMapper): Option[Histogram] =
     binOf(q, unitMapper) match {
       case Some(binKey) =>
         bin(binKey)

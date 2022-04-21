@@ -19,18 +19,20 @@ final case class Percentage(
 
   override def isDimensionless = true
 
-  override def outUnit = Percent.symbol
+  override def outUnit: String = Percent.symbol
 
   val baseParam: Double =
     params.getOrElse("base", Percentage.defaultBase).toDouble
 
-  def baseQuantity[A <: Quantity[A]](q: A, unitMapper: UnitMapper) =
+  def baseQuantity[A <: Quantity[A]](
+      q: A,
+      unitMapper: UnitMapper): Option[A] =
     unitMapper.createQuantity(q.dimension, baseParam, unit)
 
   override def update[A <: Quantity[A]](
       q: A,
       aggLU: Instant,
-      unitMapper: UnitMapper) = {
+      unitMapper: UnitMapper): Some[Percentage] = {
     val updateValue = baseQuantity(q, unitMapper).map(b => q / b) match {
       case Some(addValue) => addValue * 100.0
       case None           =>

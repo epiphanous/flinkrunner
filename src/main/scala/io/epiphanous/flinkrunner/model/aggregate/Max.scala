@@ -19,7 +19,7 @@ final case class Max(
   override def updateQuantity[A <: Quantity[A]](
       current: A,
       quantity: A,
-      depAggs: Map[String, Aggregate]) =
+      depAggs: Map[String, Aggregate]): A =
     if (count == 0) quantity else current.max(quantity)
 
 }

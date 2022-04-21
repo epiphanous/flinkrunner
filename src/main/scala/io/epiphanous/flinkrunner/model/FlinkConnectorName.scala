@@ -2,13 +2,13 @@ package io.epiphanous.flinkrunner.model
 
 import enumeratum.EnumEntry.Snakecase
 import enumeratum.{Enum, EnumEntry}
-import io.epiphanous.flinkrunner.model
-import io.epiphanous.flinkrunner.model.FlinkConnectorName.ElasticsearchSink
+
+import scala.collection.immutable
 
 sealed trait FlinkConnectorName extends EnumEntry with Snakecase
 
 object FlinkConnectorName extends Enum[FlinkConnectorName] {
-  val values = findValues
+  val values: immutable.IndexedSeq[FlinkConnectorName] = findValues
 
   case object Kinesis extends FlinkConnectorName
 
@@ -28,8 +28,10 @@ object FlinkConnectorName extends Enum[FlinkConnectorName] {
 
   case object RabbitMQ extends FlinkConnectorName
 
-  val sources = values diff IndexedSeq(CassandraSink, ElasticsearchSink)
-  val sinks   = values diff IndexedSeq(Collection)
+  val sources: immutable.Seq[FlinkConnectorName] =
+    values diff IndexedSeq(CassandraSink, ElasticsearchSink)
+  val sinks: immutable.Seq[FlinkConnectorName]   =
+    values diff IndexedSeq(Collection)
 
   def fromSourceName(
       sourceName: String,

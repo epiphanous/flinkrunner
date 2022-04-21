@@ -1,7 +1,9 @@
 package io.epiphanous.flinkrunner.algorithm.cardinality
 
-import com.google.common.hash.Funnel
+import com.google.common.hash.{Funnel, HashFunction}
 import com.google.common.hash.Hashing.murmur3_128
+
+import scala.collection.immutable
 
 /**
  * Implements hyperloglog cardinality estimate based on paper by P.
@@ -17,34 +19,34 @@ case class HyperLogLog[T](funnel: Funnel[T], b: Int) {
   import HyperLogLog._
 
   /** number of registers <code>m = 2**b</code> */
-  val m = 1 << b
+  val m: Int = 1 << b
 
   /** relativeError of cardinality estimates */
-  val relativeError = 1.04 / math.sqrt(m.toDouble)
+  val relativeError: Double = 1.04 / math.sqrt(m.toDouble)
 
   /** correction constant <code>alpha(m) * m**2</code> */
-  val am2 = ALPHA_M * m * m
+  val am2: Double = ALPHA_M * m * m
 
   /** upper bound of small range */
-  val smallRange = 5 / 2 * m
+  val smallRange: Int = 5 / 2 * m
 
   /** upper bound of intermediate range */
-  val intermediateRange = math.floor(TWO32 / 30).toInt
+  val intermediateRange: Int = math.floor(TWO32 / 30).toInt
 
   /** registers */
-  val M = Array.fill[Int](m)(0)
+  val M: Array[Int] = Array.fill[Int](m)(0)
 
   /** murmur3 128 guava hashing function generator */
-  val hasher = murmur3_128()
+  val hasher: HashFunction = murmur3_128()
 
   /** current cardinality estimate */
   var cardinality = 0L
 
   /** True if no data has been added to the registers */
-  def isEmpty = cardinality == 0
+  def isEmpty: Boolean = cardinality == 0
 
   /** True if data has been added to the registers */
-  def nonEmpty = cardinality > 0
+  def nonEmpty: Boolean = cardinality > 0
 
   /**
    * Incorporates an item into the registers, updates the cardinality
@@ -55,7 +57,7 @@ case class HyperLogLog[T](funnel: Funnel[T], b: Int) {
    * @return
    *   Long
    */
-  def add(item: T) = {
+  def add(item: T): Long = {
     val x = hash(item)
     val j = 1 + (x & (m - 1))
     val w = x >> b
@@ -93,7 +95,7 @@ case class HyperLogLog[T](funnel: Funnel[T], b: Int) {
    * @param another
    *   the other HyperLogLog[T] instance
    */
-  def merge(another: HyperLogLog[T]) = {
+  def merge(another: HyperLogLog[T]): HyperLogLog[T] = {
     if (another.nonEmpty) {
       require(another.m == m, s"Can only merge HLL with same b=$b")
       another.M.zipWithIndex.foreach { case (other, i) =>
@@ -133,8 +135,7 @@ case class HyperLogLog[T](funnel: Funnel[T], b: Int) {
 }
 
 object HyperLogLog {
-  val MASKS   = Range(1, 32).map(i => 1 << (i - 1))
-  val ALPHA_M = 1 / (2 * math.log(2))
-  val TWO32   = math.pow(2, 32)
-
+  val MASKS: immutable.Seq[Int] = Range(1, 32).map(i => 1 << (i - 1))
+  val ALPHA_M: Double           = 1 / (2 * math.log(2))
+  val TWO32: Double             = math.pow(2, 32)
 }

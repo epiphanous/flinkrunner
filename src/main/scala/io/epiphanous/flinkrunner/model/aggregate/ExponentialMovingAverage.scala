@@ -25,7 +25,7 @@ final case class ExponentialMovingAverage(
   override def updateQuantity[A <: Quantity[A]](
       current: A,
       quantity: A,
-      depAggs: Map[String, Aggregate]) =
+      depAggs: Map[String, Aggregate]): A =
     if (count == 0) quantity else current * (1 - alpha) + quantity * alpha
 
 }
@@ -33,7 +33,7 @@ final case class ExponentialMovingAverage(
 object ExponentialMovingAverage {
   final val DEFAULT_ALPHA = 0.7
 
-  def defaultAlpha = DEFAULT_ALPHA.toString
+  def defaultAlpha: String = DEFAULT_ALPHA.toString
 
   def apply(
       dimension: String,

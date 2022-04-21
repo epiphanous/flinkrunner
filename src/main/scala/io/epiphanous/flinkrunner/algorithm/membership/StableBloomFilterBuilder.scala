@@ -21,12 +21,15 @@ case class StableBloomFilterBuilder[T](
     numCells: Long = 1000000,
     bitsPerCell: Int = 3,
     falsePositiveRate: Double = 0.01) {
-  def withNumCells(m: Long) = copy(numCells = m)
+  def withNumCells(m: Long): StableBloomFilterBuilder[T] =
+    copy(numCells = m)
 
-  def withBitsPerCell(d: Int) = copy(bitsPerCell = d)
+  def withBitsPerCell(d: Int): StableBloomFilterBuilder[T] =
+    copy(bitsPerCell = d)
 
-  def withFalsePositiveRate(p: Double) = copy(falsePositiveRate = p)
+  def withFalsePositiveRate(p: Double): StableBloomFilterBuilder[T] =
+    copy(falsePositiveRate = p)
 
-  def build() =
+  def build(): StableBloomFilter[T] =
     StableBloomFilter(funnel, numCells, bitsPerCell, falsePositiveRate)
 }

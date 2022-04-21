@@ -19,7 +19,7 @@ final case class StandardDeviation(
   override def updateQuantity[A <: Quantity[A]](
       current: A,
       quantity: A,
-      depAggs: Map[String, Aggregate]) = {
+      depAggs: Map[String, Aggregate]): A = {
     if (count == 0) current
     else {
       val updatedVariance = depAggs("Variance")
@@ -27,7 +27,7 @@ final case class StandardDeviation(
     }
   }
 
-  override def getDependents = {
+  override def getDependents: Map[String, Aggregate] = {
     if (this.dependentAggregations.isEmpty)
       Map("Variance" -> Variance(dimension, unit))
     else this.dependentAggregations
