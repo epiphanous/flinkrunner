@@ -11,6 +11,16 @@ import org.apache.flink.streaming.api.scala._
 import org.apache.flink.table.api.bridge.scala.StreamTableEnvironment
 import org.apache.flink.util.Collector
 
+/**
+ * A streaming job. Implementers must provide a transform method,
+ * responsible for transforming inputs into outputs.
+ * @param runner
+ *   an instance of [[FlinkRunner]]
+ * @tparam OUT
+ *   the output type
+ * @tparam ADT
+ *   the algebraic data type of the [[FlinkRunner]] instance
+ */
 abstract class StreamJob[
     OUT: TypeInformation,
     ADT <: FlinkEvent: TypeInformation](runner: FlinkRunner[ADT])

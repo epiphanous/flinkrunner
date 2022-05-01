@@ -271,7 +271,10 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
       sourceNameOpt: Option[String] = None
   ): DataStream[E] = {
     val name         = sourceNameOpt.getOrElse(
-      config.getSourceNames(mockSources.keySet.toSeq).head
+      config
+        .getSourceNames(mockSources.keySet.toSeq)
+        .headOption
+        .getOrElse("events")
     )
     val sourceConfig = config.getSourceConfig(name)
     val uid          = sourceConfig.label

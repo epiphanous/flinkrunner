@@ -22,7 +22,13 @@ class StreamJobTest extends PropSpec {
   property("singleSource") {
     val in     = genPop[BWrapper](10)
     val outLen = in.count(_.value.b2.nonEmpty)
-    val config = new FlinkConfig(Array("singleSource"))
+    val config = new FlinkConfig(
+      Array("singleSource"),
+      Some("""
+        |environment = test
+        |mock.edges = true
+        |""".stripMargin)
+    )
     new FlinkRunner[MyAvroADT](
       config,
       Map("in" -> in),
