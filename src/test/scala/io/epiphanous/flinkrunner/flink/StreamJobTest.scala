@@ -1,17 +1,7 @@
 package io.epiphanous.flinkrunner.flink
 
+import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.{FlinkRunner, PropSpec}
-import io.epiphanous.flinkrunner.model.{
-  ARecord,
-  AWrapper,
-  BWrapper,
-  FlinkConfig,
-  MyAvroADT,
-  MySimpleADT,
-  SimpleA,
-  SimpleB,
-  SimpleC
-}
 import org.apache.flink.api.common.JobExecutionResult
 import org.apache.flink.streaming.api.functions.co.KeyedBroadcastProcessFunction
 import org.apache.flink.streaming.api.scala._
@@ -23,11 +13,7 @@ class StreamJobTest extends PropSpec {
     val in     = genPop[BWrapper](10)
     val outLen = in.count(_.value.b2.nonEmpty)
     val config = new FlinkConfig(
-      Array("singleSource"),
-      Some("""
-        |environment = test
-        |mock.edges = true
-        |""".stripMargin)
+      Array("singleSource")
     )
     new FlinkRunner[MyAvroADT](
       config,

@@ -75,7 +75,7 @@ class FlinkConfigSpec extends PropSpec {
   }
 
   property("config env variable") {
-    // NOTE: this only works with sbt test, not intellij test (unless you set intellij env variable TEST_ENV_VALUE=exists)
+    // NOTE: this only works with sbt test, not intellij test (unless you set intellij env variable TEST_ENV_EXISTS=exists)
     config.getString("test.env.exists") shouldEqual "exists"
     config.getString("test.env.not.exists") shouldEqual "fallback"
   }
@@ -192,8 +192,8 @@ class FlinkConfigSpec extends PropSpec {
   property("getSinkConfig") {}
   property("getSinkNames") {}
 
-  property("environment") {
-    config.environment shouldEqual "production"
+  property("default test environment is dev") {
+    config.environment shouldEqual "dev"
   }
   property("isDev") {
     getRunner[NothingADT](
@@ -226,7 +226,7 @@ class FlinkConfigSpec extends PropSpec {
       Array.empty[String],
       Some("environment = prod")
     ).config.isProd shouldEqual true
-    config.isProd shouldEqual true
+    config.isProd shouldEqual false
     config2.isProd shouldEqual false
   }
   property("watermarkStrategy") {
@@ -270,7 +270,7 @@ class FlinkConfigSpec extends PropSpec {
     config2.showPlan shouldEqual false
   }
   property("mockEdges") {
-    config.mockEdges shouldEqual false
+    config.mockEdges shouldEqual true
     config2.mockEdges shouldEqual true
   }
   property("maxLateness") {
