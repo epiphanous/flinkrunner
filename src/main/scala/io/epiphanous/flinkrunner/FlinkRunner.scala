@@ -421,6 +421,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
     val ksb             = KafkaSource
       .builder[E]()
       .setProperties(sourceConfig.properties)
+      .setTopics(sourceConfig.topic)
       .setStartingOffsets(sourceConfig.startingOffsets)
       .setDeserializer(
         getKafkaRecordDeserializationSchema[E](
@@ -647,6 +648,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
       sinkConfig: KafkaSinkConfig): KafkaSink[E] = KafkaSink
     .builder()
     .setKafkaProducerConfig(sinkConfig.properties)
+    .setBootstrapServers(sinkConfig.properties.getProperty("bootstrap.servers"))
     .setRecordSerializer(
       getKafkaRecordSerializationSchema[E](
         sinkConfig
