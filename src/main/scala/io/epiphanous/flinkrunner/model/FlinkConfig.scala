@@ -297,6 +297,7 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
   lazy val schemaRegistryHeaders: util.HashMap[String, String] =
     getProperties("schema.registry.headers").asJavaMap
 
+  @transient /* make transient so we can serialize this config */
   lazy val schemaRegistryClient: SchemaRegistryClient = {
     if (mockEdges) new MockSchemaRegistryClient()
     else {
