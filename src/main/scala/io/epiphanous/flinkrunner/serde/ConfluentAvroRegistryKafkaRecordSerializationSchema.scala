@@ -1,6 +1,7 @@
 package io.epiphanous.flinkrunner.serde
 
 import com.typesafe.scalalogging.LazyLogging
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
 import io.confluent.kafka.serializers.KafkaAvroSerializer
 import io.epiphanous.flinkrunner.model.{FlinkConfig, KafkaSinkConfig}
 import org.apache.flink.connector.kafka.sink.KafkaRecordSerializationSchema
@@ -29,24 +30,27 @@ abstract case class ConfluentAvroRegistryKafkaRecordSerializationSchema[E](
 ) extends KafkaRecordSerializationSchema[E]
     with LazyLogging {
 
-  val schemaRegistryProps: util.HashMap[String, String] =
+  val topic: String = sinkConfig.topic
+
+  lazy val schemaRegistryProps: util.HashMap[String, String] =
     config.schemaRegistryPropsForSink(sinkConfig)
 
+  lazy val schemaRegistryClient: SchemaRegistryClient =
+    config.getSchemaRegistryClient
+
   /** map to store the value, and optionally, key serializers */
-  val valueSerializer = new KafkaAvroSerializer(
-    config.schemaRegistryClient,
+  lazy val valueSerializer = new KafkaAvroSerializer(
+    schemaRegistryClient,
     schemaRegistryProps
   )
 
   /** add the key serializer if needed */
-  val keySerializer: Option[KafkaAvroSerializer] =
+  lazy val keySerializer: Option[KafkaAvroSerializer] =
     if (sinkConfig.isKeyed) {
-      val ks = new KafkaAvroSerializer(config.schemaRegistryClient)
+      val ks = new KafkaAvroSerializer(schemaRegistryClient)
       ks.configure(schemaRegistryProps, true)
       Some(ks)
     } else None
-
-  val topic: String = sinkConfig.topic
 
   /**
    * Convert a flink runner event instance into an optional key and

@@ -1,6 +1,6 @@
 name := "flinkrunner"
 
-lazy val scala212               = "2.12.12"
+lazy val scala212               = "2.12.15"
 lazy val scala211               = "2.11.12"
 lazy val supportedScalaVersions = List(scala212)
 
@@ -39,7 +39,7 @@ val V = new {
   val typesafeConfig     = "1.4.2"
   val guava              = "31.0.1-jre"
   val squants            = "1.8.3"
-  val confluentAvroSerde = "7.0.1"
+  val confluentAvroSerde = "7.1.1"
   val parquet            = "1.12.2"
   val purecsv            = "1.3.10"
 }
@@ -65,8 +65,8 @@ val flinkDeps =
     "org.apache.flink"  % "flink-avro"                     % V.flink % Provided, // ds and table avro format
     "org.apache.flink"  % "flink-avro-confluent-registry"  % V.flink % Provided, // ds and table avro registry format
     // table api support
-    "org.apache.flink" %% "flink-table-api-scala-bridge"   % V.flink, // table api scala
-    "org.apache.flink" %% "flink-table-planner"            % V.flink, // table api
+    "org.apache.flink" %% "flink-table-api-scala-bridge"   % V.flink % Provided, // table api scala
+    "org.apache.flink" %% "flink-table-planner"            % V.flink % Provided, // table api
     "org.apache.flink"  % "flink-csv"                      % V.flink % Provided, // table api csv format
     "org.apache.flink"  % "flink-json"                     % V.flink % Provided, // table api json format
     // test support

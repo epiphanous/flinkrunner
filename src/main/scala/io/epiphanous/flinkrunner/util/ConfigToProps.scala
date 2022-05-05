@@ -1,11 +1,50 @@
 package io.epiphanous.flinkrunner.util
 
-import com.typesafe.config.ConfigObject
+import com.typesafe.config.{ConfigException, ConfigObject}
+import io.epiphanous.flinkrunner.model.FlinkConfig
 
 import java.util.{Properties, List => JList, Map => JMap}
 import scala.collection.JavaConverters._
 
 object ConfigToProps {
+
+  /**
+   * For the requested prefix p, ensure each property keys has a config
+   * value that is the same at p.key and p.config.key.
+   * @param config
+   *   the FlinkConfig
+   * @param p
+   *   the prefix path
+   * @param keys
+   *   a list of property keys
+   * @return
+   *   properties (p.config as a Java Properties object)
+   */
+  def normalizeProps(
+      config: FlinkConfig,
+      p: String,
+      keys: List[String]): Properties = {
+    val props = config.getProperties(s"$p.config")
+    keys.foreach { key =>
+      val pkey  = s"$p.$key"
+      val kBare = config.getStringOpt(pkey)
+      val kProp = Option(props.getProperty(key))
+      if (
+        kBare.nonEmpty && kProp.nonEmpty && !kBare.get.equalsIgnoreCase(
+          kProp.get
+        )
+      )
+        throw new ConfigException.BadValue(
+          pkey,
+          s"$pkey and $p.config.$key are both specified but differ"
+        )
+      if (kBare.isEmpty && kProp.isEmpty)
+        throw new ConfigException.Missing(pkey)
+      if (kBare.nonEmpty && kProp.isEmpty)
+        props.setProperty(key, kBare.get)
+    }
+    props
+  }
 
   implicit class RichConfigObject(val config: Option[ConfigObject]) {
 

@@ -1,6 +1,7 @@
 package io.epiphanous.flinkrunner.model
 
 import io.epiphanous.flinkrunner.model.FlinkConnectorName._
+import io.epiphanous.flinkrunner.util.ConfigToProps
 import io.epiphanous.flinkrunner.util.StreamUtils._
 import org.apache.flink.connector.kafka.source.enumerator.initializer.{
   NoStoppingOffsetsInitializer,
@@ -49,12 +50,18 @@ object SourceConfig {
 
     connector match {
       case Kafka      =>
+        val props = ConfigToProps.normalizeProps(
+          config,
+          p,
+          List("bootstrap.servers")
+        )
         KafkaSourceConfig(
           connector,
           name,
           config.getString(s"$p.topic"),
           config.getBoolean(s"$p.isKeyed"),
           watermarkStrategy,
+          props.getProperty("bootstrap.servers"),
           maxAllowedLateness,
           config.getBooleanOpt(s"$p.bounded").getOrElse(false),
           config.getStringOpt(s"$p.starting.offset") match {
@@ -78,7 +85,7 @@ object SourceConfig {
               OffsetsInitializer.timestamp(o.toLong)
             case _                                          => new NoStoppingOffsetsInitializer()
           },
-          config.getProperties(s"$p.config")
+          props
         )
       case Kinesis    =>
         KinesisSourceConfig(
@@ -148,6 +155,7 @@ final case class KafkaSourceConfig(
     name: String,
     topic: String,
     isKeyed: Boolean,
+    bootstrapServers: String,
     watermarkStrategy: String,
     maxAllowedLateness: Long,
     bounded: Boolean = false,

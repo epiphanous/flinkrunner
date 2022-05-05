@@ -1,6 +1,7 @@
 package io.epiphanous.flinkrunner.serde
 
 import com.typesafe.scalalogging.LazyLogging
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
 import io.confluent.kafka.serializers.KafkaAvroDeserializer
 import io.epiphanous.flinkrunner.model.{FlinkConfig, KafkaSourceConfig}
 import org.apache.flink.api.common.typeinfo.{TypeHint, TypeInformation}
@@ -27,19 +28,22 @@ abstract class ConfluentAvroRegistryKafkaRecordDeserializationSchema[E](
 ) extends KafkaRecordDeserializationSchema[E]
     with LazyLogging {
 
-  val schemaRegistryProps: util.HashMap[String, String] =
-    config.schemaRegistryPropsForSource(sourceConfig)
-
   val topic: String = sourceConfig.topic
 
-  val valueDeserializer = new KafkaAvroDeserializer(
-    config.schemaRegistryClient,
+  lazy val schemaRegistryProps: util.HashMap[String, String] =
+    config.schemaRegistryPropsForSource(sourceConfig)
+
+  lazy val schemaRegistryClient: SchemaRegistryClient =
+    config.getSchemaRegistryClient
+
+  lazy val valueDeserializer = new KafkaAvroDeserializer(
+    schemaRegistryClient,
     schemaRegistryProps
   )
 
-  val keyDeserializer: Option[KafkaAvroDeserializer] =
+  lazy val keyDeserializer: Option[KafkaAvroDeserializer] =
     if (sourceConfig.isKeyed) {
-      val ks = new KafkaAvroDeserializer(config.schemaRegistryClient)
+      val ks = new KafkaAvroDeserializer(schemaRegistryClient)
       ks.configure(schemaRegistryProps, true)
       Some(ks)
     } else None

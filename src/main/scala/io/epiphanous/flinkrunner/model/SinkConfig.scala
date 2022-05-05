@@ -2,6 +2,8 @@ package io.epiphanous.flinkrunner.model
 
 import com.google.common.collect.Maps
 import io.epiphanous.flinkrunner.model.FlinkConnectorName._
+import io.epiphanous.flinkrunner.util.ConfigToProps
+import org.apache.flink.connector.base.DeliveryGuarantee
 
 import java.util
 import java.util.Properties
@@ -32,12 +34,27 @@ object SinkConfig {
 
     connector match {
       case Kafka             =>
+        val props = ConfigToProps.normalizeProps(
+          config,
+          p,
+          List("bootstrap.servers")
+        )
         KafkaSinkConfig(
           connector,
           name,
           config.getString(s"$p.topic"),
           config.getBoolean(s"$p.isKeyed"),
-          config.getProperties(s"$p.config")
+          props.getProperty("bootstrap.servers"),
+          config
+            .getStringOpt(s"$p.delivery.guarantee")
+            .map(s => s.toLowerCase.replaceAll("[^a-z]+", "-")) match {
+            case Some("at-least-once") =>
+              DeliveryGuarantee.AT_LEAST_ONCE
+            case Some("none")          =>
+              DeliveryGuarantee.NONE
+            case None                  => DeliveryGuarantee.EXACTLY_ONCE
+          },
+          props
         )
       case Kinesis           =>
         KinesisSinkConfig(
@@ -116,6 +133,8 @@ final case class KafkaSinkConfig(
     name: String,
     topic: String,
     isKeyed: Boolean,
+    bootstrapServers: String,
+    deliveryGuarantee: DeliveryGuarantee,
     properties: Properties)
     extends SinkConfig
 

@@ -14,6 +14,7 @@ import org.apache.flink.api.common.serialization.{
   SerializationSchema
 }
 import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.connector.base.DeliveryGuarantee
 import org.apache.flink.connector.file.sink.FileSink
 import org.apache.flink.connector.file.src.reader.{
   BulkFormat,
@@ -418,8 +419,10 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
   def fromKafka[E <: ADT: TypeInformation](
       sourceConfig: KafkaSourceConfig
   ): DataStream[E] = {
+    logger.debug(s"sourceConfig = $sourceConfig")
     val ksb             = KafkaSource
       .builder[E]()
+      .setTopics(sourceConfig.topic)
       .setProperties(sourceConfig.properties)
       .setStartingOffsets(sourceConfig.startingOffsets)
       .setDeserializer(
@@ -644,15 +647,21 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
    *   KafkaSink[E]
    */
   def getKafkaSink[E: TypeInformation](
-      sinkConfig: KafkaSinkConfig): KafkaSink[E] = KafkaSink
-    .builder()
-    .setKafkaProducerConfig(sinkConfig.properties)
-    .setRecordSerializer(
-      getKafkaRecordSerializationSchema[E](
-        sinkConfig
+      sinkConfig: KafkaSinkConfig): KafkaSink[E] = {
+    logger.debug(s"sinkConfig = $sinkConfig")
+    KafkaSink
+      .builder()
+      .setBootstrapServers(sinkConfig.bootstrapServers)
+      .setDeliverGuarantee(sinkConfig.deliveryGuarantee)
+      .setTransactionalIdPrefix(sinkConfig.name)
+      .setKafkaProducerConfig(sinkConfig.properties)
+      .setRecordSerializer(
+        getKafkaRecordSerializationSchema[E](
+          sinkConfig
+        )
       )
-    )
-    .build()
+      .build()
+  }
 
   /**
    * Provide a kinesis serialization schema for writing to a kinesis sink
