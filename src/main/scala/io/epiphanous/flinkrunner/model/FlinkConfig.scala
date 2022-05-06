@@ -311,22 +311,24 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
   }
 
   def schemaRegistryPropsForSource(
-      sourceConfig: KafkaSourceConfig): util.HashMap[String, String] = {
-    val p =
-      schemaRegistryProperties
-        .clone()
-        .asInstanceOf[util.HashMap[String, String]]
-    p.putAll(sourceConfig.propertiesMap)
-    p
-  }
+      sourceConfig: KafkaSourceConfig,
+      defaults: Map[String, String]): util.HashMap[String, String] =
+    schemaRegistryPropsFor(sourceConfig.propertiesMap, defaults)
 
   def schemaRegistryPropsForSink(
-      sinkConfig: KafkaSinkConfig): util.HashMap[String, String] = {
+      sinkConfig: KafkaSinkConfig,
+      defaults: Map[String, String]): util.HashMap[String, String] =
+    schemaRegistryPropsFor(sinkConfig.propertiesMap, defaults)
+
+  def schemaRegistryPropsFor(
+      propMap: util.HashMap[String, String],
+      defaults: Map[String, String]): util.HashMap[String, String] = {
     val p =
       schemaRegistryProperties
         .clone()
         .asInstanceOf[util.HashMap[String, String]]
-    p.putAll(sinkConfig.propertiesMap)
+    defaults.foreach { case (k, v) => p.putIfAbsent(k, v) }
+    p.putAll(propMap)
     p
   }
 
