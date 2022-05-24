@@ -7,6 +7,7 @@ import io.confluent.kafka.serializers.{
   KafkaAvroSerializer
 }
 import io.epiphanous.flinkrunner.model.{FlinkConfig, KafkaSinkConfig}
+import org.apache.avro.generic.GenericContainer
 import org.apache.flink.connector.kafka.sink.KafkaRecordSerializationSchema
 import org.apache.kafka.clients.producer.ProducerRecord
 
@@ -29,7 +30,8 @@ import java.{lang, util}
  */
 abstract case class ConfluentAvroRegistryKafkaRecordSerializationSchema[E](
     sinkConfig: KafkaSinkConfig,
-    config: FlinkConfig
+    config: FlinkConfig,
+    schemaRegistryClientOpt: Option[SchemaRegistryClient] = None
 ) extends KafkaRecordSerializationSchema[E]
     with LazyLogging {
 
@@ -45,9 +47,9 @@ abstract case class ConfluentAvroRegistryKafkaRecordSerializationSchema[E](
     )
 
   lazy val schemaRegistryClient: SchemaRegistryClient =
-    config.getSchemaRegistryClient
+    schemaRegistryClientOpt.getOrElse(config.getSchemaRegistryClient)
 
-  /** map to store the value, and optionally, key serializers */
+  /** value serializer */
   lazy val valueSerializer = new KafkaAvroSerializer(
     schemaRegistryClient,
     schemaRegistryProps
@@ -68,10 +70,10 @@ abstract case class ConfluentAvroRegistryKafkaRecordSerializationSchema[E](
    * @param element
    *   E flink runner event instance
    * @return
-   *   ([[Option]][ [[AnyRef]] ], [[AnyRef]] ) (optional key)/value pair to
-   *   serialize into kafka
+   *   ([[Option]][ Any ], Any ) (optional key)/value pair to serialize
+   *   into kafka
    */
-  def toKV(element: E): (Option[AnyRef], AnyRef)
+  def toKV(element: E): (Option[Any], Any)
 
   /**
    * Return the event time associated with the element

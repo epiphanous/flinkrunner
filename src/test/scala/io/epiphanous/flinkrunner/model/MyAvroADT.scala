@@ -58,7 +58,7 @@ object ARecord             {
       |    { "name": "a0", "type": "string" },
       |    { "name": "a1", "type": "int" },
       |    { "name": "a2", "type": "double" },
-      |    { "name": "a3", "type": "long", "logicalType": "time-millis" }
+      |    { "name": "a3", "type": {"type": "long", "logicalType": "timestamp-millis" }}
       |  ]
       |}""".stripMargin
   val SCHEMA$ : Schema     = new Schema.Parser().parse(schemaString)
@@ -113,7 +113,7 @@ object BRecord             {
       |    { "name": "b0", "type": "string" },
       |    { "name": "b1", "type": ["null", "int"] },
       |    { "name": "b2", "type": ["null", "double"] },
-      |    { "name": "b3", "type": "long", "logicalType": "time-millis" }
+      |    { "name": "b3", "type": {"type": "long", "logicalType": "timestamp-millis" }}
       |  ]
       |}""".stripMargin
   val SCHEMA$ : Schema     = new Schema.Parser().parse(schemaString)

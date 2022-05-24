@@ -65,11 +65,15 @@ import scala.util.{Failure, Success, Try}
  * @tparam CV
  *   the cache value type
  */
-abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
+abstract class EnrichmentAsyncFunction[
+    IN,
+    OUT,
+    CK <: AnyRef,
+    CV >: Null <: AnyRef](
     configPrefix: String,
     config: FlinkConfig,
-    cacheLoaderOpt: Option[CacheLoader[String, Option[CV]]] = None,
-    preloaded: Map[String, CV] = Map.empty[String, CV]
+    cacheLoaderOpt: Option[CacheLoader[CK, CV]] = None,
+    preloaded: Map[CK, CV] = Map.empty[CK, CV]
 )(implicit decoder: Decoder[CV])
     extends AsyncFunction[IN, OUT]
     with LazyLogging {
@@ -91,12 +95,12 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
    * constructor (usually just done for testing).
    */
   @transient
-  lazy val defaultCacheLoader: CacheLoader[String, Option[CV]] =
-    new CacheLoader[String, Option[CV]] {
-      override def load(cacheKey: String): Option[CV] = {
+  lazy val defaultCacheLoader =
+    new CacheLoader[CK, CV] {
+      override def load(cacheKey: CK): CV = {
         logger.debug(s"=== cache load $cacheKey")
         preloaded.get(cacheKey) match {
-          case Some(cv) => Some(cv)
+          case Some(cv) => cv
           case None     =>
             api
               .use { client =>
@@ -105,17 +109,17 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
               .unsafeRunSync() match {
               case Left(failure) =>
                 logger.error(
-                  s"Can't load key $cacheKey: ${failure.getMessage}"
+                  s"Can't load key [$cacheKey]: ${failure.getMessage}"
                 )
-                None
-              case Right(value)  => Some(value)
+                null
+              case Right(value)  => value
             }
         }
       }
     }
 
   @transient
-  lazy val cache: LoadingCache[String, Option[CV]] = {
+  lazy val cache: LoadingCache[CK, CV] = {
     logger.debug("=== initializing new cache")
     val expireAfter =
       config.getDuration(s"$configPrefix.cache.expire.after")
@@ -131,7 +135,7 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
       builder.weakKeys()
     if (config.getBoolean(s"$configPrefix.cache.record.stats"))
       builder.recordStats()
-    builder.build[String, Option[CV]](
+    builder.build[CK, CV](
       cacheLoaderOpt.getOrElse(defaultCacheLoader)
     )
   }
@@ -144,7 +148,7 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
   def getConfigPrefix: String = configPrefix
 
   /**
-   * Return an http4s [[Request]] [IO] for the requested cache key/.
+   * Return an http4s [[Request]] [IO] for the requested cache key.
    * Implementers can override this to handle setting the headers or body
    * of the request based on the requested key. The default method here
    * simply makes a simple get request to the cacheKey as if it were a full
@@ -155,8 +159,8 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
    * @return
    *   an http4s [[Request]] [IO]
    */
-  def requestFor(cacheKey: String): Request[IO] =
-    Request[IO](uri = Uri.unsafeFromString(cacheKey))
+  def requestFor(cacheKey: CK): Request[IO] =
+    Request[IO](uri = Uri.unsafeFromString(cacheKey.toString))
 
   /**
    * Flink entry for invoking the async enrichment function
@@ -190,7 +194,7 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
     Future {
       Try {
         val data = cache.get(getCacheKey(in))
-        enrichEvent(in, data)
+        enrichEvent(in, Option(data))
       }
     }
 
@@ -211,7 +215,7 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
    * @return
    *   the cache key
    */
-  def getCacheKey(in: IN): String
+  def getCacheKey(in: IN): CK
 
   /**
    * Construct a sequence of zero or more enriched output events using the

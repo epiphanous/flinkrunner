@@ -9,7 +9,7 @@ class EnrichmentAsyncFunctionSpec extends PropSpec {
 
   property("defaultCacheLoader") {
     val eaf =
-      new EnrichmentAsyncFunction[String, String, MyOrigin](
+      new EnrichmentAsyncFunction[String, String, String, MyOrigin](
         "prefix",
         nothingFlinkRunner.config
       ) {
@@ -21,7 +21,6 @@ class EnrichmentAsyncFunctionSpec extends PropSpec {
       }
     eaf.defaultCacheLoader
       .load("https://httpbin.org/ip")
-      .value
       .origin should fullyMatch regex """\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"""
   }
 }
