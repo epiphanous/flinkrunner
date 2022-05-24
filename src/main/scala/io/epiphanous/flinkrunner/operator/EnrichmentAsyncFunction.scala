@@ -12,10 +12,10 @@ import org.apache.flink.streaming.api.scala.async.{
   ResultFuture
 }
 import org.apache.flink.util.concurrent.Executors
-import org.http4s.EntityDecoder
 import org.http4s.blaze.client.BlazeClientBuilder
 import org.http4s.circe.jsonOf
 import org.http4s.client.Client
+import org.http4s.{EntityDecoder, Request, Uri}
 
 import java.io.{PrintWriter, StringWriter}
 import java.util.concurrent.TimeUnit
@@ -93,18 +93,20 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
   @transient
   lazy val defaultCacheLoader: CacheLoader[String, Option[CV]] =
     new CacheLoader[String, Option[CV]] {
-      override def load(uri: String): Option[CV] = {
-        logger.debug(s"=== cache load $uri")
-        preloaded.get(uri) match {
+      override def load(cacheKey: String): Option[CV] = {
+        logger.debug(s"=== cache load $cacheKey")
+        preloaded.get(cacheKey) match {
           case Some(cv) => Some(cv)
           case None     =>
             api
               .use { client =>
-                client.expect[CV](uri).attempt
+                client.expect[CV](requestFor(cacheKey)).attempt
               }
               .unsafeRunSync() match {
               case Left(failure) =>
-                logger.error(s"Can't load key $uri: ${failure.getMessage}")
+                logger.error(
+                  s"Can't load key $cacheKey: ${failure.getMessage}"
+                )
                 None
               case Right(value)  => Some(value)
             }
@@ -141,6 +143,29 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
    */
   def getConfigPrefix: String = configPrefix
 
+  /**
+   * Return an http4s [[Request]] [IO] for the requested cache key/.
+   * Implementers can override this to handle setting the headers or body
+   * of the request based on the requested key. The default method here
+   * simply makes a simple get request to the cacheKey as if it were a full
+   * HTTP url.
+   * @param cacheKey
+   *   the cache key we're constructing a request to load (treated here as
+   *   a json endpoint url)
+   * @return
+   *   an http4s [[Request]] [IO]
+   */
+  def requestFor(cacheKey: String): Request[IO] =
+    Request[IO](uri = Uri.unsafeFromString(cacheKey))
+
+  /**
+   * Flink entry for invoking the async enrichment function
+   *
+   * @param in
+   *   the input event
+   * @param collector
+   *   a result future for the enriched output
+   */
   override def asyncInvoke(in: IN, collector: ResultFuture[OUT]): Unit =
     asyncInvokeF(in) foreach {
       case Failure(throwable) =>
@@ -170,14 +195,21 @@ abstract class EnrichmentAsyncFunction[IN, OUT, CV <: AnyRef](
     }
 
   /**
-   * Generate the cache key from the input event. For the default cache
-   * loader implementation, this should be a json api endpoint uri. If you
-   * provide your own cache loader implementation, this should be whatever
-   * is appropriate, however, it must be a String.
+   * Generate the cache key from the input event. This must be provided by
+   * the implementor.
+   *
+   * This key works together with the [[requestFor]] method to construct an
+   * appropriate HTTP request to load the cache value appropriate for the
+   * cacheKey. The default [[requestFor]] method simply uses the cache key
+   * as a url and makes a simple GET request assuming that URL is a json
+   * endpoint. However, implementors can override the [[requestFor]] method
+   * to construct whatever kind of HTTP request is need to load the cache
+   * value.
    *
    * @param in
    *   the input event
    * @return
+   *   the cache key
    */
   def getCacheKey(in: IN): String
 
