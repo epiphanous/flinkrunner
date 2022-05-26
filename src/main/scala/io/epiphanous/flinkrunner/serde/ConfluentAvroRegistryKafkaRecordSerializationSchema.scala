@@ -7,7 +7,6 @@ import io.confluent.kafka.serializers.{
   KafkaAvroSerializer
 }
 import io.epiphanous.flinkrunner.model.{
-  AvroRecordEvent,
   EmbeddedAvroRecord,
   FlinkConfig,
   FlinkEvent,
