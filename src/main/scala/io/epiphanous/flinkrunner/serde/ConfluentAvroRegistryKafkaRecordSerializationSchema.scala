@@ -7,6 +7,7 @@ import io.confluent.kafka.serializers.{
   KafkaAvroSerializer
 }
 import io.epiphanous.flinkrunner.model.{FlinkConfig, KafkaSinkConfig}
+import io.epiphanous.flinkrunner.util.SinkDestinationNameUtils.RichSinkDestinationName
 import org.apache.avro.generic.GenericContainer
 import org.apache.flink.connector.kafka.sink.KafkaRecordSerializationSchema
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -95,7 +96,7 @@ abstract case class ConfluentAvroRegistryKafkaRecordSerializationSchema[E](
       keySerializer.flatMap(ks => k.map(kk => ks.serialize(topic, kk)))
     val value  = valueSerializer.serialize(topic, v)
     new ProducerRecord(
-      topic,
+      sinkConfig.expandTemplate(v),
       null,
       eventTime(element, timestamp),
       key.orNull,
