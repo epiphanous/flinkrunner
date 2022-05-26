@@ -6,7 +6,13 @@ import io.confluent.kafka.serializers.{
   KafkaAvroDeserializerConfig,
   KafkaAvroSerializer
 }
-import io.epiphanous.flinkrunner.model.{FlinkConfig, KafkaSinkConfig}
+import io.epiphanous.flinkrunner.model.{
+  AvroRecordEvent,
+  EmbeddedAvroRecord,
+  FlinkConfig,
+  FlinkEvent,
+  KafkaSinkConfig
+}
 import io.epiphanous.flinkrunner.util.SinkDestinationNameUtils.RichSinkDestinationName
 import org.apache.avro.generic.GenericContainer
 import org.apache.flink.connector.kafka.sink.KafkaRecordSerializationSchema
@@ -29,7 +35,8 @@ import java.{lang, util}
  * @param config
  *   flink runner config
  */
-abstract case class ConfluentAvroRegistryKafkaRecordSerializationSchema[E](
+abstract case class ConfluentAvroRegistryKafkaRecordSerializationSchema[
+    E <: FlinkEvent with EmbeddedAvroRecord](
     sinkConfig: KafkaSinkConfig,
     config: FlinkConfig,
     schemaRegistryClientOpt: Option[SchemaRegistryClient] = None
@@ -74,7 +81,8 @@ abstract case class ConfluentAvroRegistryKafkaRecordSerializationSchema[E](
    *   ([[Option]][ Any ], Any ) (optional key)/value pair to serialize
    *   into kafka
    */
-  def toKV(element: E): (Option[Any], Any)
+  def toKV(element: E): (Option[String], GenericContainer) =
+    (element.$recordKey, element.$record)
 
   /**
    * Return the event time associated with the element
@@ -85,7 +93,7 @@ abstract case class ConfluentAvroRegistryKafkaRecordSerializationSchema[E](
    * @return
    *   a long timestamp (milliseconds since epoch)
    */
-  def eventTime(element: E, timestamp: Long): Long
+  def eventTime(element: E, timestamp: Long): Long = element.$timestamp
 
   override def serialize(
       element: E,
