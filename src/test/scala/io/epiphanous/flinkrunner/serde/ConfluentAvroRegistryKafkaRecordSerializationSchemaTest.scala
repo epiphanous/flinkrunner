@@ -53,17 +53,7 @@ class ConfluentAvroRegistryKafkaRecordSerializationSchemaTest
         .asInstanceOf[KafkaSinkConfig], // sink name must match this
       config,
       Some(schemaRegistryClient)
-    ) {
-      override def toKV(element: E): (Option[Any], Any) = {
-        element match {
-          case aw: AWrapper => (Some(aw.$id), aw.value)
-          case bw: BWrapper => (Some(bw.$id), bw.value)
-        }
-      }
-
-      override def eventTime(element: E, timestamp: Long): Long =
-        element.$timestamp
-    }
+    )
 
   // helper to return the class name of the object passed in (without a $ at the end)
   def className[T](obj: T): String = {
@@ -142,7 +132,6 @@ class ConfluentAvroRegistryKafkaRecordSerializationSchemaTest
 
   property("serialize a MyAvroADT instance to a producer record") {
     val e                                     = genOne[BWrapper]
-//    val b = genOne[BWrapper]
     val serializer                            = getSerializerFor(e)
     val (key, value)                          = serializer.toKV(e)
     println(key)
@@ -153,11 +142,10 @@ class ConfluentAvroRegistryKafkaRecordSerializationSchemaTest
       binaryEncode(value, bSchemaInfo)
     val serialized                            = serializer.serialize(e, null, e.$timestamp)
     println(serialized.value().mkString("serialized:", "|", ""))
-    //      serialized.key() shouldEqual expectedKeyBytes.value
+    serialized.key() shouldEqual expectedKeyBytes.value
     serialized.value() shouldEqual expectedValueBytes
-//      serialized.timestamp() shouldEqual event.$timestamp
-//      serialized.topic() shouldEqual serializer.topic
-
+    serialized.timestamp() shouldEqual e.$timestamp
+    serialized.topic() shouldEqual serializer.topic
   }
 
 }

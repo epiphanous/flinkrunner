@@ -1,22 +1,28 @@
 package io.epiphanous.flinkrunner.model
 
+import org.apache.avro.generic.GenericContainer
 import org.apache.avro.specific.SpecificRecord
 import org.apache.avro.{AvroRuntimeException, Schema}
 
 import java.time.Instant
 
-sealed trait MyAvroADT extends FlinkEvent
+sealed trait MyAvroADT extends FlinkEvent with EmbeddedAvroRecord
 
 case class AWrapper(value: ARecord) extends MyAvroADT {
   override val $id: String      = value.a0
   override val $key: String     = $id
   override val $timestamp: Long = value.a3.toEpochMilli
+
+  override def $recordKey: Option[String] = Some($id)
+  override def $record: GenericContainer  = value
 }
 
 case class BWrapper(value: BRecord) extends MyAvroADT {
-  override val $id: String      = value.b0
-  override val $key: String     = $id
-  override val $timestamp: Long = value.b3.toEpochMilli
+  override val $id: String                = value.b0
+  override val $key: String               = $id
+  override val $timestamp: Long           = value.b3.toEpochMilli
+  override def $recordKey: Option[String] = Some($id)
+  override def $record: GenericContainer  = value
 }
 
 case class ARecord(

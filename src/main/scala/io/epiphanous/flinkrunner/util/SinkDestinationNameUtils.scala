@@ -54,11 +54,11 @@ object SinkDestinationNameUtils {
         case s: KafkaSinkConfig         =>
           val normalized = s.topic.toLowerCase
             .replaceAll("[^a-z\\d._\\-]", "")
+            // standardize on periods instead of underscores
             .replaceAll(
               "_",
               "."
-            ) // standardize on periods instead of underscores
-            .substring(0, 248)
+            )
           if (!s.topic.equals(normalized))
             logger.warn(
               s"""kafka topic name template "${s.topic}" normalized to "$normalized""""

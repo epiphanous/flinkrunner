@@ -34,7 +34,7 @@ import java.{lang, util}
  * @param config
  *   flink runner config
  */
-abstract case class ConfluentAvroRegistryKafkaRecordSerializationSchema[
+case class ConfluentAvroRegistryKafkaRecordSerializationSchema[
     E <: FlinkEvent with EmbeddedAvroRecord](
     sinkConfig: KafkaSinkConfig,
     config: FlinkConfig,
