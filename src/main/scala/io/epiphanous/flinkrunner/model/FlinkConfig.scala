@@ -8,6 +8,11 @@ import io.confluent.kafka.schemaregistry.client.{
   SchemaRegistryClient
 }
 import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig
+import io.epiphanous.flinkrunner.model.sink.{KafkaSinkConfig, SinkConfig}
+import io.epiphanous.flinkrunner.model.source.{
+  KafkaSourceConfig,
+  SourceConfig
+}
 import io.epiphanous.flinkrunner.util.ConfigToProps.RichConfigObject
 import io.epiphanous.flinkrunner.util.FileUtils.getResourceOrFile
 import io.epiphanous.flinkrunner.util.StreamUtils.RichProps
@@ -88,6 +93,11 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
 
   def getObjectOption(path: String): Option[ConfigObject] =
     Try(getObject(path)).toOption
+
+  def getObjectList(path: String): List[ConfigObject] = _s(path) match {
+    case ("c", p) => _config.getObjectList(p).asScala.toList
+    case _        => List.empty[ConfigObject]
+  }
 
   def getString(path: String): String =
     _s(path) match {

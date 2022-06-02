@@ -1,6 +1,13 @@
-package io.epiphanous.flinkrunner.model
+package io.epiphanous.flinkrunner.model.source
 
+import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.FlinkConnectorName._
+import io.epiphanous.flinkrunner.model.{
+  FlinkConfig,
+  FlinkConnectorName,
+  RabbitMQConnectionInfo,
+  StreamFormatName
+}
 import io.epiphanous.flinkrunner.util.ConfigToProps
 import io.epiphanous.flinkrunner.util.StreamUtils._
 import org.apache.flink.connector.kafka.source.enumerator.initializer.{
@@ -14,7 +21,9 @@ import java.util.Properties
 import scala.concurrent.duration.DurationInt
 import scala.util.Try
 
-sealed trait SourceConfig {
+trait SourceConfig extends LazyLogging {
+  def config: FlinkConfig
+
   def connector: FlinkConnectorName
 
   def name: String
@@ -56,6 +65,7 @@ object SourceConfig {
           List("bootstrap.servers")
         )
         KafkaSourceConfig(
+          config,
           connector,
           name,
           config.getString(s"$p.topic"),
@@ -89,6 +99,7 @@ object SourceConfig {
         )
       case Kinesis    =>
         KinesisSourceConfig(
+          config,
           connector,
           name,
           config.getString(s"$p.stream"),
@@ -98,29 +109,33 @@ object SourceConfig {
         )
       case File       =>
         val format =
-          config.getStringOpt(s"$p.format").getOrElse("stream")
+          config.getStringOpt(s"$p.format").getOrElse("json")
         FileSourceConfig(
+          config,
           connector,
           name,
           config.getString(s"$p.path"),
-          format.equalsIgnoreCase("bulk"),
-          format,
+          StreamFormatName.withNameInsensitive(format),
           watermarkStrategy,
           maxAllowedLateness,
           config.getProperties(s"$p.config")
         )
       case Socket     =>
+        val format = config.getStringOpt("$p.format").getOrElse("csv")
         SocketSourceConfig(
+          config,
           connector,
           name,
           config.getString(s"$p.host"),
           config.getInt(s"$p.port"),
+          StreamFormatName.withNameInsensitive(format),
           watermarkStrategy,
           maxAllowedLateness,
           config.getProperties(s"$p.config")
         )
       case Collection =>
         CollectionSourceConfig(
+          config,
           connector,
           name,
           name,
@@ -132,6 +147,7 @@ object SourceConfig {
         val c   = config.getProperties(s"$p.config")
         val uri = config.getString(s"$p.uri")
         RabbitMQSourceConfig(
+          config,
           connector,
           name,
           uri,
@@ -149,68 +165,3 @@ object SourceConfig {
     }
   }
 }
-
-final case class KafkaSourceConfig(
-    connector: FlinkConnectorName = Kafka,
-    name: String,
-    topic: String,
-    isKeyed: Boolean,
-    bootstrapServers: String,
-    watermarkStrategy: String,
-    maxAllowedLateness: Long,
-    bounded: Boolean = false,
-    startingOffsets: OffsetsInitializer,
-    stoppingOffsets: OffsetsInitializer,
-    properties: Properties)
-    extends SourceConfig
-
-final case class KinesisSourceConfig(
-    connector: FlinkConnectorName = Kinesis,
-    name: String,
-    stream: String,
-    watermarkStrategy: String,
-    maxAllowedLateness: Long,
-    properties: Properties)
-    extends SourceConfig
-
-final case class FileSourceConfig(
-    connector: FlinkConnectorName = File,
-    name: String,
-    path: String,
-    isBulk: Boolean,
-    format: String,
-    watermarkStrategy: String,
-    maxAllowedLateness: Long,
-    properties: Properties)
-    extends SourceConfig
-
-final case class SocketSourceConfig(
-    connector: FlinkConnectorName = Socket,
-    name: String,
-    host: String,
-    port: Int,
-    watermarkStrategy: String,
-    maxAllowedLateness: Long,
-    properties: Properties)
-    extends SourceConfig
-
-final case class CollectionSourceConfig(
-    connector: FlinkConnectorName = Collection,
-    name: String,
-    topic: String,
-    watermarkStrategy: String,
-    maxAllowedLateness: Long,
-    properties: Properties)
-    extends SourceConfig
-
-final case class RabbitMQSourceConfig(
-    connector: FlinkConnectorName = RabbitMQ,
-    name: String,
-    uri: String,
-    useCorrelationId: Boolean,
-    queue: String,
-    watermarkStrategy: String,
-    maxAllowedLateness: Long,
-    connectionInfo: RabbitMQConnectionInfo,
-    properties: Properties)
-    extends SourceConfig

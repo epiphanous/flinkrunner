@@ -1,27 +1,30 @@
 package io.epiphanous.flinkrunner.serde
 
 import com.typesafe.scalalogging.LazyLogging
-import io.circe.Decoder
-import io.circe.parser._
+import io.epiphanous.flinkrunner.model.FlinkEvent
+import io.epiphanous.flinkrunner.model.source.SourceConfig
 import org.apache.flink.api.common.serialization.DeserializationSchema
-import org.apache.flink.api.common.typeinfo.{TypeHint, TypeInformation}
+import org.apache.flink.api.common.typeinfo.TypeInformation
 
 import java.nio.charset.StandardCharsets
 
 /**
- * Deserialize a json-encoded byte array to an event type. This requires an
- * implicit circe decoder instance for the type to be available.
- * @param sourceName
- *   the name of the source that is being deserialized
+ * Deserialize a json-encoded byte array to an event type.
+ * @param sourceConfig
+ *   the config for the source that is being deserialized
  * @tparam E
  *   the event type
  */
-class CirceJsonDeserializationSchema[E](sourceName: String = "unknown")(
-    implicit
-    circeDecoder: Decoder[E],
-    ev: Null <:< E)
+class JsonDeserializationSchema[E <: FlinkEvent: TypeInformation](
+    sourceConfig: SourceConfig)
     extends DeserializationSchema[E]
     with LazyLogging {
+
+  val typeInfo: TypeInformation[E] = implicitly[TypeInformation[E]]
+
+  val sourceName: String = sourceConfig.name
+
+  val jsonRowDecoder = new JsonRowDecoder[E]
 
   /**
    * Deserialize a json byte array into an event instance or return null if
@@ -33,14 +36,15 @@ class CirceJsonDeserializationSchema[E](sourceName: String = "unknown")(
    */
   override def deserialize(bytes: Array[Byte]): E = {
     val payload = new String(bytes, StandardCharsets.UTF_8)
-    decode[E](payload).toOption match {
-      case Some(event) => event
-      case other       =>
-        logger.error(
-          s"Failed to deserialize JSON payload from source $sourceName: $payload"
-        )
-        other.orNull
-    }
+    jsonRowDecoder
+      .decode(payload)
+      .fold(
+        error =>
+          throw new RuntimeException(
+            s"failed to deserialize event: ${error.getMessage}"
+          ),
+        e => e
+      )
   }
 
   /**
@@ -59,6 +63,6 @@ class CirceJsonDeserializationSchema[E](sourceName: String = "unknown")(
    *   [[TypeInformation]] [E]
    */
   override def getProducedType: TypeInformation[E] =
-    TypeInformation.of(new TypeHint[E] {})
+    typeInfo
 
 }

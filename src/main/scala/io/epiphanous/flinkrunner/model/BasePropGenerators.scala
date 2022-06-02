@@ -1,10 +1,10 @@
 package io.epiphanous.flinkrunner.model
 
+import org.scalacheck.{Arbitrary, Gen}
+
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{Duration, FiniteDuration}
-import org.scalacheck.{Arbitrary, Gen}
-
 import scala.util.Random
 
 trait BasePropGenerators {

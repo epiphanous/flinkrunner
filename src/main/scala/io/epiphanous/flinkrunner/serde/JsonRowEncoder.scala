@@ -1,5 +1,5 @@
 package io.epiphanous.flinkrunner.serde
-import org.apache.flink.api.common.serialization.Encoder
+
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.{
   MapperFeature,
@@ -8,19 +8,12 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.{
   SerializationFeature
 }
 
-import java.io.OutputStream
-import java.nio.charset.StandardCharsets
+import scala.util.Try
 
-/**
- * Encoder for writing an element to a json text file output stream
- *
- * @tparam E
- *   the type to encode into the file
- */
-class JsonFileEncoder[E: TypeInformation](
+class JsonRowEncoder[E: TypeInformation](
     pretty: Boolean = false,
     sortKeys: Boolean = false)
-    extends Encoder[E] {
+    extends RowEncoder[E] {
 
   val klass: Class[E] = implicitly[TypeInformation[E]].getTypeClass
 
@@ -31,11 +24,12 @@ class JsonFileEncoder[E: TypeInformation](
     .configure(SerializationFeature.INDENT_OUTPUT, pretty)
 
   @transient
-  lazy val writer: ObjectWriter = mapper.writerFor(klass)
+  val writer: ObjectWriter = mapper.writerFor(klass)
 
-  override def encode(element: E, stream: OutputStream): Unit =
-    stream.write(
-      (writer.writeValueAsString(element) + System.lineSeparator())
-        .getBytes(StandardCharsets.UTF_8)
+  override def encode(element: E): Try[String] = {
+    Try(
+      writer.writeValueAsString(element) + System
+        .lineSeparator()
     )
+  }
 }

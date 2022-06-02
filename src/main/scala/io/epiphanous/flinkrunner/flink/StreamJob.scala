@@ -22,7 +22,7 @@ import org.apache.flink.util.Collector
  *   the algebraic data type of the [[FlinkRunner]] instance
  */
 abstract class StreamJob[
-    OUT: TypeInformation,
+    OUT <: ADT: TypeInformation,
     ADT <: FlinkEvent: TypeInformation](runner: FlinkRunner[ADT])
     extends LazyLogging {
 
@@ -33,34 +33,42 @@ abstract class StreamJob[
   def transform: DataStream[OUT]
 
   def singleSource[IN <: ADT: TypeInformation](
-      nameOpt: Option[String] = None): DataStream[IN] =
-    runner.fromSource[IN](nameOpt)
+      name: String): DataStream[IN] =
+    runner.fromSource[IN](name)
 
   def connectedSource[
       IN1 <: ADT: TypeInformation,
-      IN2 <: ADT: TypeInformation](
+      IN2 <: ADT: TypeInformation,
+      KEY: TypeInformation](
       source1Name: String,
-      source2Name: String): ConnectedStreams[IN1, IN2] = {
-    val source1 = singleSource[IN1](Some(source1Name))
-    val source2 = singleSource[IN2](Some(source2Name))
-    source1.connect(source2).keyBy[String](_.$key, _.$key)
+      source2Name: String,
+      fun1: IN1 => KEY,
+      fun2: IN2 => KEY): ConnectedStreams[IN1, IN2] = {
+    val source1 = singleSource[IN1](source1Name)
+    val source2 = singleSource[IN2](source2Name)
+    source1.connect(source2).keyBy[KEY](fun1, fun2)
   }
 
   def filterByControlSource[
       CONTROL <: ADT: TypeInformation,
-      DATA <: ADT: TypeInformation](
+      DATA <: ADT: TypeInformation,
+      KEY: TypeInformation](
       controlName: String,
-      dataName: String): DataStream[DATA] = {
+      dataName: String,
+      fun1: CONTROL => KEY,
+      fun2: DATA => KEY): DataStream[DATA] = {
     val controlLockoutDuration =
       config.getDuration("control.lockout.duration").toMillis
 
-    connectedSource[CONTROL, DATA](
+    connectedSource[CONTROL, DATA, KEY](
       controlName,
-      dataName
+      dataName,
+      fun1,
+      fun2
     ).map[Either[CONTROL, DATA]](
       (c: CONTROL) => Left(c),
       (d: DATA) => Right(d)
-    ).keyBy[String]((cd: Either[CONTROL, DATA]) => cd.fold(_.$key, _.$key))
+    ).keyBy[KEY]((cd: Either[CONTROL, DATA]) => cd.fold(fun1, fun2))
       .filterWithState[(Long, Boolean)] { case (cd, lastControlOpt) =>
         cd match {
           case Left(control) =>
@@ -90,16 +98,20 @@ abstract class StreamJob[
 
   def broadcastConnectedSource[
       IN <: ADT: TypeInformation,
-      BC <: ADT: TypeInformation](
+      BC <: ADT: TypeInformation,
+      KEY: TypeInformation](
       keyedSourceName: String,
-      broadcastSourceName: String): BroadcastConnectedStream[IN, BC] = {
+      broadcastSourceName: String,
+      keyedSourceGetKeyFunc: IN => KEY)
+      : BroadcastConnectedStream[IN, BC] = {
     val keyedSource     =
-      singleSource[IN](Some(keyedSourceName)).keyBy((in: IN) => in.$key)
+      singleSource[IN](keyedSourceName)
+        .keyBy[KEY](keyedSourceGetKeyFunc)
     val broadcastSource =
-      singleSource[BC](Some(broadcastSourceName)).broadcast(
-        new MapStateDescriptor[String, BC](
+      singleSource[BC](broadcastSourceName).broadcast(
+        new MapStateDescriptor[KEY, BC](
           s"$keyedSourceName-$broadcastSourceName-state",
-          createTypeInformation[String],
+          createTypeInformation[KEY],
           createTypeInformation[BC]
         )
       )
@@ -142,10 +154,15 @@ abstract class StreamJob[
       s"\nSTARTING FLINK JOB: ${config.jobName} ${config.jobArgs.mkString(" ")}\n"
     )
 
+    // build the job graph
     val stream = transform |# maybeSink
 
-    if (config.showPlan)
-      logger.info(s"PLAN:\n${env.getExecutionPlan}\n")
+    if (config.showPlan) {
+      logger.info(s"\nPLAN:\n${env.getExecutionPlan}\n")
+//      logger.info(
+//        s"\nOUTPUT TABLE STRUCTURE:\n${tableEnv.fromDataStream(transform).getResolvedSchema}\n"
+//      )
+    }
 
     if (config.mockEdges) {
       val limit = limitOpt.getOrElse(

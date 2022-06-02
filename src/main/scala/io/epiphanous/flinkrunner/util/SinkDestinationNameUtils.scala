@@ -1,8 +1,8 @@
 package io.epiphanous.flinkrunner.util
 
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.model._
-import org.apache.avro.generic.GenericContainer
+import io.epiphanous.flinkrunner.model.sink._
+import org.apache.avro.generic.GenericRecord
 
 /**
  * Utilities to support dynamic sink destination names created from the
@@ -27,18 +27,18 @@ object SinkDestinationNameUtils {
       }
 
   def dataFromValue[T](value: T): Map[String, String] = value match {
-    case v if Option(v).isEmpty      =>
+    case v if Option(v).isEmpty   =>
       Map(
         "canonical-name" -> "null",
         "simple-name"    -> "null"
       )
-    case container: GenericContainer =>
+    case container: GenericRecord =>
       val schema = container.getSchema
       Map(
         "canonical-name" -> schema.getFullName,
         "simple-name"    -> schema.getName
       )
-    case _                           =>
+    case _                        =>
       val klass = value.getClass
       Map(
         "canonical-name" -> klass.getCanonicalName,
@@ -68,6 +68,7 @@ object SinkDestinationNameUtils {
         case s: KinesisSinkConfig       => s.stream
         case s: FileSinkConfig          => s.path
         case s: ElasticsearchSinkConfig => s.index
+        case s                          => s.name
       }
       // only expand templates if they contain template characters
       if (template.contains("{"))

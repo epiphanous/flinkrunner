@@ -1,11 +1,22 @@
 package io.epiphanous.flinkrunner.model
 
+import org.apache.avro.reflect.AvroIgnore
+
+/**
+ * A trait defining a flink runner event
+ */
 trait FlinkEvent extends Product with Serializable {
-  def $id: String
 
-  def $key: String
+  /** unique event id */
+  @AvroIgnore def $id: String
 
-  def $timestamp: Long
+  /** partition key */
+  @AvroIgnore def $key: String
 
-  def $active: Boolean = false
+  /** event timestamp */
+  @AvroIgnore def $timestamp: Long
+
+  /** true if event is active (used in some flink jobs) */
+  @AvroIgnore def $active: Boolean = false
+
 }

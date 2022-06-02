@@ -1,7 +1,7 @@
 package io.epiphanous.flinkrunner.algorithm.cardinality
 
-import com.google.common.hash.{Funnel, HashFunction}
 import com.google.common.hash.Hashing.murmur3_128
+import com.google.common.hash.{Funnel, HashFunction}
 
 import scala.collection.immutable
 

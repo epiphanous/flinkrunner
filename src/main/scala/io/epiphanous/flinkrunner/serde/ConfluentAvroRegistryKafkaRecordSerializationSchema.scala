@@ -6,43 +6,39 @@ import io.confluent.kafka.serializers.{
   KafkaAvroDeserializerConfig,
   KafkaAvroSerializer
 }
+import io.epiphanous.flinkrunner.model.sink.KafkaSinkConfig
 import io.epiphanous.flinkrunner.model.{
   EmbeddedAvroRecord,
   FlinkConfig,
-  FlinkEvent,
-  KafkaSinkConfig
+  FlinkEvent
 }
 import io.epiphanous.flinkrunner.util.SinkDestinationNameUtils.RichSinkDestinationName
-import org.apache.avro.generic.GenericContainer
+import org.apache.avro.generic.GenericRecord
 import org.apache.flink.connector.kafka.sink.KafkaRecordSerializationSchema
 import org.apache.kafka.clients.producer.ProducerRecord
 
 import java.{lang, util}
 
 /**
- * A schema to serialize an ADT event using a confluent avro schema
- * registry.
- */
-
-/**
  * A serialization schema that uses a confluent avro schema registry client
- * to serialize an instance of a flink runner ADT into kafka. Implementing
- * classes must provide a `toKV` method to serialize a flink runner ADT
- * instance into a key/value pair to store in Kafka.
+ * to serialize an instance of a flink runner ADT into kafka. The flink
+ * runner ADT class must also extend the [[EmbeddedAvroRecord]] trait.
  * @param sinkConfig
  *   the kafka sink config
  * @param config
  *   flink runner config
  */
 case class ConfluentAvroRegistryKafkaRecordSerializationSchema[
-    E <: FlinkEvent with EmbeddedAvroRecord](
+    E <: FlinkEvent with EmbeddedAvroRecord[A],
+    A <: GenericRecord
+](
     sinkConfig: KafkaSinkConfig,
-    config: FlinkConfig,
     schemaRegistryClientOpt: Option[SchemaRegistryClient] = None
 ) extends KafkaRecordSerializationSchema[E]
     with LazyLogging {
 
-  val topic: String = sinkConfig.topic
+  val topic: String       = sinkConfig.topic
+  val config: FlinkConfig = sinkConfig.config
 
   lazy val schemaRegistryProps: util.HashMap[String, String] =
     config.schemaRegistryPropsForSink(
@@ -70,42 +66,18 @@ case class ConfluentAvroRegistryKafkaRecordSerializationSchema[
       Some(ks)
     } else None
 
-  /**
-   * Convert a flink runner event instance into an optional key and
-   * (required) value pair of types that match the schemas associated with
-   * those types.
-   * @param element
-   *   E flink runner event instance
-   * @return
-   *   ([[Option]][ Any ], Any ) (optional key)/value pair to serialize
-   *   into kafka
-   */
-  def toKV(element: E): (Option[String], GenericContainer) =
-    (element.$recordKey, element.$record)
-
-  /**
-   * Return the event time associated with the element
-   * @param element
-   *   the event
-   * @param timestamp
-   *   a default processing timestamp if the implementor needs it
-   * @return
-   *   a long timestamp (milliseconds since epoch)
-   */
-  def eventTime(element: E, timestamp: Long): Long = element.$timestamp
-
   override def serialize(
       element: E,
       context: KafkaRecordSerializationSchema.KafkaSinkContext,
       timestamp: lang.Long): ProducerRecord[Array[Byte], Array[Byte]] = {
-    val (k, v) = toKV(element)
+    val (k, v) = element.toKV
     val key    =
       keySerializer.flatMap(ks => k.map(kk => ks.serialize(topic, kk)))
     val value  = valueSerializer.serialize(topic, v)
     new ProducerRecord(
       sinkConfig.expandTemplate(v),
       null,
-      eventTime(element, timestamp),
+      element.$timestamp,
       key.orNull,
       value
     )

@@ -2,30 +2,25 @@ package io.epiphanous.flinkrunner
 
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.serde.TextLineDecoder
+import io.epiphanous.flinkrunner.model.sink._
+import io.epiphanous.flinkrunner.model.source._
 import io.epiphanous.flinkrunner.util.BoundedLatenessWatermarkStrategy
-import io.epiphanous.flinkrunner.util.FileUtils.getResourceOrFile
+import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.JobExecutionResult
 import org.apache.flink.api.common.eventtime.WatermarkStrategy
-import org.apache.flink.api.common.functions.RuntimeContext
-import org.apache.flink.api.common.serialization.{
-  BulkWriter,
-  Encoder,
-  SerializationSchema
-}
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.connector.base.DeliveryGuarantee
-import org.apache.flink.connector.file.sink.FileSink
-import org.apache.flink.connector.file.src.reader.{
-  BulkFormat,
-  StreamFormat
+import org.apache.flink.connector.elasticsearch.sink.{
+  Elasticsearch7SinkBuilder,
+  ElasticsearchSink,
+  FlushBackoffType
 }
-import org.apache.flink.connector.file.src.{FileSource, FileSourceSplit}
+import org.apache.flink.connector.file.sink.FileSink
+import org.apache.flink.connector.file.src.FileSource
+import org.apache.flink.connector.file.src.reader.TextLineInputFormat
 import org.apache.flink.connector.jdbc.{
   JdbcConnectionOptions,
   JdbcExecutionOptions,
-  JdbcSink,
-  JdbcStatementBuilder
+  JdbcSink
 }
 import org.apache.flink.connector.kafka.sink.{
   KafkaRecordSerializationSchema,
@@ -33,49 +28,21 @@ import org.apache.flink.connector.kafka.sink.{
 }
 import org.apache.flink.connector.kafka.source.KafkaSource
 import org.apache.flink.connector.kafka.source.reader.deserializer.KafkaRecordDeserializationSchema
-import org.apache.flink.core.fs.Path
-import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner
-import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.{
-  BasePathBucketAssigner,
-  DateTimeBucketAssigner
-}
-import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.{
-  DefaultRollingPolicy,
-  OnCheckpointRollingPolicy
-}
+import org.apache.flink.connector.kinesis.sink.KinesisStreamsSink
+import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.functions.sink.{
   SinkFunction,
   SocketClientSink
 }
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.streaming.connectors.cassandra.CassandraSink
-import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkBase.FlushBackoffType
-import org.apache.flink.streaming.connectors.elasticsearch.{
-  ElasticsearchSinkFunction,
-  RequestIndexer
-}
-import org.apache.flink.streaming.connectors.elasticsearch7.ElasticsearchSink
-import org.apache.flink.streaming.connectors.kinesis.serialization.{
-  KinesisDeserializationSchema,
-  KinesisSerializationSchema
-}
-import org.apache.flink.streaming.connectors.kinesis.{
-  FlinkKinesisConsumer,
-  FlinkKinesisProducer
-}
-import org.apache.flink.streaming.connectors.rabbitmq.{
-  RMQDeserializationSchema,
-  RMQSink,
-  RMQSinkPublishOptions,
-  RMQSource
-}
+import org.apache.flink.streaming.connectors.kinesis.FlinkKinesisConsumer
+import org.apache.flink.streaming.connectors.rabbitmq.{RMQSink, RMQSource}
 import org.apache.flink.table.api.bridge.scala.StreamTableEnvironment
 import org.apache.http.HttpHost
-import org.elasticsearch.client.Requests
 
 import java.net.URL
 import java.time.Duration
-import scala.collection.JavaConverters._
 
 /**
  * Flink Job Invoker
@@ -83,7 +50,7 @@ import scala.collection.JavaConverters._
 abstract class FlinkRunner[ADT <: FlinkEvent](
     val config: FlinkConfig,
     val mockSources: Map[String, Seq[ADT]] = Map.empty[String, Seq[ADT]],
-    val mockSink: List[_] => Unit = (_: List[_]) => ())
+    val mockSink: (List[ADT]) => Unit = { x: List[ADT] => () })
     extends LazyLogging {
 
   val env: StreamExecutionEnvironment  =
@@ -100,7 +67,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
    *   either a list of events output by the job or a
    *   [[JobExecutionResult]]
    */
-  def invoke(jobName: String): Either[List[_], JobExecutionResult]
+  def invoke(jobName: String): Either[List[ADT], JobExecutionResult]
 
   /**
    * Invoke a job based on the job name and arguments passed in and handle
@@ -124,7 +91,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
    * @param result
    *   the result of executing a streaming job
    */
-  def handleResults(result: Either[List[_], JobExecutionResult]): Unit =
+  def handleResults(result: Either[List[ADT], JobExecutionResult]): Unit =
     result match {
       case Left(events)           => mockSink(events)
       case Right(executionResult) =>
@@ -259,7 +226,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
   }
 
   /**
-   * Configure stream source from configuration.
+   * Configure a source stream from configuration.
    *
    * @param sourceNameOpt
    *   an optional name of the source to get its configuration
@@ -269,26 +236,98 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
    *   DataStream[E]
    */
   def fromSource[E <: ADT: TypeInformation](
-      sourceNameOpt: Option[String] = None
+      sourceName: String
   ): DataStream[E] = {
-    val name         = sourceNameOpt.getOrElse(
-      config
-        .getSourceNames(mockSources.keySet.toSeq)
-        .headOption
-        .getOrElse("events")
-    )
-    val sourceConfig = config.getSourceConfig(name)
+    val sourceConfig = _resolveSourceConfig(sourceName)
     val uid          = sourceConfig.label
-    val stream       = (sourceConfig match {
-      case src: CollectionSourceConfig => fromCollection(src)
-      case src: FileSourceConfig       => fromFile(src)
-      case src: KafkaSourceConfig      => fromKafka(src)
-      case src: KinesisSourceConfig    => fromKinesis(src)
-      case src: RabbitMQSourceConfig   => fromRabbitMQ(src)
-      case src: SocketSourceConfig     => fromSocket(src)
-    }).name(uid).uid(uid)
+    val stream       = _sourceToStream[E](sourceConfig).name(uid).uid(uid)
     maybeAssignTimestampsAndWatermarks(stream, sourceConfig)
   }
+
+  /**
+   * Configure an avro-encoded source stream from configuration.
+   *
+   * @param sourceNameOpt
+   *   an optional name of the source to get its configuration
+   * @param fromKV
+   *   implicit function to construct a event from an optional key and avro
+   *   value
+   * @tparam E
+   *   stream element type
+   * @tparam A
+   *   an avro record type (subclass of container)
+   * @return
+   *   DataStream[E]
+   */
+  def fromAvroSource[
+      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+      A <: GenericRecord: TypeInformation](sourceName: String)(implicit
+      fromKV: (Option[String], A) => E): DataStream[E] = {
+    val sourceConfig = _resolveSourceConfig(sourceName)
+    val uid          = sourceConfig.label
+    val stream       = _avroSourceToStream[E, A](sourceConfig).name(uid).uid(uid)
+    maybeAssignTimestampsAndWatermarks(stream, sourceConfig)
+  }
+
+  /**
+   * Helper method to resolve the source configuration
+   * @param sourceNameOpt
+   *   optional source name (defaults to "events")
+   * @return
+   *   SourceConfig
+   */
+  def _resolveSourceConfig(sourceName: String): SourceConfig =
+    config.getSourceConfig(sourceName)
+
+  /**
+   * Helper method to convert a source config into a json-encoded source
+   * data stream.
+   *
+   * @param sourceConfig
+   *   the source config
+   * @tparam E
+   *   the stream event type
+   * @return
+   *   DataStream[E]
+   */
+  def _sourceToStream[E <: ADT: TypeInformation](
+      sourceConfig: SourceConfig): DataStream[E] = sourceConfig match {
+    case src: CollectionSourceConfig => fromCollection[E](src)
+    case src: FileSourceConfig       => fromFile[E](src)
+    case src: KafkaSourceConfig      => fromKafka[E](src)
+    case src: KinesisSourceConfig    => fromKinesis[E](src)
+    case src: RabbitMQSourceConfig   => fromRabbitMQ[E](src)
+    case src: SocketSourceConfig     => fromSocket[E](src)
+  }
+
+  /**
+   * Helper method to convert a source config into an avro-encoded source
+   * data stream. At the moment this is only supported for kafka sources.
+   *
+   * @param sourceConfig
+   *   the source config
+   * @param fromKV
+   *   implicit function to construct a event from an optional key and avro
+   *   value
+   * @tparam E
+   *   stream element type
+   * @tparam A
+   *   an avro record type (subclass of container)
+   * @return
+   *   DataStream[E]
+   */
+  def _avroSourceToStream[
+      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+      A <: GenericRecord: TypeInformation](sourceConfig: SourceConfig)(
+      implicit fromKV: (Option[String], A) => E): DataStream[E] =
+    sourceConfig match {
+      case src: CollectionSourceConfig => fromCollection(src)
+      case src: KafkaSourceConfig      => fromAvroKafka[E, A](src)
+      case src                         =>
+        throw new RuntimeException(
+          s"Avro deserialization not supported for ${src.connector} sources"
+        )
+    }
 
   /**
    * Utility method to get a collection source from configured mockSources
@@ -300,14 +339,14 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
    * @return
    *   a sequence of type E events
    */
-  def getCollectionSource[E <: ADT](name: String): Seq[E] =
+  def getCollectionSource[E <: ADT](name: String): Seq[E] = {
     mockSources
       .getOrElse(
         name,
         throw new RuntimeException(s"missing collection source $name")
       )
-      .filter(_.isInstanceOf[E])
       .map(_.asInstanceOf[E])
+  }
 
   /**
    * Configure stream from collection source. This is used for testing job
@@ -332,31 +371,8 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
       .uid(s"raw:${sourceConfig.label}")
 
   /**
-   * Get a stream format for a file source
-   * @param sourceConfig
-   *   the file source config
-   * @tparam E
-   *   the event type (ADT)
-   * @return
-   *   [[StreamFormat]] [E]
-   */
-  def getFileSourceStreamFormat[E <: ADT](
-      sourceConfig: FileSourceConfig): StreamFormat[E] = ???
-
-  /**
-   * Get a bulk format for a file source
-   * @param sourceConfig
-   *   the file source config
-   * @tparam E
-   *   the event type (ADT)
-   * @return
-   *   [[BulkFormat]] [ E, [[FileSourceSplit]] ]
-   */
-  def getFileSourceBulkFormat[E <: ADT](
-      sourceConfig: FileSourceConfig): BulkFormat[E, FileSourceSplit] = ???
-
-  /**
-   * Configure a file source
+   * Configure a file source.
+   *
    * @param sourceConfig
    *   a source config
    * @tparam E
@@ -367,47 +383,43 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
   def fromFile[E <: ADT: TypeInformation](
       sourceConfig: FileSourceConfig
   ): DataStream[E] = {
-    val path    = new Path(getResourceOrFile(sourceConfig.path))
-    val fsb     =
-      if (sourceConfig.isBulk)
-        FileSource.forBulkFileFormat(
-          getFileSourceBulkFormat[E](sourceConfig),
-          path
-        )
-      else
-        FileSource
-          .forRecordStreamFormat(
-            getFileSourceStreamFormat[E](sourceConfig),
-            path
-          )
-    val monitor = sourceConfig.propertiesMap
-      .getOrDefault("monitor.continuously", "0")
-      .toLong
-    val fs      =
-      if (monitor > 0)
-        fsb.monitorContinuously(Duration.ofSeconds(monitor)).build()
-      else fsb.build()
-    env
-      .fromSource(fs, WatermarkStrategy.noWatermarks(), sourceConfig.label)
-      .name(s"raw:${sourceConfig.label}")
-      .uid(s"raw:${sourceConfig.label}")
+
+    // all this grossness, because flink hasn't built a JsonStreamFormat?
+    (if (sourceConfig.format == StreamFormatName.Json) {
+       val rawName = s"raw:${sourceConfig.label}"
+       val decoder = sourceConfig.getRowDecoder
+       val fsb     =
+         FileSource
+           .forRecordStreamFormat[String](
+             new TextLineInputFormat(),
+             sourceConfig.destination
+           )
+       if (sourceConfig.monitorDuration > 0) {
+         fsb.monitorContinuously(
+           Duration.ofSeconds(sourceConfig.monitorDuration)
+         )
+       }
+       env
+         .fromSource(
+           fsb.build(),
+           WatermarkStrategy.noWatermarks(),
+           rawName
+         )
+         .uid(rawName)
+         .flatMap(line => decoder.decode(line).toOption)
+         .name(sourceConfig.label)
+     } else {
+       // for all other source streams
+       env.fromSource(
+         sourceConfig.getStreamFileSource[E],
+         WatermarkStrategy.noWatermarks(),
+         sourceConfig.label
+       )
+     }).uid(sourceConfig.label)
   }
 
   /**
-   * Provide a record deserialization schema for a kafka source
-   * @param sourceConfig
-   *   kafka source config
-   * @tparam E
-   *   event (ADT) type
-   * @return
-   *   [[KafkaRecordDeserializationSchema]] [E]
-   */
-  def getKafkaRecordDeserializationSchema[E <: ADT](
-      sourceConfig: KafkaSourceConfig)
-      : KafkaRecordDeserializationSchema[E] = ???
-
-  /**
-   * Configure stream from kafka source.
+   * Configure stream from kafka source with json serialization.
    *
    * @param sourceConfig
    *   a source config
@@ -418,17 +430,53 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
    */
   def fromKafka[E <: ADT: TypeInformation](
       sourceConfig: KafkaSourceConfig
+  ): DataStream[E] =
+    _fromKafka(sourceConfig, sourceConfig.getDeserializationSchema[E])
+
+  /**
+   * Configure stream from kafka source with avro serialization.
+   *
+   * @param sourceConfig
+   *   a source config
+   * @tparam E
+   *   stream element type
+   * @tparam A
+   *   avro record type
+   * @return
+   *   DataStream[E]
+   */
+  def fromAvroKafka[
+      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+      A <: GenericRecord: TypeInformation](
+      sourceConfig: KafkaSourceConfig
+  )(implicit fromKV: (Option[String], A) => E): DataStream[E] =
+    _fromKafka(
+      sourceConfig,
+      sourceConfig.getAvroDeserializationSchema[E, A]
+    )
+
+  /**
+   * Helper method to generate kafka source stream
+   * @param sourceConfig
+   *   a kafka source config
+   * @param deserializer
+   *   the deserialization schema
+   * @tparam E
+   *   event type
+   * @return
+   *   DataStream[E]
+   */
+  def _fromKafka[E <: ADT: TypeInformation](
+      sourceConfig: KafkaSourceConfig,
+      deserializer: KafkaRecordDeserializationSchema[E]
   ): DataStream[E] = {
-    logger.debug(s"sourceConfig = $sourceConfig")
     val ksb             = KafkaSource
       .builder[E]()
       .setTopics(sourceConfig.topic)
       .setProperties(sourceConfig.properties)
       .setStartingOffsets(sourceConfig.startingOffsets)
       .setDeserializer(
-        getKafkaRecordDeserializationSchema[E](
-          sourceConfig
-        )
+        deserializer
       )
     val kafkaSrcBuilder =
       if (sourceConfig.bounded)
@@ -445,20 +493,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
   }
 
   /**
-   * Provide a deserialization schema for a kinesis source
-   * @param sourceConfig
-   *   kinesis source config
-   * @tparam E
-   *   event (ADT) type
-   * @return
-   *   [[KinesisDeserializationSchema]] [E]
-   */
-  def getKinesisDeserializationSchema[E <: ADT](
-      sourceConfig: KinesisSourceConfig): KinesisDeserializationSchema[E] =
-    ???
-
-  /**
-   * Configure stream from kinesis.
+   * Configure stream from kinesis using json serialized messages.
    *
    * @param sourceConfig
    *   a source config
@@ -473,23 +508,10 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
     env.addSource(
       new FlinkKinesisConsumer[E](
         sourceConfig.stream,
-        getKinesisDeserializationSchema[E](sourceConfig),
+        sourceConfig.getDeserializationSchema,
         sourceConfig.properties
       )
     )
-
-  /**
-   * Provide a deserialization schema for reading from a rabbit mq source
-   * @param sourceConfig
-   *   rabbit source configuration
-   * @tparam E
-   *   an ADT type
-   * @return
-   *   [[RMQDeserializationSchema]] [E]
-   */
-  def getRMQDeserializationSchema[E <: ADT](
-      sourceConfig: RabbitMQSourceConfig): RMQDeserializationSchema[E] =
-    ???
 
   /**
    * Configure a stream from rabbitmq.
@@ -502,34 +524,18 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
    */
   def fromRabbitMQ[E <: ADT: TypeInformation](
       sourceConfig: RabbitMQSourceConfig): DataStream[E] = {
-    val connConfig            = sourceConfig.connectionInfo.rmqConfig
-    val deserializationSchema =
-      getRMQDeserializationSchema[E](sourceConfig)
+    val connConfig = sourceConfig.connectionInfo.rmqConfig
     env
       .addSource(
         new RMQSource(
           connConfig,
           sourceConfig.queue,
           sourceConfig.useCorrelationId,
-          deserializationSchema
+          sourceConfig.getDeserializationSchema[E]
         )
       )
       .setParallelism(1) // required to get exactly once semantics
   }
-
-  /**
-   * Provide a deserialization schema for a socket source. The schema
-   * receives the data from the socket as a utf-8 string and should return
-   * an ADT type
-   * @param sourceConfig
-   *   socket source config
-   * @tparam E
-   *   event type (ADT)
-   * @return
-   *   [[DeserializationSchema]] [E]
-   */
-  def getSocketDeserializationSchema[E <: ADT](
-      sourceConfig: SocketSourceConfig): TextLineDecoder[E] = ???
 
   /**
    * Configure stream from socket source. This requires a deserialization
@@ -546,7 +552,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
   def fromSocket[E <: ADT: TypeInformation](
       sourceConfig: SocketSourceConfig
   ): DataStream[E] = {
-    val ds = getSocketDeserializationSchema(sourceConfig)
+    val decoder = sourceConfig.getRowDecoder[E]
     env
       .socketTextStream(
         sourceConfig.host,
@@ -554,32 +560,15 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
       )
       .name(s"raw:${sourceConfig.label}")
       .uid(s"raw:${sourceConfig.label}")
-      .map(line => ds.decode(line))
-  }
-
-  val runner: FlinkRunner[ADT] = this
-
-  implicit class EventStreamOps[E: TypeInformation](
-      stream: DataStream[E]) {
-
-    def as[T: TypeInformation]: DataStream[T] = {
-      val name = stream.name
-      stream
-        .filter((e: E) => e.isInstanceOf[T @unchecked])
-        .name(s"filter types $name")
-        .uid(s"filter types $name")
-        .map((e: E) => e.asInstanceOf[T @unchecked])
-        .name(s"cast types $name")
-        .uid(s"cast types $name")
-    }
-
-    def toSink(sinkNameOpt: Option[String] = None): Object =
-      runner.toSink[E](stream, sinkNameOpt)
-
+      .flatMap(line => decoder.decode(line).toOption)
   }
 
   /**
-   * Configure stream sink from configuration.
+   * ************************ SINKS ************************
+   */
+
+  /**
+   * Create a json-encoded stream sink from configuration.
    *
    * @param stream
    *   the data stream to send to sink
@@ -590,22 +579,49 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
    * @return
    *   DataStream[E]
    */
-  def toSink[E: TypeInformation](
+  def toSink[E <: ADT: TypeInformation](
       stream: DataStream[E],
       sinkNameOpt: Option[String] = None
-  ): Object = {
-    val name       = sinkNameOpt.getOrElse(config.getSinkNames.head)
-    val sinkConfig = config.getSinkConfig(name)
-    val label      = sinkConfig.label
+  ): Object =
+    _configToSink[E](stream, _resolveSinkConfig(sinkNameOpt))
+
+  /**
+   * Create an avro-encoded stream sink from configuration.
+   * @param stream
+   *   the data stream to send to the sink
+   * @param sinkNameOpt
+   *   an optional sink name (defaults to first sink)
+   * @tparam E
+   *   the event type
+   * @tparam A
+   *   the avro record type
+   * @return
+   *   the
+   */
+  def toAvroSink[
+      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+      A <: GenericRecord: TypeInformation](
+      stream: DataStream[E],
+      sinkNameOpt: Option[String] = None
+  ): Object =
+    _configToAvroSink[E, A](stream, _resolveSinkConfig(sinkNameOpt))
+
+  def _resolveSinkConfig(sinkNameOpt: Option[String]): SinkConfig =
+    config.getSinkConfig(sinkNameOpt.getOrElse(config.getSinkNames.head))
+
+  def _configToSink[E <: ADT: TypeInformation](
+      stream: DataStream[E],
+      sinkConfig: SinkConfig): Object = {
+    val label = sinkConfig.label
     sinkConfig match {
       case s: KafkaSinkConfig         =>
         stream
-          .sinkTo(getKafkaSink(s))
+          .sinkTo(getKafkaSink[E](s))
           .uid(label)
           .name(label)
       case s: KinesisSinkConfig       =>
         stream
-          .addSink(getKinesisSink[E](s))
+          .sinkTo(getKinesisSink[E](s))
           .uid(label)
           .name(label)
       case s: JdbcSinkConfig          =>
@@ -615,7 +631,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
       case s: SocketSinkConfig        =>
         stream.addSink(getSocketSink[E](s)).uid(label).name(label)
       case s: ElasticsearchSinkConfig =>
-        stream.addSink(getElasticsearchSink[E](s)).uid(label).name(label)
+        stream.sinkTo(getElasticsearchSink[E](s)).uid(label).name(label)
       case s: RabbitMQSinkConfig      =>
         stream.addSink(getRabbitMQSink[E](s)).uid(label).name(label)
       // annoyingly different api for cassandra sinks messes our api up a bit
@@ -624,56 +640,78 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
     }
   }
 
-  /**
-   * Provide a record serialization schema for a kafka sink
-   * @param sinkConfig
-   *   kafka sink config
-   * @tparam E
-   *   event type
-   * @return
-   *   [[KafkaRecordSerializationSchema]] [E]
-   */
-  def getKafkaRecordSerializationSchema[E](
-      sinkConfig: KafkaSinkConfig): KafkaRecordSerializationSchema[E] = ???
+  def _configToAvroSink[
+      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+      A <: GenericRecord: TypeInformation](
+      stream: DataStream[E],
+      sinkConfig: SinkConfig): DataStreamSink[E] = {
+    val label = sinkConfig.label
+    sinkConfig match {
+      case s: KafkaSinkConfig =>
+        stream
+          .sinkTo(getKafkaAvroSink[E, A](s))
+          .uid(label)
+          .name(label)
+      case s                  =>
+        throw new RuntimeException(
+          s"Avro serialization not supported for ${s.connector} sinks"
+        )
+    }
+  }
 
   /**
-   * Create a kafka sink.
+   * Create a json-encoded kafka sink.
    *
    * @param sinkConfig
-   *   a sink configuration
+   *   a kafka sink configuration
    * @tparam E
    *   stream element type
    * @return
    *   KafkaSink[E]
    */
-  def getKafkaSink[E: TypeInformation](
-      sinkConfig: KafkaSinkConfig): KafkaSink[E] = {
-    logger.debug(s"sinkConfig = $sinkConfig")
+  def getKafkaSink[E <: ADT: TypeInformation](
+      sinkConfig: KafkaSinkConfig): KafkaSink[E] =
+    _getKafkaSink(sinkConfig, sinkConfig.getSerializationSchema[E])
+
+  /**
+   * Create an avro-encoded kafka sink.
+   *
+   * @param sinkConfig
+   *   a kafka sink config
+   * @tparam E
+   *   stream element type
+   * @tparam A
+   *   avro record type
+   * @return
+   *   KafkaSink[E]
+   */
+  def getKafkaAvroSink[
+      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+      A <: GenericRecord](sinkConfig: KafkaSinkConfig): KafkaSink[E] =
+    _getKafkaSink(sinkConfig, sinkConfig.getAvroSerializationSchema[E, A])
+
+  /**
+   * Helper method to create a kafka sink with a provided serializer.
+   * @param sinkConfig
+   *   kafka sink configuration
+   * @param serializer
+   *   the serializer
+   * @tparam E
+   *   stream event type
+   * @return
+   *   KafkaSink[E]
+   */
+  def _getKafkaSink[E <: ADT: TypeInformation](
+      sinkConfig: KafkaSinkConfig,
+      serializer: KafkaRecordSerializationSchema[E]): KafkaSink[E] =
     KafkaSink
       .builder()
       .setBootstrapServers(sinkConfig.bootstrapServers)
       .setDeliverGuarantee(sinkConfig.deliveryGuarantee)
       .setTransactionalIdPrefix(sinkConfig.name)
       .setKafkaProducerConfig(sinkConfig.properties)
-      .setRecordSerializer(
-        getKafkaRecordSerializationSchema[E](
-          sinkConfig
-        )
-      )
+      .setRecordSerializer(serializer)
       .build()
-  }
-
-  /**
-   * Provide a kinesis serialization schema for writing to a kinesis sink
-   * @param sinkConfig
-   *   kinesis sink config
-   * @tparam E
-   *   the event type
-   * @return
-   *   [[KinesisSerializationSchema]] [E]
-   */
-  def getKinesisSerializationSchema[E](
-      sinkConfig: KinesisSinkConfig): KinesisSerializationSchema[E] = ???
 
   /**
    * Create a kinesis sink.
@@ -685,32 +723,15 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
    * @return
    *   FlinkKinesisProducer[E]
    */
-  def getKinesisSink[E: TypeInformation](
-      sinkConfig: KinesisSinkConfig): FlinkKinesisProducer[E] = {
-    val sink =
-      new FlinkKinesisProducer[E](
-        getKinesisSerializationSchema(sinkConfig)
-          .asInstanceOf[KinesisSerializationSchema[E]],
-        sinkConfig.properties
-      )
-    sink.setDefaultStream(sinkConfig.stream)
-    sink.setFailOnError(true)
-    sink.setDefaultPartition("0")
-    sink
-  }
-
-  /**
-   * Return a jdbc statement builder to convert an event into a jdbc
-   * statement
-   * @param sinkConfig
-   *   the jdbc sink config
-   * @tparam E
-   *   the event type
-   * @return
-   *   [[JdbcStatementBuilder]] [E]
-   */
-  def getJdbcSinkStatementBuilder[E](
-      sinkConfig: JdbcSinkConfig): JdbcStatementBuilder[E] = ???
+  def getKinesisSink[E <: ADT: TypeInformation](
+      sinkConfig: KinesisSinkConfig): KinesisStreamsSink[E] =
+    KinesisStreamsSink
+      .builder[E]
+      .setStreamName(sinkConfig.stream)
+      .setFailOnError(true)
+      .setSerializationSchema(sinkConfig.getSerializationSchema[E])
+      .setKinesisClientProperties(sinkConfig.properties)
+      .build()
 
   /**
    * Create a jdbc sink.
@@ -721,11 +742,11 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
    * @return
    *   SinkFunction[E]
    */
-  def getJdbcSink[E: TypeInformation](
+  def getJdbcSink[E <: ADT: TypeInformation](
       sinkConfig: JdbcSinkConfig
   ): SinkFunction[E] = {
     val sinkProps         = sinkConfig.properties
-    val statementBuilder  = getJdbcSinkStatementBuilder[E](sinkConfig)
+    val statementBuilder  = sinkConfig.getStatementBuilder[E]
     val executionOptions  = JdbcExecutionOptions
       .builder()
       .withMaxRetries(
@@ -757,43 +778,6 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
   }
 
   /**
-   * Get a row format file encoder
-   * @param sinkConfig
-   *   the streaming file sink config
-   * @tparam E
-   *   the event type to encode
-   * @return
-   *   [[Encoder]] [E]
-   */
-  def getFileSinkEncoder[E](sinkConfig: FileSinkConfig): Encoder[E] = ???
-
-  /**
-   * Get a bulk format file writer factory
-   * @param sinkConfig
-   *   the streaming file sink config
-   * @tparam E
-   *   the event type to encode
-   * @return
-   *   [[BulkWriter.Factory]] [E]
-   */
-  def getBulkFileWriter[E](
-      sinkConfig: FileSinkConfig): BulkWriter.Factory[E] =
-    ???
-
-  /**
-   * Provide a flink bucket assigner for writing to a streaming file sink
-   * @param sinkConfig
-   *   streaming file sink config
-   * @tparam E
-   *   event type
-   * @return
-   *   [[BucketAssigner]] [E, String]
-   */
-  def getBucketAssigner[E](
-      sinkConfig: FileSinkConfig): BucketAssigner[E, String] =
-    ???
-
-  /**
    * Get a row-formatted file sink. Implementor must provide an encoder to
    * convert the adt instance into a row to write to the file (ie, json or
    * csv).
@@ -805,86 +789,9 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
    * @return
    *   [[FileSink]] [E]
    */
-  def getFileSink[E: TypeInformation](
+  def getFileSink[E <: ADT: TypeInformation](
       sinkConfig: FileSinkConfig
-  ): FileSink[E] = {
-    val props               = sinkConfig.properties
-    val bucketCheckInterval =
-      props.getProperty("bucket.check.interval", s"${60000}").toLong
-    val bucketAssigner      =
-      props.getProperty("bucket.assigner.type", "datetime") match {
-        case "none"     => new BasePathBucketAssigner[E]()
-        case "datetime" =>
-          new DateTimeBucketAssigner[E](
-            props.getProperty(
-              "bucket.assigner.datetime.format",
-              "YYYY/MM/DD/HH"
-            )
-          )
-        case "custom"   => getBucketAssigner[E](sinkConfig)
-        case other      =>
-          throw new IllegalArgumentException(
-            s"Unknown bucket assigner type '$other'."
-          )
-      }
-    val path                = new Path(sinkConfig.path)
-    sinkConfig.format match {
-      case "row"  =>
-        val rollingPolicy = DefaultRollingPolicy
-          .builder()
-          .withInactivityInterval(
-            props
-              .getProperty(
-                "bucket.rolling.policy.inactivity.interval",
-                s"${60000}"
-              )
-              .toLong
-          )
-          .withMaxPartSize(
-            props
-              .getProperty(
-                "bucket.rolling.policy.max.part.size",
-                s"${128 * 1024 * 1024}"
-              )
-              .toLong
-          )
-          .withRolloverInterval(
-            props
-              .getProperty(
-                "bucket.rolling.policy.rollover.interval",
-                s"${Long.MaxValue}"
-              )
-              .toLong
-          )
-          .build[E, String]()
-        FileSink
-          .forRowFormat(path, getFileSinkEncoder[E](sinkConfig))
-          .withBucketAssigner(bucketAssigner)
-          .withBucketCheckInterval(bucketCheckInterval)
-          .withRollingPolicy(rollingPolicy)
-          .build()
-      case "bulk" =>
-        val rollingPolicy = OnCheckpointRollingPolicy.build[E, String]()
-        FileSink
-          .forBulkFormat(path, getBulkFileWriter[E](sinkConfig))
-          .withBucketAssigner(bucketAssigner)
-          .withBucketCheckInterval(bucketCheckInterval)
-          .withRollingPolicy(rollingPolicy)
-          .build()
-    }
-  }
-
-  /**
-   * Provide a serialization schema for writing to a socket sink
-   * @param sinkConfig
-   *   a socket sink config
-   * @tparam E
-   *   event type
-   * @return
-   *   [[SerializationSchema]] [E]
-   */
-  def getSocketSerializationSchema[E](
-      sinkConfig: SocketSinkConfig): SerializationSchema[E] = ???
+  ): FileSink[E] = sinkConfig.getFileSink[E]
 
   /**
    * Send stream to a socket sink.
@@ -902,7 +809,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
     new SocketClientSink[E](
       sinkConfig.host,
       sinkConfig.port,
-      getSocketSerializationSchema[E](sinkConfig),
+      sinkConfig.getSerializationSchema[E],
       sinkConfig.maxRetries.getOrElse(0),
       sinkConfig.autoFlush.getOrElse(false)
     )
@@ -929,34 +836,6 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
       .build()
 
   /**
-   * Return a function to index an event into an elasticsearch sink
-   * @param sinkConfig
-   *   the elasticsearch sink config
-   * @tparam E
-   *   the event type
-   * @return
-   *   [[ElasticsearchSinkFunction]] [E]
-   */
-  def getElasticsearchSinkEncoder[E](sinkConfig: ElasticsearchSinkConfig)
-      : ElasticsearchSinkFunction[E] = {
-    (element: E, _: RuntimeContext, indexer: RequestIndexer) =>
-      val data = element.getClass.getDeclaredFields
-        .filterNot(f => f.getName.startsWith("$"))
-        .foldLeft(Map.empty[String, Any]) { case (a, f) =>
-          f.setAccessible(true)
-          val name = f.getName
-          f.get(element) match {
-            case Some(v: Any) => a + (name -> v)
-            case None         => a
-            case v: Any       => a + (name -> v)
-          }
-        }
-        .asJava
-      val req  = Requests.indexRequest(sinkConfig.index).source(data)
-      indexer.add(req)
-  }
-
-  /**
    * Get an elasticsearch sink.
    *
    * @param sinkConfig
@@ -966,78 +845,37 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
    * @return
    *   DataStreamSink[E]
    */
-  def getElasticsearchSink[E: TypeInformation](
+  def getElasticsearchSink[E <: ADT: TypeInformation](
       sinkConfig: ElasticsearchSinkConfig
   ): ElasticsearchSink[E] = {
-    val hosts         = sinkConfig.transports.map { s =>
+    val hosts = sinkConfig.transports.map { s =>
       val url      = new URL(if (s.startsWith("http")) s else s"http://$s")
       val hostname = url.getHost
       val port     = if (url.getPort < 0) 9200 else url.getPort
       new HttpHost(hostname, port, url.getProtocol)
-    }.asJava
-    val esSinkBuilder = new ElasticsearchSink.Builder[E](
-      hosts,
-      getElasticsearchSinkEncoder[E](sinkConfig)
-    )
-
+    }
     val props = sinkConfig.properties
-    Option(props.getProperty("bulk.flush.backoff.enable"))
-      .map(_.toBoolean)
-      .foreach(esSinkBuilder.setBulkFlushBackoff)
-    Option(props.getProperty("bulk.flush.backoff.type"))
-      .map(_.toUpperCase() match {
-        case "CONSTANT"    => FlushBackoffType.CONSTANT
-        case "EXPONENTIAL" => FlushBackoffType.EXPONENTIAL
-        case t             =>
-          logger.warn(
-            s"invalid bulk.flush.backoff.type value '$t'; using CONSTANT"
-          )
-          FlushBackoffType.CONSTANT
-      })
-      .foreach(esSinkBuilder.setBulkFlushBackoffType)
-    Option(
-      props.getProperty("bulk.flush.backoff.delay")
-    ).map(_.toLong)
-      .foreach(esSinkBuilder.setBulkFlushBackoffDelay)
-    Option(props.getProperty("bulk.flush.backoff.retries"))
-      .map(_.toInt)
-      .foreach(esSinkBuilder.setBulkFlushBackoffRetries)
+    val esb   =
+      new Elasticsearch7SinkBuilder[E]
+        .setHosts(hosts: _*)
+        .setEmitter[E](sinkConfig.getEmitter[E])
+        .setBulkFlushBackoffStrategy(
+          FlushBackoffType
+            .valueOf(props.getProperty("bulk.flush.backoff.type", "NONE")),
+          props.getProperty("bulk.flush.backoff.retries", "5").toInt,
+          props.getProperty("bulk.flush.backoff.delay", "1000").toLong
+        )
     Option(props.getProperty("bulk.flush.max.actions"))
       .map(_.toInt)
-      .foreach(esSinkBuilder.setBulkFlushMaxActions)
+      .foreach(esb.setBulkFlushMaxActions)
     Option(props.getProperty("bulk.flush.max.size.mb"))
       .map(_.toInt)
-      .foreach(esSinkBuilder.setBulkFlushMaxSizeMb)
+      .foreach(esb.setBulkFlushMaxSizeMb)
     Option(props.getProperty("bulk.flush.interval.ms"))
       .map(_.toLong)
-      .foreach(esSinkBuilder.setBulkFlushInterval)
-    esSinkBuilder.build()
+      .foreach(esb.setBulkFlushInterval)
+    esb.build()
   }
-
-  /**
-   * Provide a deserialization schema for a socket source
-   * @param sinkConfig
-   *   rabbit sink config
-   * @tparam E
-   *   event type
-   * @return
-   *   [[DeserializationSchema]] [E]
-   */
-  def getRMQSerializationSchema[E](
-      sinkConfig: RabbitMQSinkConfig): SerializationSchema[E] = ???
-
-  /**
-   * Provide an optional rabbit mq sink publish options object
-   * @param sinkConfig
-   *   rabbit sink configuration
-   * @tparam E
-   *   The event type
-   * @return
-   *   [[Option]] [ [[RMQSinkPublishOptions]] [E] ]
-   */
-  def getRMQSinkPublishOptions[E](
-      sinkConfig: RabbitMQSinkConfig): Option[RMQSinkPublishOptions[E]] =
-    None
 
   /**
    * Configure streaming to a rabbitmq sink.
@@ -1048,15 +886,15 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
    * @return
    *   [[RMQSink]] [E]
    */
-  def getRabbitMQSink[E: TypeInformation](
+  def getRabbitMQSink[E <: ADT: TypeInformation](
       sinkConfig: RabbitMQSinkConfig
   ): RMQSink[E] = {
     val name                = sinkConfig.name
     val connConfig          = sinkConfig.connectionInfo.rmqConfig
     val serializationSchema =
-      getRMQSerializationSchema[E](sinkConfig)
+      sinkConfig.getSerializationSchema[E]
 
-    getRMQSinkPublishOptions[E](sinkConfig) match {
+    sinkConfig.getPublishOptions[E] match {
       case Some(p) => new RMQSink(connConfig, serializationSchema, p)
       case None    =>
         sinkConfig.queue match {

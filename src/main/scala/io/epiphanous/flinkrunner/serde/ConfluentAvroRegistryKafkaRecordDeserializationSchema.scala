@@ -6,20 +6,19 @@ import io.confluent.kafka.serializers.{
   KafkaAvroDeserializer,
   KafkaAvroDeserializerConfig
 }
+import io.epiphanous.flinkrunner.model.source.KafkaSourceConfig
 import io.epiphanous.flinkrunner.model.{
   EmbeddedAvroRecord,
   FlinkConfig,
-  FlinkEvent,
-  KafkaSourceConfig
+  FlinkEvent
 }
-import org.apache.avro.generic.GenericContainer
+import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.{TypeHint, TypeInformation}
 import org.apache.flink.connector.kafka.source.reader.deserializer.KafkaRecordDeserializationSchema
 import org.apache.flink.util.Collector
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
 import java.util
-import scala.reflect.{classTag, ClassTag}
 
 /**
  * A deserialization schema that uses a confluent schema registry to
@@ -27,18 +26,21 @@ import scala.reflect.{classTag, ClassTag}
  * that also implements the [[EmbeddedAvroRecord]] trait.
  * @param sourceConfig
  *   config for the kafka source
- * @param config
- *   flink runner config
+ * @param schemaRegistryClientOpt
+ *   an optional schema registry client
  */
 class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
-    E <: FlinkEvent with EmbeddedAvroRecord: ClassTag](
+    E <: FlinkEvent with EmbeddedAvroRecord[A],
+    A <: GenericRecord
+](
     sourceConfig: KafkaSourceConfig,
-    config: FlinkConfig,
-    schemaRegistryClientOpt: Option[SchemaRegistryClient]
-) extends KafkaRecordDeserializationSchema[E]
+    schemaRegistryClientOpt: Option[SchemaRegistryClient] = None
+)(implicit fromKV: (Option[String], A) => E)
+    extends KafkaRecordDeserializationSchema[E]
     with LazyLogging {
 
-  val topic: String = sourceConfig.topic
+  val topic: String       = sourceConfig.topic
+  val config: FlinkConfig = sourceConfig.config
 
   lazy val schemaRegistryProps: util.HashMap[String, String] =
     config.schemaRegistryPropsForSource(
@@ -64,36 +66,22 @@ class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
       Some(ks)
     } else None
 
-  /**
-   * Convert the key/value pair deserialized from kafka into an instances
-   * of a flinkrunner event that implements [[EmbeddedAvroRecord]].
-   * Implementors must provide a constructor for the flink event that takes
-   * two arguments: an Option[String] key and an avro [[GenericContainer]]
-   * value.
-   * @param keyOpt
-   *   An optional key
-   * @param value
-   *   a value
-   * @return
-   */
-  def fromKV(keyOpt: Option[String], value: GenericContainer): E =
-    classTag[E].runtimeClass
-      .asInstanceOf[Class[E]]
-      .getDeclaredConstructor()
-      .newInstance(keyOpt, value)
-
   override def deserialize(
       record: ConsumerRecord[Array[Byte], Array[Byte]],
       out: Collector[E]): Unit = {
-    val key   =
+    val key =
       keyDeserializer.map(ds =>
         ds.deserialize(topic, record.key()).toString
       )
-    val value = valueDeserializer
-      .deserialize(topic, record.value())
-      .asInstanceOf[GenericContainer]
-    if (Option(value).nonEmpty)
-      out.collect(fromKV(key, value))
+    valueDeserializer
+      .deserialize(topic, record.value()) match {
+      case a: GenericRecord        =>
+        out.collect(fromKV(key, a.asInstanceOf[A]))
+      case c if Option(c).nonEmpty =>
+        throw new RuntimeException(
+          s"deserialized value is wrong type of object"
+        )
+    }
   }
 
   override def getProducedType: TypeInformation[E] =

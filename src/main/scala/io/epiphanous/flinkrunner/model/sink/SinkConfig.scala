@@ -1,14 +1,18 @@
-package io.epiphanous.flinkrunner.model
+package io.epiphanous.flinkrunner.model.sink
 
 import com.google.common.collect.Maps
+import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.FlinkConnectorName._
+import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.util.ConfigToProps
 import org.apache.flink.connector.base.DeliveryGuarantee
 
 import java.util
 import java.util.Properties
 
-sealed trait SinkConfig {
+trait SinkConfig extends LazyLogging {
+  def config: FlinkConfig
+
   def connector: FlinkConnectorName
 
   def name: String
@@ -40,6 +44,7 @@ object SinkConfig {
           List("bootstrap.servers")
         )
         KafkaSinkConfig(
+          config,
           connector,
           name,
           config.getString(s"$p.topic"),
@@ -52,47 +57,66 @@ object SinkConfig {
               DeliveryGuarantee.AT_LEAST_ONCE
             case Some("none")          =>
               DeliveryGuarantee.NONE
-            case None                  => DeliveryGuarantee.EXACTLY_ONCE
+            case _                     => DeliveryGuarantee.EXACTLY_ONCE
           },
           props
         )
       case Kinesis           =>
         KinesisSinkConfig(
+          config,
           connector,
           name,
           config.getString(s"$p.stream"),
           config.getProperties(s"$p.config")
         )
       case File              =>
-        val format = config.getStringOpt(s"$p.format").getOrElse("row")
+        val rowFormat = StreamFormatName.withNameInsensitiveOption(
+          config.getString(s"$p.format")
+        )
         FileSinkConfig(
+          config,
           connector,
           name,
           config.getString(s"$p.path"),
-          format.equalsIgnoreCase("bulk"),
-          format,
+          rowFormat.isEmpty,
+          rowFormat,
           config.getProperties(s"$p.config")
         )
       case Socket            =>
         SocketSinkConfig(
+          config,
           connector,
           name,
           config.getString(s"$p.host"),
           config.getInt(s"$p.port"),
+          StreamFormatName.withNameInsensitive(
+            config.getString(s"$p.format")
+          ),
           config.getIntOpt(s"$p.max.retries"),
           config.getBooleanOpt(s"$p.auto.flush"),
           config.getProperties(s"$p.config")
         )
       case Jdbc              =>
         JdbcSinkConfig(
+          config,
           connector,
           name,
           config.getString(s"$p.url"),
           config.getString(s"$p.query"),
+          config
+            .getObjectList(s"$p.params")
+            .map(_.toConfig)
+            .map(c =>
+              JdbcStatementParam(
+                c.getString("name"),
+                c.getString("jdbc.type")
+              )
+            ),
           config.getProperties(s"$p.config")
         )
       case CassandraSink     =>
         CassandraSinkConfig(
+          config,
           connector,
           name,
           config.getString(s"$p.host"),
@@ -101,17 +125,18 @@ object SinkConfig {
         )
       case ElasticsearchSink =>
         ElasticsearchSinkConfig(
+          config,
           connector,
           name,
           config.getStringList(s"$p.transports"),
           config.getString(s"$p.index"),
-          config.getString(s"$p.type"),
           config.getProperties(s"$p.config")
         )
       case RabbitMQ          =>
         val c   = config.getProperties(s"$p.config")
         val uri = config.getString(s"$p.uri")
         RabbitMQSinkConfig(
+          config,
           connector,
           name,
           uri,
@@ -127,74 +152,3 @@ object SinkConfig {
     }
   }
 }
-
-final case class KafkaSinkConfig(
-    connector: FlinkConnectorName = Kafka,
-    name: String,
-    topic: String,
-    isKeyed: Boolean,
-    bootstrapServers: String,
-    deliveryGuarantee: DeliveryGuarantee,
-    properties: Properties)
-    extends SinkConfig
-
-final case class KinesisSinkConfig(
-    connector: FlinkConnectorName = Kinesis,
-    name: String,
-    stream: String,
-    properties: Properties)
-    extends SinkConfig
-
-final case class FileSinkConfig(
-    connector: FlinkConnectorName = File,
-    name: String,
-    path: String,
-    isBulk: Boolean,
-    format: String,
-    properties: Properties)
-    extends SinkConfig
-
-final case class SocketSinkConfig(
-    connector: FlinkConnectorName = Socket,
-    name: String,
-    host: String,
-    port: Int,
-    maxRetries: Option[Int] = None,
-    autoFlush: Option[Boolean] = None,
-    properties: Properties)
-    extends SinkConfig
-
-final case class JdbcSinkConfig(
-    connector: FlinkConnectorName = Jdbc,
-    name: String,
-    url: String,
-    query: String,
-    properties: Properties)
-    extends SinkConfig
-
-final case class CassandraSinkConfig(
-    connector: FlinkConnectorName = CassandraSink,
-    name: String,
-    host: String,
-    query: String,
-    properties: Properties)
-    extends SinkConfig
-
-final case class ElasticsearchSinkConfig(
-    connector: FlinkConnectorName = ElasticsearchSink,
-    name: String,
-    transports: List[String],
-    index: String,
-    `type`: String,
-    properties: Properties)
-    extends SinkConfig
-
-final case class RabbitMQSinkConfig(
-    connector: FlinkConnectorName = RabbitMQ,
-    name: String,
-    uri: String,
-    useCorrelationId: Boolean,
-    connectionInfo: RabbitMQConnectionInfo,
-    queue: Option[String],
-    properties: Properties)
-    extends SinkConfig

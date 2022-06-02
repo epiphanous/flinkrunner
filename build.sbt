@@ -1,7 +1,8 @@
+import avrohugger.types.JavaTimeInstant
+
 name := "flinkrunner"
 
 lazy val scala212               = "2.12.15"
-lazy val scala211               = "2.11.12"
 lazy val supportedScalaVersions = List(scala212)
 
 inThisBuild(
@@ -28,7 +29,7 @@ resolvers += "Local Maven Repository" at "file://" + Path.userHome.absolutePath 
 resolvers += "Confluent Repository" at "https://packages.confluent.io/maven/"
 
 val V = new {
-  val flink              = "1.14.4"
+  val flink              = "1.15.0"
   val logback            = "1.2.11"
   val scalaLogging       = "3.9.4"
   val scalaTest          = "3.2.10"
@@ -48,19 +49,19 @@ val flinkDeps =
   Seq(
     "org.apache.flink" %% "flink-scala"                    % V.flink, // scala
     "org.apache.flink" %% "flink-streaming-scala"          % V.flink, // ds api scala
-    "org.apache.flink" %% "flink-statebackend-rocksdb"     % V.flink,
+    "org.apache.flink"  % "flink-statebackend-rocksdb"     % V.flink,
     // complex event processing
-    "org.apache.flink" %% "flink-cep-scala"                % V.flink % Provided,
+    "org.apache.flink"  % "flink-cep"                      % V.flink % Provided,
     // connectors
     "org.apache.flink"  % "flink-connector-base"           % V.flink % Provided, // ds hybrid source
     "org.apache.flink"  % "flink-connector-files"          % V.flink % Provided, // ds text files
-    "org.apache.flink" %% "flink-parquet"                  % V.flink % Provided, // parquet bulk sink
-    "org.apache.flink" %% "flink-connector-kafka"          % V.flink % Provided,
-    "org.apache.flink" %% "flink-connector-kinesis"        % V.flink % Provided,
+    "org.apache.flink"  % "flink-parquet"                  % V.flink % Provided, // parquet bulk sink
+    "org.apache.flink"  % "flink-connector-kafka"          % V.flink % Provided,
+    "org.apache.flink"  % "flink-connector-kinesis"        % V.flink % Provided,
     "org.apache.flink" %% "flink-connector-cassandra"      % V.flink % Provided,
-    "org.apache.flink" %% "flink-connector-elasticsearch7" % V.flink % Provided,
-    "org.apache.flink" %% "flink-connector-jdbc"           % V.flink % Provided,
-    "org.apache.flink" %% "flink-connector-rabbitmq"       % V.flink % Provided,
+    "org.apache.flink"  % "flink-connector-elasticsearch7" % V.flink % Provided,
+    "org.apache.flink"  % "flink-connector-jdbc"           % V.flink % Provided,
+    "org.apache.flink"  % "flink-connector-rabbitmq"       % V.flink % Provided,
     // avro support
     "org.apache.flink"  % "flink-avro"                     % V.flink % Provided, // ds and table avro format
     "org.apache.flink"  % "flink-avro-confluent-registry"  % V.flink % Provided, // ds and table avro registry format
@@ -70,7 +71,7 @@ val flinkDeps =
     "org.apache.flink"  % "flink-csv"                      % V.flink % Provided, // table api csv format
     "org.apache.flink"  % "flink-json"                     % V.flink % Provided, // table api json format
     // test support
-    "org.apache.flink" %% "flink-test-utils"               % V.flink % Test
+    "org.apache.flink"  % "flink-test-utils"               % V.flink % Test
   )
 
 val loggingDeps = Seq(
@@ -99,7 +100,8 @@ val otherDeps  = Seq(
   "com.typesafe"       % "config"                   % V.typesafeConfig,
   "com.google.guava"   % "guava"                    % V.guava,
   "org.typelevel"     %% "squants"                  % V.squants,
-  "io.kontainers"     %% "purecsv"                  % V.purecsv,
+  "com.chuusai"       %% "shapeless"                % "2.3.9",
+//"io.kontainers"     %% "purecsv"                  % V.purecsv,
   "org.scalatestplus" %% "scalacheck-1-15"          % V.scalaCheck,
   "org.scalactic"     %% "scalactic"                % V.scalaTest % Test,
   "org.scalatest"     %% "scalatest"                % V.scalaTest % Test
@@ -140,6 +142,12 @@ scalacOptions ++= Seq(
   "-Ywarn-unused",
   "-Ywarn-value-discard"
 )
+
+Compile / sourceGenerators += (Compile / avroScalaGenerateSpecific).taskValue
+
+Compile / avroScalaCustomTypes :=
+  avrohugger.format.Standard.defaultTypes
+    .copy(timestampMillis = JavaTimeInstant)
 
 // stays inside the sbt console when we press "ctrl-c" while a Flink programme executes with "run" or "runMain"
 Compile / run / fork := true
