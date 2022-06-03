@@ -764,9 +764,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
   }
 
   /**
-   * Get a row-formatted file sink. Implementor must provide an encoder to
-   * convert the adt instance into a row to write to the file (ie, json or
-   * csv).
+   * Get a file sink.
    *
    * @param sinkConfig
    *   a sink configuration

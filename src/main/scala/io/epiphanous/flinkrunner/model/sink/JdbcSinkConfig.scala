@@ -130,7 +130,7 @@ case class JdbcSinkConfig(
         stmt.close()
         conn.close()
       } match {
-        case Success(ok)        =>
+        case Success(_)         =>
           logger.info(s"created $dbType table $qTable")
         case Failure(exception) => throw exception
       }
