@@ -9,6 +9,7 @@ import org.apache.flink.connector.base.DeliveryGuarantee
 
 import java.util
 import java.util.Properties
+import scala.util.Try
 
 trait SinkConfig extends LazyLogging {
   def config: FlinkConfig
@@ -97,19 +98,40 @@ object SinkConfig {
           config.getProperties(s"$p.config")
         )
       case Jdbc              =>
+        val url        = config.getString(s"$p.url")
+        val driverName = config.getStringOpt(s"$p.connection.driver")
+        val dbType     = driverName
+          .map(d => SupportedDatabase.fromDriver(d))
+          .getOrElse(SupportedDatabase.fromUrl(url))
         JdbcSinkConfig(
           config,
           connector,
           name,
+          dbType,
           config.getString(s"$p.url"),
-          config.getString(s"$p.query"),
+          config.getStringOpt(s"$p.connection.username"),
+          config.getStringOpt(s"$p.connection.password"),
+          config.getStringOpt(s"$p.connection.driver"),
+          config.getDurationOpt(s"$p.connection.timeout"),
+          config.getDurationOpt(s"$p.execution.batch.interval"),
+          config.getIntOpt(s"$p.execution.batch.size"),
+          config.getIntOpt(s"$p.execution.max.retries"),
           config
-            .getObjectList(s"$p.params")
+            .getBooleanOpt(s"$p.table.create.if.not.exists")
+            .getOrElse(true),
+          config.getString(s"$p.table.schema"),
+          config.getString(s"$p.table.name"),
+          config
+            .getObjectList(s"$p.table.columns")
             .map(_.toConfig)
             .map(c =>
-              JdbcStatementParam(
+              JdbcSinkColumn(
                 c.getString("name"),
-                c.getString("jdbc.type")
+                c.getString("type"),
+                Try(c.getInt("precision")).toOption,
+                Try(c.getInt("scale")).toOption,
+                Try(c.getBoolean("nullable")).toOption.getOrElse(true),
+                Try(c.getInt("primaryKey")).toOption
               )
             ),
           config.getProperties(s"$p.config")

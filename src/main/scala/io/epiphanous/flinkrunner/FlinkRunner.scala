@@ -4,10 +4,12 @@ import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.model.sink._
 import io.epiphanous.flinkrunner.model.source._
+import io.epiphanous.flinkrunner.operator.CreateTableJdbcSinkFunction
 import io.epiphanous.flinkrunner.util.BoundedLatenessWatermarkStrategy
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.JobExecutionResult
 import org.apache.flink.api.common.eventtime.WatermarkStrategy
+import org.apache.flink.api.common.functions.RuntimeContext
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.connector.elasticsearch.sink.{
   Elasticsearch7SinkBuilder,
@@ -17,11 +19,9 @@ import org.apache.flink.connector.elasticsearch.sink.{
 import org.apache.flink.connector.file.sink.FileSink
 import org.apache.flink.connector.file.src.FileSource
 import org.apache.flink.connector.file.src.reader.TextLineInputFormat
-import org.apache.flink.connector.jdbc.{
-  JdbcConnectionOptions,
-  JdbcExecutionOptions,
-  JdbcSink
-}
+import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat
+import org.apache.flink.connector.jdbc.internal.connection.SimpleJdbcConnectionProvider
+import org.apache.flink.connector.jdbc.internal.executor.JdbcBatchStatementExecutor
 import org.apache.flink.connector.kafka.sink.{
   KafkaRecordSerializationSchema,
   KafkaSink
@@ -43,6 +43,7 @@ import org.apache.http.HttpHost
 
 import java.net.URL
 import java.time.Duration
+import java.util.function.Function
 
 /**
  * Flink Job Invoker
@@ -50,7 +51,7 @@ import java.time.Duration
 abstract class FlinkRunner[ADT <: FlinkEvent](
     val config: FlinkConfig,
     val mockSources: Map[String, Seq[ADT]] = Map.empty[String, Seq[ADT]],
-    val mockSink: (List[ADT]) => Unit = { x: List[ADT] => () })
+    val mockSink: List[ADT] => Unit = { _: List[ADT] => () })
     extends LazyLogging {
 
   val env: StreamExecutionEnvironment  =
@@ -228,8 +229,8 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
   /**
    * Configure a source stream from configuration.
    *
-   * @param sourceNameOpt
-   *   an optional name of the source to get its configuration
+   * @param sourceName
+   *   name of the source to get its configuration
    * @tparam E
    *   stream element type
    * @return
@@ -247,8 +248,8 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
   /**
    * Configure an avro-encoded source stream from configuration.
    *
-   * @param sourceNameOpt
-   *   an optional name of the source to get its configuration
+   * @param sourceName
+   *   name of the source to get its configuration
    * @param fromKV
    *   implicit function to construct a event from an optional key and avro
    *   value
@@ -271,8 +272,8 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
 
   /**
    * Helper method to resolve the source configuration
-   * @param sourceNameOpt
-   *   optional source name (defaults to "events")
+   * @param sourceName
+   *   source name
    * @return
    *   SourceConfig
    */
@@ -745,36 +746,21 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
   def getJdbcSink[E <: ADT: TypeInformation](
       sinkConfig: JdbcSinkConfig
   ): SinkFunction[E] = {
-    val sinkProps         = sinkConfig.properties
-    val statementBuilder  = sinkConfig.getStatementBuilder[E]
-    val executionOptions  = JdbcExecutionOptions
-      .builder()
-      .withMaxRetries(
-        Option(sinkProps.getProperty("max.retries"))
-          .map(o => o.toInt)
-          .getOrElse(JdbcExecutionOptions.DEFAULT_MAX_RETRY_TIMES)
+    val jdbcOutputFormat =
+      new JdbcOutputFormat[E, E, JdbcBatchStatementExecutor[E]](
+        new SimpleJdbcConnectionProvider(
+          sinkConfig.getJdbcConnectionOptions
+        ),
+        sinkConfig.getJdbcExecutionOptions,
+        (_: RuntimeContext) =>
+          JdbcBatchStatementExecutor.simple(
+            sinkConfig.queryDml,
+            sinkConfig.getStatementBuilder[E],
+            Function.identity[E]
+          ),
+        JdbcOutputFormat.RecordExtractor.identity[E]
       )
-      .withBatchSize(
-        Option(sinkProps.getProperty("batch.size"))
-          .map(o => o.toInt)
-          .getOrElse(JdbcExecutionOptions.DEFAULT_SIZE)
-      )
-      .withBatchIntervalMs(
-        Option(sinkProps.getProperty("batch.interval.ms"))
-          .map(o => o.toLong)
-          .getOrElse(60L)
-      )
-      .build()
-    val connectionOptions =
-      new JdbcConnectionOptions.JdbcConnectionOptionsBuilder()
-        .withUrl(sinkConfig.url)
-        .build()
-    JdbcSink.sink(
-      sinkConfig.query,
-      statementBuilder,
-      executionOptions,
-      connectionOptions
-    )
+    new CreateTableJdbcSinkFunction[E](sinkConfig, jdbcOutputFormat)
   }
 
   /**
