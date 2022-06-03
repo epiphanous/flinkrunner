@@ -239,9 +239,9 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
   def fromSource[E <: ADT: TypeInformation](
       sourceName: String
   ): DataStream[E] = {
-    val sourceConfig = _resolveSourceConfig(sourceName)
+    val sourceConfig = resolveSourceConfig(sourceName)
     val uid          = sourceConfig.label
-    val stream       = _sourceToStream[E](sourceConfig).name(uid).uid(uid)
+    val stream       = configToSource[E](sourceConfig).name(uid).uid(uid)
     maybeAssignTimestampsAndWatermarks(stream, sourceConfig)
   }
 
@@ -264,20 +264,22 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](sourceName: String)(implicit
       fromKV: (Option[String], A) => E): DataStream[E] = {
-    val sourceConfig = _resolveSourceConfig(sourceName)
+    val sourceConfig = resolveSourceConfig(sourceName)
     val uid          = sourceConfig.label
-    val stream       = _avroSourceToStream[E, A](sourceConfig).name(uid).uid(uid)
+    val stream       = configToAvroSource[E, A](sourceConfig).name(uid).uid(uid)
     maybeAssignTimestampsAndWatermarks(stream, sourceConfig)
   }
 
   /**
-   * Helper method to resolve the source configuration
+   * Helper method to resolve the source configuration. Implementers can
+   * override this method to customize source configuration behavior, in
+   * particular, the deserialization schemas used by flink runner.
    * @param sourceName
    *   source name
    * @return
    *   SourceConfig
    */
-  def _resolveSourceConfig(sourceName: String): SourceConfig =
+  def resolveSourceConfig(sourceName: String): SourceConfig =
     config.getSourceConfig(sourceName)
 
   /**
@@ -291,7 +293,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
    * @return
    *   DataStream[E]
    */
-  def _sourceToStream[E <: ADT: TypeInformation](
+  def configToSource[E <: ADT: TypeInformation](
       sourceConfig: SourceConfig): DataStream[E] = sourceConfig match {
     case src: CollectionSourceConfig => fromCollection[E](src)
     case src: FileSourceConfig       => fromFile[E](src)
@@ -303,21 +305,24 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
 
   /**
    * Helper method to convert a source config into an avro-encoded source
-   * data stream. At the moment this is only supported for kafka sources.
+   * data stream. At the moment this is only supported for kafka sources
+   * (and trivially for collection sources for testing).
    *
    * @param sourceConfig
    *   the source config
    * @param fromKV
    *   implicit function to construct a event from an optional key and avro
-   *   value
+   *   value. This is usually provided by making sure the companion object
+   *   of the stream element type mixes in the
+   *   [[io.epiphanous.flinkrunner.model.EmbeddedAvroRecordFactory]] trait.
    * @tparam E
-   *   stream element type
+   *   stream element type (which must mixin [[EmbeddedAvroRecord]] )
    * @tparam A
-   *   an avro record type (subclass of container)
+   *   an avro record type (subclass of generic record)
    * @return
    *   DataStream[E]
    */
-  def _avroSourceToStream[
+  def configToAvroSource[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](sourceConfig: SourceConfig)(
       implicit fromKV: (Option[String], A) => E): DataStream[E] =
@@ -584,7 +589,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
       stream: DataStream[E],
       sinkNameOpt: Option[String] = None
   ): Object =
-    _configToSink[E](stream, _resolveSinkConfig(sinkNameOpt))
+    configToSink[E](stream, resolveSinkConfig(sinkNameOpt))
 
   /**
    * Create an avro-encoded stream sink from configuration.
@@ -605,12 +610,12 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
       stream: DataStream[E],
       sinkNameOpt: Option[String] = None
   ): Object =
-    _configToAvroSink[E, A](stream, _resolveSinkConfig(sinkNameOpt))
+    configToAvroSink[E, A](stream, resolveSinkConfig(sinkNameOpt))
 
-  def _resolveSinkConfig(sinkNameOpt: Option[String]): SinkConfig =
+  def resolveSinkConfig(sinkNameOpt: Option[String]): SinkConfig =
     config.getSinkConfig(sinkNameOpt.getOrElse(config.getSinkNames.head))
 
-  def _configToSink[E <: ADT: TypeInformation](
+  def configToSink[E <: ADT: TypeInformation](
       stream: DataStream[E],
       sinkConfig: SinkConfig): Object = {
     val label = sinkConfig.label
@@ -641,7 +646,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent](
     }
   }
 
-  def _configToAvroSink[
+  def configToAvroSink[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](
       stream: DataStream[E],

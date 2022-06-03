@@ -2,8 +2,8 @@ package io.epiphanous.flinkrunner.model.sink
 
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.FlinkConnectorName.Jdbc
-import io.epiphanous.flinkrunner.model.sink.JdbcSinkConfig.DEFAULT_CONNECTION_TIMEOUT
 import io.epiphanous.flinkrunner.model._
+import io.epiphanous.flinkrunner.model.sink.JdbcSinkConfig.DEFAULT_CONNECTION_TIMEOUT
 import org.apache.flink.connector.jdbc.{
   JdbcConnectionOptions,
   JdbcExecutionOptions,
