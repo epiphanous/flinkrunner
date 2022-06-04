@@ -93,15 +93,15 @@ val circeDeps = Seq(
 ).map(d => "io.circe" %% s"circe-$d" % V.circe)
 
 val otherDeps = Seq(
-  "io.confluent"       % "kafka-streams-avro-serde" % V.confluentAvroSerde,
-  "org.apache.parquet" % "parquet-avro"             % V.parquet   % Provided,
-  "com.beachape"      %% "enumeratum"               % V.enumeratum,
-  "com.typesafe"       % "config"                   % V.typesafeConfig,
-  "com.google.guava"   % "guava"                    % V.guava,
-  "org.typelevel"     %% "squants"                  % V.squants,
-  "org.scalatestplus" %% "scalacheck-1-15"          % V.scalaCheck,
-  "org.scalactic"     %% "scalactic"                % V.scalaTest % Test,
-  "org.scalatest"     %% "scalatest"                % V.scalaTest % Test
+  "io.confluent"       % "kafka-avro-serializer" % V.confluentAvroSerde % Provided,
+  "org.apache.parquet" % "parquet-avro"          % V.parquet            % Provided,
+  "com.beachape"      %% "enumeratum"            % V.enumeratum,
+  "com.typesafe"       % "config"                % V.typesafeConfig,
+  "com.google.guava"   % "guava"                 % V.guava,
+  "org.typelevel"     %% "squants"               % V.squants,
+  "org.scalatestplus" %% "scalacheck-1-15"       % V.scalaCheck,
+  "org.scalactic"     %% "scalactic"             % V.scalaTest          % Test,
+  "org.scalatest"     %% "scalatest"             % V.scalaTest          % Test
 )
 
 /** Exclude any transitive deps using log4j

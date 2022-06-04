@@ -40,15 +40,17 @@
 
 ## Dependencies
 
-`Flinkrunner 4` is [available on maven central](https://mvnrepository.com/artifact/io.epiphanous/flinkrunner_2.12),
-built against Flink 1.15 with Scala 2.12 and JDK 11. You can add it to your sbt project:
+`Flinkrunner 4`
+is [available on maven central](https://mvnrepository.com/artifact/io.epiphanous/flinkrunner_2.12)
+, built against Flink 1.15 with Scala 2.12 and JDK 11. You can add it to your sbt project:
 
 ```sbtshell
 libraryDependencies += "io.epiphanous" %% "flinkrunner" % <flinkrunner-version>
 ```
 
-replacing `<flinkrunner-version>` with the currently released version of [`Flinkrunner` on
-maven](https://mvnrepository.com/artifact/io.epiphanous/flinkrunner_2.12).
+replacing `<flinkrunner-version>` with the currently released version
+of [`Flinkrunner` on maven](https://mvnrepository.com/artifact/io.epiphanous/flinkrunner_2.12)
+.
 
 ### Connectors
 
@@ -63,28 +65,32 @@ Flinkrunner is built to support many common data sources and sinks, including:
 | elasticsearch | flink-connector-elasticsearch7 |   no   | yes  |
 | rabbit mq     | flink-connector-rabbitmq       |  yes   | yes  |
 
-You can add a dependency for a connector you want to use by dropping the library into flink's`lib` directory during
-deployment of your jobs. You should make sure to match the library's version with the compiled flink and scala versions
-of `FlinkRunner`.
+You can add a dependency for a connector you want to use by dropping the library into
+flink's`lib` directory during deployment of your jobs. You should make sure to match the
+library's version with the compiled flink and scala versions of `FlinkRunner`.
 
-To run tests locally in your IDE, you can add a connector library to your dependencies like this:
+To run tests locally in your IDE, you can add a connector library to your dependencies
+like this:
 
-```sbtshell
-libraryDependencies += "org.apache.flink" % "flink-connector-kafka" % <flink-version> % Provided
+```
+"org.apache.flink" % "flink-connector-kafka" % <flink-version> % Provided
 ```
 
-replacing `<flink-version>` with the version of flink used in `FlinkRunner` (like, `1.14.3`).
+replacing `<flink-version>` with the version of flink used in `FlinkRunner`.
 
 ### S3 Support
 
-S3 configuration is important for most flink usage scenarios. Flink has two different implementations to support S3:
+S3 configuration is important for most flink usage scenarios. Flink has two different
+implementations to support S3:
 `flink-s3-fs-presto` and `flink-s3-fs-hadoop`.
 
-* `flink-s3-fs-presto` is registered under the schemes `s3://` and `s3p://` and is preferred for checkpointing to s3.
-* `flink-s3-fs-hadoop` is registered under the schemes `s3://` and `s3a://` and is required for using the streaming file
-  sink.
+* `flink-s3-fs-presto` is registered under the schemes `s3://` and `s3p://` and is
+  preferred for checkpointing to s3.
+* `flink-s3-fs-hadoop` is registered under the schemes `s3://` and `s3a://` and is
+  required for using the streaming file sink.
 
-During deployment, you should copy both s3 dependencies from flink's `opt` directory into the `plugins` directory:
+During deployment, you should copy both s3 dependencies from flink's `opt` directory into
+the `plugins` directory:
 
 ```bash
 cd $FLINK_DIR
@@ -93,18 +99,85 @@ cp ./opt/flink-s3-fs-presto-1.14.3.jar .plugins/s3-fs-preso
 cp ./opt/flink-s3-fs-hadoop-1.14.3.jar .plugins/s3-fs-hadoop
 ```
 
-> *NOTE*:  Do not copy them into flink's `lib` directory, as this will not work! They need to be in their own,
+> *NOTE*:  Do not copy them into flink's `lib` directory, as this will not work! They need
+> to be in their own,
 > individual subdirectories of flink's deployed `plugins` directory.
 
 > *NOTE
-> Further, you'll need to [configure
-access](https://nightlies.apache.org/flink/flink-docs-release-1.14/docs/deployment/filesystems/s3/#configure-access-credentials)
+> Further, you'll need
+>
+to [configure access](https://nightlies.apache.org/flink/flink-docs-release-1.15/docs/deployment/filesystems/s3/#configure-access-credentials)
 > from your job to AWS S3. That is outside the scope of this readme.
+
+### Avro Support
+
+Add the following dependencies if you need Avro support:
+
+```
+"org.apache.flink" % "flink-avro"                     % <flink-version>,
+"org.apache.flink" % "flink-avro-confluent-registry"  % <flink-version>,
+"io.confluent"     % "kafka-avro-serializer"          % <confluent-version>
+```
+
+Note, `kafka-avro-serializer` requires you add an sbt resolver to your
+project's `build.sbt` file to point at Confluent's maven repository:
+
+```
+resolvers += "Confluent Repository" at "https://packages.confluent.io/maven/"
+```
+
+Adding the `kafka-avro-serializer` library to your project will enable Confluent schema
+registry support.
+
+#### Schema Registry Support
+
+Flinkrunner provides support for serializing and deserializing in and out of kafka using
+Confluent's [Avro schema registry](https://docs.confluent.io/platform/current/schema-registry/index.html)
+. To make use of this support, you need to do three things:
+
+1. Iinclude the `kafka-avro-serializer` library in your project (as described above).
+2. Configure your kafka sources and sinks with a `schema.registry` block like so:
+
+```hocon
+sinks {
+  kafka-sink {
+    bootstrap.servers = "kafka:9092"
+    topic = my-topic
+    schema-registry {
+      url = "http://schema-registry:8082" // required
+      // other settings are possible
+      //cache.capacity = 500 // (1000 by default)
+      //props {
+      // --- This optional section holds any confluent configs to pass to 
+      // --- KafkaAvroSerde schema registry classes
+      //use.logical.type.converters = false // (true by default)
+      //specific.avro.reader = false        // (true by default)
+      //}
+    }
+  }
+}
+```
+
+3. Use the `AvroStreamJob` base class for your flink jobs. This is described in more
+   detail below.
+
+### Parquet Support
+
+To enable file sinks to write in parquet format, add the following dependency to your
+build:
+
+```
+"org.apache.parquet" % "parquet-avro" % 1.12.3
+```
+
+Add use the `format = parquet` directive in your file sink configuration (more details
+below).
 
 ### Logging
 
-`Flinkrunner` uses [scala-logging](https://github.com/lightbend/scala-logging) for logging on top of slf4j. In your
-implementation, you must provide a logging backend compatible with slf4j, such as [logback](https://logback.qos.ch/):
+`Flinkrunner` uses [scala-logging](https://github.com/lightbend/scala-logging) for logging
+on top of slf4j. In your implementation, you must provide a logging backend compatible
+with slf4j, such as [logback](https://logback.qos.ch/):
 
 ```sbtshell
 libraryDependencies +=   "ch.qos.logback" % "logback-classic" % "1.2.10"
@@ -118,55 +191,36 @@ If you want to use the complex event processing library, add this dependency:
 "org.apache.flink" %% "flink-cep-scala" % <flink-version>
 ```
 
-### Avro Support
-
-Add the following dependencies if you need Avro support, for either
-data stream or table API jobs:
-
-```
-"org.apache.flink" % "flink-avro"                     % <flink-version>
-"org.apache.flink" % "flink-avro-confluent-registry"  % <flink-version>
-```
-
-Flinkrunner provides abstract classes that you can implement to use a Confluent AVRO Schema Registry to deserialize and
-serialize events from/to kafka topics:
-
-* `ConfluentAvroRegistryKafkaRecordDeserializationSchema` - A deserialization schema that uses a confluent schema
-  registry to deserialize a kafka key/value pair into instances of a `FlinkRunner` ADT. Implementing classes must
-  provide a
-  mapping `fromKV` method to create a sequence of zero or more `FlinkRunner` ADT instances from the key/value pair
-  deserialized from Kafka.
-* `ConfluentAvroRegistryKafkaRecordSerializationSchema` - A serialization schema that uses a confluent avro schema
-  registry client to serialize an instance of a `FlinkRunner` ADT into kafka. Implementing classes must provide a `toKV`
-  method to serialize a `FlinkRunner` ADT instance into a key/value pair to store in Kafka.
-
 ## What is FlinkRunner?
 
-`FlinkRunner` helps you think about your flink jobs at a high level, so you can focus on the event pipeline, not the
-plumbing.
+`FlinkRunner` helps you think about your flink jobs at a high level, so you can focus on
+the event pipeline, not the plumbing.
 
-You have a set of related flink jobs that deal in a related set of data event types. `Flinkrunner` helps you build one
-application to run those related jobs and coordinate the types. It also simplifies setting up common sources and sinks
-to the point where you control them purely with configuration and not code. `Flinkrunner` supports a variety of sources
-and sinks out of the box, including `kafka`, `kinesis`, `jdbc`, `elasticsearch 7+` (sink only), `cassandra` (sink only),
-`filesystems` (including `s3`) and `sockets`. It also has many common operators to help you in writing your own
-transformation logic. Finally, `FlinkRunner` makes it easy to test your transformation logic with property-based
-testing.
+You have a set of related flink jobs that deal in a related set of data event
+types. `Flinkrunner` helps you build one application to run those related jobs and
+coordinate the types. It also simplifies setting up common sources and sinks to the point
+where you control them purely with configuration and not code. `Flinkrunner` supports a
+variety of sources and sinks out of the box, including `kafka`, `kinesis`, `jdbc`
+, `elasticsearch 7+` (sink only), `cassandra` (sink only),
+`filesystems` (including `s3` and `parquet`) and `sockets`. It also has many common
+operators to help you in writing your own transformation logic. Finally, `FlinkRunner`
+makes it easy to test your transformation logic with property-based testing.
 
 ## Get Started
 
 * Define an
-  [*algebraic data type*](http://tpolecat.github.io/presentations/algebraic_types.html#1) (ADT) containing the types
-  that
-  will be used in your flink jobs. Your top level type should inherit from `FlinkEvent`. This will force your types to
-  implement the following methods/fields:
+  [*algebraic data
+  type*](http://tpolecat.github.io/presentations/algebraic_types.html#1) (ADT) containing
+  the types that will be used in your flink jobs. Your top level type should inherit
+  from `FlinkEvent`. This will force your types to implement the following methods/fields:
 
   * `$timestamp: Long` - the event time
   * `$id: String` - a unique id for the event
   * `$key: String` - a key to group events
 
-Additionally, a `FlinkEvent` has an `$active: Boolean` method that defaults to `false`. This is used by `FlinkRunner` in
-some of its abstract job types that you may or may not use. We'll discuss those details later.
+Additionally, a `FlinkEvent` has an `$active: Boolean` method that defaults to `false`.
+This is used by `FlinkRunner` in some of its abstract job types that you may or may not
+use. We'll discuss those details later.
 
   ```scala
   sealed trait MyADTEvent extends FlinkEvent
@@ -182,33 +236,25 @@ final case class OtherEvent($timestamp: Long, $id: String, $key: String,
 extends MyADTEvent
   ```
 
-* Create a `Runner` object using `FlinkRunner`. This is what you use as the entry point
-  to your jobs.
+* Create a `Runner` object using `FlinkRunner`. This is what you use as the entry point to
+  your jobs.
 
   ```scala
 
 object Runner {
 
-def main(args: Array[String]): Unit =
-run(args)
+def main(args: Array[String]): Unit = run(args)
 
 def run(
-args: Array[String],
-optConfig: Option[String] = None,
-sources: Map[String, Seq[Array[Byte]]] = Map.empty
+args: Array[String], optConfig: Option[String] = None, sources: Map[String, Seq[
+Array[Byte]]] = Map.empty
 )(callback: PartialFunction[Stream[MyADTEvent], Unit] = { case _ =>
 ()
-}): Unit = {
-val runner =
-new FlinkRunner[MyADTEvent](
-args,
-new MyADTRunnerFactory(),
-sources,
-optConfig
+}): Unit = { val runner = new FlinkRunner[MyADTEvent](
+args, new MyADTRunnerFactory(), sources, optConfig
 )
 runner.process(callback)
-}
-}
+} }
 
   ```
 
@@ -253,22 +299,21 @@ class MyADTRunnerFactory
 
   ```
 
-* Create your serialization and deserialization schemas for your ADT.
-  You'll most likely need a deserialization schema
-  for your source and either a serialization schema, encoder or jdbc batch adder
-  for your sink. These are simple functions that extend simple existing interfaces.
-  These functions are also simplified by the fact that you've already organized your
-  data as an ADT.
+* Create your serialization and deserialization schemas for your ADT. You'll most likely
+  need a deserialization schema for your source and either a serialization schema, encoder
+  or jdbc batch adder for your sink. These are simple functions that extend simple
+  existing interfaces. These functions are also simplified by the fact that you've already
+  organized your data as an ADT.
 
-* Configure your system, which mainly is about configuring sources and sinks. `Flinkrunner`
+* Configure your system, which mainly is about configuring sources and
+  sinks. `Flinkrunner`
   uses [typesafe config](https://lightbend.github.io/config/) for its configuration,
-  overlaid with command line arguments
-  and optionally augmented with options you pass in programmatically at run time.
-  `Flinkrunner` automatically merges this info for you, so you don't have
-  to parse command line arguments and create `ParameterTool` objects.
-  All of your job methods will be passed an implicit `FlinkConfig` object that
-  gives you access to
-  the current configuration. Further, `FlinkRunner` takes care of configuring your streaming
+  overlaid with command line arguments and optionally augmented with options you pass in
+  programmatically at run time.
+  `Flinkrunner` automatically merges this info for you, so you don't have to parse command
+  line arguments and create `ParameterTool` objects. All of your job methods will be
+  passed an implicit `FlinkConfig` object that gives you access to the current
+  configuration. Further, `FlinkRunner` takes care of configuring your streaming
   environment automatically based on the configuration settings. Perhaps the best part is
   you don't have to write any code at all to setup sources and sinks, as these are all
   grokked by `FlinkRunner` from the config.
@@ -382,7 +427,8 @@ abstract class BaseFlinkJob[DS, OUT <: FlinkEvent : TypeInformation]
 
 ```
 
-More commonly you'll extend from `FlinkJob[IN,OUT]` where `IN` and `OUT` are classes in your ADT.
+More commonly you'll extend from `FlinkJob[IN,OUT]` where `IN` and `OUT` are classes in
+your ADT.
 
 ```scala
 /**
@@ -406,12 +452,13 @@ abstract class FlinkJob[IN <: FlinkEvent : TypeInformation, OUT <: FlinkEvent : 
 }
 ```
 
-Where as `FlinkJob` requires your input stream to be a `DataStream[IN]`, `BaseFlinkJob` let's you set the type of
-input stream, allowing you to use other, more complicated stream types in Flink, such as `ConnectedStreams[IN1,IN2]`
+Where as `FlinkJob` requires your input stream to be a `DataStream[IN]`, `BaseFlinkJob`
+let's you set the type of input stream, allowing you to use other, more complicated stream
+types in Flink, such as `ConnectedStreams[IN1,IN2]`
 or `BroadcastStream[B,D]`.
 
-While you're free to override any of these methods in your job, usually you just need extend `FlinkJob` and provide
-a `transform()`
+While you're free to override any of these methods in your job, usually you just need
+extend `FlinkJob` and provide a `transform()`
 method that converts your `DataStream[IN]` to a `DataStream[OUT]`.
 
 > TODO: Finish README.
