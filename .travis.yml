@@ -2,7 +2,7 @@ language: scala
 scala:
   - 2.12.15
 
-dist: precise
+dist: bionic
 
 jdk:
   - oraclejdk11
