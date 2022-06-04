@@ -81,7 +81,7 @@ abstract class EnrichmentAsyncFunction[
     CV >: Null <: AnyRef](
     configPrefix: String,
     config: FlinkConfig,
-    cacheLoaderOpt: Option[CacheLoader[CK, CV]] = None,
+    cacheLoaderOpt: Option[CacheLoader[CK, Option[CV]]] = None,
     preloaded: Map[CK, CV] = Map.empty[CK, CV]
 )(implicit decoder: Decoder[CV])
     extends AsyncFunction[IN, OUT]
@@ -113,12 +113,12 @@ abstract class EnrichmentAsyncFunction[
     * constructor (usually just done for testing).
     */
   @transient
-  lazy val defaultCacheLoader: CacheLoader[CK, CV] =
-    new CacheLoader[CK, CV] {
-      override def load(cacheKey: CK): CV = {
+  lazy val defaultCacheLoader: CacheLoader[CK, Option[CV]] =
+    new CacheLoader[CK, Option[CV]] {
+      override def load(cacheKey: CK): Option[CV] = {
         logger.debug(s"=== cache load $cacheKey")
         preloaded.get(cacheKey) match {
-          case Some(cv) => cv
+          case Some(cv) => Some(cv)
           case None     =>
             api
               .map(requestMiddleware)
@@ -130,15 +130,15 @@ abstract class EnrichmentAsyncFunction[
                 logger.error(
                   s"Can't load key [$cacheKey]: ${failure.getMessage}"
                 )
-                null
-              case Right(value)  => value
+                None
+              case Right(value)  => Some(value)
             }
         }
       }
     }
 
   @transient
-  lazy val cache: LoadingCache[CK, CV] = {
+  lazy val cache: LoadingCache[CK, Option[CV]] = {
     logger.debug("=== initializing new cache")
     val expireAfter =
       config.getDuration(s"$configPrefix.cache.expire.after")
@@ -149,12 +149,11 @@ abstract class EnrichmentAsyncFunction[
       )
       .maximumSize(config.getLong(s"$configPrefix.cache.max.size"))
       .expireAfterWrite(expireAfter.toMillis, TimeUnit.MILLISECONDS)
-    //      .expireAfterWrite(expireAfter) // for guava 27
     if (!config.getBoolean(s"$configPrefix.cache.use.strong.keys"))
       builder.weakKeys()
     if (config.getBoolean(s"$configPrefix.cache.record.stats"))
       builder.recordStats()
-    builder.build[CK, CV](
+    builder.build[CK, Option[CV]](
       cacheLoaderOpt.getOrElse(defaultCacheLoader)
     )
   }
@@ -220,8 +219,7 @@ abstract class EnrichmentAsyncFunction[
   def asyncInvokeF(in: IN): Future[Try[Seq[OUT]]] =
     Future {
       Try {
-        val data = cache.get(getCacheKey(in))
-        enrichEvent(in, Option(data))
+        enrichEvent(in, cache.get(getCacheKey(in)))
       }
     }
 
