@@ -22,7 +22,7 @@ class EnrichmentAsyncFunctionSpec extends PropSpec {
           Seq(in + ":" + data.map(o => o.origin).getOrElse("not-found"))
       }
     eaf.defaultCacheLoader
-      .load("https://httpbin.org/ip")
+      .load("http://httpbin.org/ip")
       .foreach { o =>
         logger.debug(s"cache call returned $o")
         o.origin should fullyMatch regex """\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"""
