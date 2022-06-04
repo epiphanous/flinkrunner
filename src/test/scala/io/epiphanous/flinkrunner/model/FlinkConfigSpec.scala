@@ -1,18 +1,19 @@
 package io.epiphanous.flinkrunner.model
 
-import io.epiphanous.flinkrunner.PropSpec
+import io.epiphanous.flinkrunner.{FlinkRunner, PropSpec}
 import org.apache.flink.api.common.RuntimeExecutionMode
+import org.apache.flink.api.scala.createTypeInformation
 
 import java.time.Duration
 import scala.collection.JavaConverters.mapAsScalaMapConverter
 import scala.util.Try
 
 class FlinkConfigSpec extends PropSpec {
-  val cmdLineArgs =
+  val cmdLineArgs: Array[String]       =
     Array("someJob", "-a", "--arg1", "fish", "--arg2", "dog")
-  val runner      = getRunner[NothingADT](cmdLineArgs)
-  val config      = runner.config
-  val runner2     = getRunner[NothingADT](
+  val runner: FlinkRunner[NothingADT]  = getRunner[NothingADT](cmdLineArgs)
+  val config: FlinkConfig              = runner.config
+  val runner2: FlinkRunner[NothingADT] = getRunner[NothingADT](
     cmdLineArgs,
     Some("""
       |system.help = "system help"
@@ -44,7 +45,7 @@ class FlinkConfigSpec extends PropSpec {
       |mock.edges = true
       |""".stripMargin)
   )
-  val config2     = runner2.config
+  val config2: FlinkConfig             = runner2.config
 
   property("jobName") {
     config.jobName shouldEqual cmdLineArgs.head
@@ -187,9 +188,7 @@ class FlinkConfigSpec extends PropSpec {
     props.getOrDefault("z", "-") shouldEqual "-"
   }
 
-  property("getSourceConfig") {}
   property("getSourceNames") {}
-  property("getSinkConfig") {}
   property("getSinkNames") {}
 
   property("default test environment is dev") {
@@ -274,10 +273,10 @@ class FlinkConfigSpec extends PropSpec {
     config2.mockEdges shouldEqual true
   }
   property("maxLateness") {
-    config2.maxLateness shouldEqual Duration.ofSeconds(90)
+    config2.maxLateness shouldEqual Some(Duration.ofSeconds(90))
   }
   property("maxIdleness") {
-    config2.maxIdleness shouldEqual Duration.ofMinutes(14)
+    config2.maxIdleness shouldEqual Some(Duration.ofMinutes(14))
   }
   property("executionRuntimeMode") {
     config.executionRuntimeMode shouldEqual RuntimeExecutionMode.STREAMING

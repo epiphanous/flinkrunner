@@ -6,13 +6,11 @@ import org.apache.flink.api.common.eventtime.{
   WatermarkStrategy
 }
 
-import java.time.Duration
-
 class BoundedLatenessWatermarkStrategy[E <: FlinkEvent](
-    val maxAllowedLateness: Duration,
-    val streamID: String)
+    maxAllowedLateness: Long,
+    streamID: String)
     extends WatermarkStrategy[E] {
   override def createWatermarkGenerator(
       context: WatermarkGeneratorSupplier.Context) =
-    new BoundedLatenessGenerator(maxAllowedLateness.toMillis, streamID)
+    new BoundedLatenessGenerator(maxAllowedLateness, streamID)
 }

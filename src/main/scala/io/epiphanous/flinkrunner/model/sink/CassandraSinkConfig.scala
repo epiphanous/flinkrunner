@@ -1,17 +1,28 @@
 package io.epiphanous.flinkrunner.model.sink
 
-import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.model.FlinkConnectorName.CassandraSink
-import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkConnectorName}
+import io.epiphanous.flinkrunner.model.{
+  FlinkConfig,
+  FlinkConnectorName,
+  FlinkEvent
+}
+import org.apache.flink.streaming.api.scala.DataStream
+import org.apache.flink.streaming.connectors.cassandra.CassandraSink
 
-import java.util.Properties
-
-case class CassandraSinkConfig(
-    config: FlinkConfig,
-    connector: FlinkConnectorName = CassandraSink,
+case class CassandraSinkConfig[ADT <: FlinkEvent](
     name: String,
-    host: String,
-    query: String,
-    properties: Properties)
-    extends SinkConfig
-    with LazyLogging
+    config: FlinkConfig,
+    connector: FlinkConnectorName = FlinkConnectorName.CassandraSink
+) extends SinkConfig[ADT] {
+
+  val host: String  = config.getString(pfx("host"))
+  val query: String = config.getString(pfx("query"))
+
+  def getSink[E <: ADT](stream: DataStream[E]): CassandraSink[E] =
+    CassandraSink
+      .addSink(stream)
+      .setHost(host)
+      .setQuery(query)
+      .build()
+      .uid(label)
+      .name(label)
+}

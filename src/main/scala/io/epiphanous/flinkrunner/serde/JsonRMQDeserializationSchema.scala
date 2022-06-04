@@ -7,12 +7,13 @@ import io.epiphanous.flinkrunner.model.source.RabbitMQSourceConfig
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.connectors.rabbitmq.RMQDeserializationSchema
 
-class JsonRMQDeserializationSchema[E <: FlinkEvent: TypeInformation](
-    rabbitMQSourceConfig: RabbitMQSourceConfig)
+class JsonRMQDeserializationSchema[
+    E <: ADT: TypeInformation,
+    ADT <: FlinkEvent](rabbitMQSourceConfig: RabbitMQSourceConfig[ADT])
     extends RMQDeserializationSchema[E]
     with LazyLogging {
   val deserializationSchema =
-    new JsonDeserializationSchema[E](rabbitMQSourceConfig)
+    new JsonDeserializationSchema[E, ADT](rabbitMQSourceConfig)
   override def deserialize(
       envelope: Envelope,
       properties: AMQP.BasicProperties,

@@ -8,9 +8,9 @@ lazy val supportedScalaVersions = List(scala212)
 inThisBuild(
   List(
     organization := "io.epiphanous",
-    homepage := Some(url("https://github.com/epiphanous/flinkrunner")),
-    licenses := List("MIT" -> url("https://opensource.org/licenses/MIT")),
-    developers := List(
+    homepage     := Some(url("https://github.com/epiphanous/flinkrunner")),
+    licenses     := List("MIT" -> url("https://opensource.org/licenses/MIT")),
+    developers   := List(
       Developer(
         "nextdude",
         "Robert Lyons",
@@ -22,27 +22,27 @@ inThisBuild(
   )
 )
 
-Test / envVars := Map("TEST_ENV_EXISTS" -> "exists")
+Test / envVars           := Map("TEST_ENV_EXISTS" -> "exists")
 Test / parallelExecution := false
-Test / fork := true
+Test / fork              := true
 resolvers += "Local Maven Repository" at "file://" + Path.userHome.absolutePath + "/.m2/repository"
 resolvers += "Confluent Repository" at "https://packages.confluent.io/maven/"
 
 val V = new {
-  val flink              = "1.15.0"
-  val logback            = "1.2.11"
-  val scalaLogging       = "3.9.4"
-  val scalaTest          = "3.2.10"
-  val scalaCheck         = "3.2.10.0"
-  val circe              = "0.14.1"
-  val http4s             = "0.23.9"
+  val flink        = "1.15.0"
+  val logback      = "1.2.11"
+  val scalaLogging = "3.9.4"
+  val scalaTest    = "3.2.12"
+  val scalaCheck   =
+    "3.2.10.0" // 3.2.11.0 throws a conflict on scala-xml with scala-compiler
+  val circe              = "0.14.2"
+  val http4s             = "0.23.12"
   val enumeratum         = "1.7.0"
   val typesafeConfig     = "1.4.2"
-  val guava              = "31.0.1-jre"
+  val guava              = "31.1-jre"
   val squants            = "1.8.3"
   val confluentAvroSerde = "7.1.1"
-  val parquet            = "1.12.2"
-  val purecsv            = "1.3.10"
+  val parquet            = "1.12.3"
 }
 
 val flinkDeps =
@@ -81,39 +81,35 @@ val loggingDeps = Seq(
 
 val http4sDeps = Seq(
   "dsl",
-  "client",
-  "blaze-client",
+  "ember-client",
   "circe"
 ).map(d => "org.http4s" %% s"http4s-$d" % V.http4s)
 
-val circeDeps  = Seq(
+val circeDeps = Seq(
   "core",
   "generic",
   "generic-extras",
   "parser"
 ).map(d => "io.circe" %% s"circe-$d" % V.circe)
 
-val otherDeps  = Seq(
+val otherDeps = Seq(
   "io.confluent"       % "kafka-streams-avro-serde" % V.confluentAvroSerde,
   "org.apache.parquet" % "parquet-avro"             % V.parquet   % Provided,
   "com.beachape"      %% "enumeratum"               % V.enumeratum,
   "com.typesafe"       % "config"                   % V.typesafeConfig,
   "com.google.guava"   % "guava"                    % V.guava,
   "org.typelevel"     %% "squants"                  % V.squants,
-  "com.chuusai"       %% "shapeless"                % "2.3.9",
-//"io.kontainers"     %% "purecsv"                  % V.purecsv,
   "org.scalatestplus" %% "scalacheck-1-15"          % V.scalaCheck,
   "org.scalactic"     %% "scalactic"                % V.scalaTest % Test,
   "org.scalatest"     %% "scalatest"                % V.scalaTest % Test
 )
 
-/**
- * Exclude any transitive deps using log4j
- * @param m
- *   the module
- * @return
- *   module with deps excluded
- */
+/** Exclude any transitive deps using log4j
+  * @param m
+  *   the module
+  * @return
+  *   module with deps excluded
+  */
 def excludeLog4j(m: ModuleID) = m.excludeAll(
   ExclusionRule(
     organization = "org.apache.logging.log4j",
@@ -122,15 +118,29 @@ def excludeLog4j(m: ModuleID) = m.excludeAll(
   ExclusionRule(organization = "org.slf4j", name = "*")
 )
 
-lazy val flink_runner =
-  (project in file("."))
-    .settings(
-      crossScalaVersions := supportedScalaVersions,
-      libraryDependencies ++=
-        (flinkDeps ++ http4sDeps ++ circeDeps ++ otherDeps)
-          .map(excludeLog4j)
-          ++ loggingDeps
-    )
+lazy val flink_runner = (project in file("."))
+  .enablePlugins(BuildInfoPlugin)
+  .settings(
+    buildInfoKeys                  := Seq[BuildInfoKey](
+      name,
+      version,
+      scalaVersion,
+      sbtVersion
+    ),
+    buildInfoPackage               := "io.epiphanous.flinkrunner",
+    buildInfoOptions += BuildInfoOption.ToMap,
+    buildInfoOptions += BuildInfoOption.ToJson,
+    buildInfoOptions += BuildInfoOption.BuildTime,
+    crossScalaVersions             := supportedScalaVersions,
+    libraryDependencies ++=
+      (flinkDeps ++ http4sDeps ++ circeDeps ++ otherDeps)
+        .map(excludeLog4j)
+        ++ loggingDeps,
+    Compile / sourceGenerators += (Compile / avroScalaGenerateSpecific).taskValue,
+    Compile / avroScalaCustomTypes :=
+      avrohugger.format.Standard.defaultTypes
+        .copy(timestampMillis = JavaTimeInstant)
+  )
 
 scalacOptions ++= Seq(
   "-encoding",
@@ -143,15 +153,9 @@ scalacOptions ++= Seq(
   "-Ywarn-value-discard"
 )
 
-Compile / sourceGenerators += (Compile / avroScalaGenerateSpecific).taskValue
-
-Compile / avroScalaCustomTypes :=
-  avrohugger.format.Standard.defaultTypes
-    .copy(timestampMillis = JavaTimeInstant)
-
 // stays inside the sbt console when we press "ctrl-c" while a Flink programme executes with "run" or "runMain"
 Compile / run / fork := true
-Global / cancelable := true
+Global / cancelable  := true
 
 Compile / run := Defaults
   .runTask(

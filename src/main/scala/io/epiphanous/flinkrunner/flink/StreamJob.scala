@@ -11,16 +11,15 @@ import org.apache.flink.streaming.api.scala._
 import org.apache.flink.table.api.bridge.scala.StreamTableEnvironment
 import org.apache.flink.util.Collector
 
-/**
- * A streaming job. Implementers must provide a transform method,
- * responsible for transforming inputs into outputs.
- * @param runner
- *   an instance of [[FlinkRunner]]
- * @tparam OUT
- *   the output type
- * @tparam ADT
- *   the algebraic data type of the [[FlinkRunner]] instance
- */
+/** A streaming job. Implementers must provide a transform method,
+  * responsible for transforming inputs into outputs.
+  * @param runner
+  *   an instance of [[FlinkRunner]]
+  * @tparam OUT
+  *   the output type
+  * @tparam ADT
+  *   the algebraic data type of the [[FlinkRunner]] instance
+  */
 abstract class StreamJob[
     OUT <: ADT: TypeInformation,
     ADT <: FlinkEvent: TypeInformation](runner: FlinkRunner[ADT])
@@ -34,7 +33,7 @@ abstract class StreamJob[
 
   def singleSource[IN <: ADT: TypeInformation](
       name: String): DataStream[IN] =
-    runner.fromSource[IN](name)
+    runner.configToSource[IN](runner.getSourceConfig(name))
 
   def connectedSource[
       IN1 <: ADT: TypeInformation,
@@ -118,35 +117,30 @@ abstract class StreamJob[
     keyedSource.connect(broadcastSource)
   }
 
-  /**
-   * Writes the transformed data stream to configured output sinks.
-   *
-   * @param out
-   *   a transformed stream from transform()
-   */
+  /** Writes the transformed data stream to configured output sinks.
+    *
+    * @param out
+    *   a transformed stream from transform()
+    */
   def sink(out: DataStream[OUT]): Unit =
-    config.getSinkNames.foreach(name =>
-      runner.toSink[OUT](out, Some(name))
-    )
+    config.getSinkNames.foreach(name => runner.toSink[OUT](out, name))
 
-  /**
-   * The output stream will only be passed to BaseFlinkJob.sink if
-   * FlinkConfig.mockEdges is false (ie, you're not testing).
-   *
-   * @param out
-   *   the output data stream to pass into BaseFlinkJob.sink)
-   */
+  /** The output stream will only be passed to BaseFlinkJob.sink if
+    * FlinkConfig.mockEdges is false (ie, you're not testing).
+    *
+    * @param out
+    *   the output data stream to pass into BaseFlinkJob.sink)
+    */
   def maybeSink(out: DataStream[OUT]): Unit =
     if (!config.mockEdges) sink(out)
 
-  /**
-   * Runs the job, meaning it constructs the flow and executes it.
-   *
-   * @param limitOpt
-   *   optional number of output events to return, for testing
-   * @return
-   *   either a list of output events or the job execution result
-   */
+  /** Runs the job, meaning it constructs the flow and executes it.
+    *
+    * @param limitOpt
+    *   optional number of output events to return, for testing
+    * @return
+    *   either a list of output events or the job execution result
+    */
   def run(limitOpt: Option[Int] = None)
       : Either[List[OUT], JobExecutionResult] = {
 
@@ -157,12 +151,8 @@ abstract class StreamJob[
     // build the job graph
     val stream = transform |# maybeSink
 
-    if (config.showPlan) {
+    if (config.showPlan)
       logger.info(s"\nPLAN:\n${env.getExecutionPlan}\n")
-//      logger.info(
-//        s"\nOUTPUT TABLE STRUCTURE:\n${tableEnv.fromDataStream(transform).getResolvedSchema}\n"
-//      )
-    }
 
     if (config.mockEdges) {
       val limit = limitOpt.getOrElse(

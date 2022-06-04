@@ -2,20 +2,8 @@ package io.epiphanous.flinkrunner.model
 
 import com.typesafe.config.{Config, ConfigFactory, ConfigObject}
 import com.typesafe.scalalogging.LazyLogging
-import io.confluent.kafka.schemaregistry.client.{
-  CachedSchemaRegistryClient,
-  MockSchemaRegistryClient,
-  SchemaRegistryClient
-}
-import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig
-import io.epiphanous.flinkrunner.model.sink.{KafkaSinkConfig, SinkConfig}
-import io.epiphanous.flinkrunner.model.source.{
-  KafkaSourceConfig,
-  SourceConfig
-}
 import io.epiphanous.flinkrunner.util.ConfigToProps.RichConfigObject
 import io.epiphanous.flinkrunner.util.FileUtils.getResourceOrFile
-import io.epiphanous.flinkrunner.util.StreamUtils.RichProps
 import org.apache.flink.api.common.RuntimeExecutionMode
 import org.apache.flink.api.java.utils.ParameterTool
 import org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackend
@@ -23,7 +11,6 @@ import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 
 import java.io.File
 import java.time.Duration
-import java.util
 import java.util.Properties
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
@@ -179,11 +166,6 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
         if (_config.hasPath(p)) Some(_config.getObject(p)) else None
     }).asProperties
 
-  def getSourceConfig(name: String): SourceConfig =
-    SourceConfig(name, this)
-
-  def getSinkConfig(name: String): SinkConfig = SinkConfig(name, this)
-
   def getSourceNames(mockSourceNames: Seq[String]): Seq[String] =
     if (mockSourceNames.nonEmpty) mockSourceNames
     else
@@ -228,7 +210,6 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
         checkpointMaxConcurrent
       )
 
-      logger.info(s"Using ROCKS DB state backend at $checkpointUrl")
       env.setStateBackend(
         new EmbeddedRocksDBStateBackend(checkpointIncremental)
       )
@@ -242,12 +223,13 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
 
   def getWatermarkStrategy(ws: String): String =
     ws.toLowerCase.replaceAll("[^a-z]", "") match {
-      case "none"                  => "none"
-      case "boundedlateness"       => "bounded lateness"
-      case "boundedoutoforderness" => "bounded out of orderness"
-      case "ascendingtimestamps"   => "ascending timestamps"
-      case "monotonictimestamps"   => "ascending timestamps"
-      case unknown                 =>
+      case "none"                                        => "none"
+      case "boundedlateness"                             => "bounded lateness"
+      case "boundedoutoforderness" | "boundedoutoforder" =>
+        "bounded out of orderness"
+      case "ascendingtimestamps" | "monotonictimestamps" =>
+        "ascending timestamps"
+      case unknown                                       =>
         throw new RuntimeException(
           s"Unknown watermark.strategy setting: '$unknown'"
         )
@@ -255,7 +237,7 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
 
   lazy val watermarkStrategy: String = getWatermarkStrategy(
     getStringOpt("watermark.strategy").getOrElse(
-      "bounded out of orderness"
+      "bounded out of order"
     )
   )
 
@@ -280,66 +262,13 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
   )
   lazy val showPlan: Boolean                          = getBoolean("show.plan")
   lazy val mockEdges: Boolean                         = isDev && getBoolean("mock.edges")
-  lazy val maxLateness: Duration                      = getDuration("max.lateness")
-  lazy val maxIdleness: Duration                      = getDuration("max.idleness")
+  lazy val maxLateness: Option[Duration]              = getDurationOpt("max.lateness")
+  lazy val maxIdleness: Option[Duration]              = getDurationOpt("max.idleness")
   lazy val executionRuntimeMode: RuntimeExecutionMode =
     getStringOpt("execution.runtime-mode").map(_.toUpperCase) match {
       case Some("BATCH")     => RuntimeExecutionMode.BATCH
       case Some("AUTOMATIC") => RuntimeExecutionMode.AUTOMATIC
       case _                 => RuntimeExecutionMode.STREAMING
     }
-
-  lazy val schemaRegistryUrl: String        = getString(
-    AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG
-  )
-  lazy val schemaRegistryCacheCapacity: Int =
-    getIntOpt("schema.registry.cache.capacity").getOrElse(1000)
-
-  lazy val schemaRegistryProperties: util.HashMap[String, String] = {
-    val p = getProperties("schema.registry.props")
-    p.put(
-      AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG,
-      schemaRegistryUrl
-    )
-    p.asJavaMap
-    p.asJavaMap
-  }
-
-  lazy val schemaRegistryHeaders: util.HashMap[String, String] =
-    getProperties("schema.registry.headers").asJavaMap
-
-  def getSchemaRegistryClient: SchemaRegistryClient = {
-    if (mockEdges) new MockSchemaRegistryClient()
-    else {
-      new CachedSchemaRegistryClient(
-        schemaRegistryUrl,
-        schemaRegistryCacheCapacity,
-        schemaRegistryProperties,
-        schemaRegistryHeaders
-      )
-    }
-  }
-
-  def schemaRegistryPropsForSource(
-      sourceConfig: KafkaSourceConfig,
-      defaults: Map[String, String]): util.HashMap[String, String] =
-    schemaRegistryPropsFor(sourceConfig.propertiesMap, defaults)
-
-  def schemaRegistryPropsForSink(
-      sinkConfig: KafkaSinkConfig,
-      defaults: Map[String, String]): util.HashMap[String, String] =
-    schemaRegistryPropsFor(sinkConfig.propertiesMap, defaults)
-
-  def schemaRegistryPropsFor(
-      propMap: util.HashMap[String, String],
-      defaults: Map[String, String]): util.HashMap[String, String] = {
-    val p =
-      schemaRegistryProperties
-        .clone()
-        .asInstanceOf[util.HashMap[String, String]]
-    defaults.foreach { case (k, v) => p.putIfAbsent(k, v) }
-    p.putAll(propMap)
-    p
-  }
 
 }

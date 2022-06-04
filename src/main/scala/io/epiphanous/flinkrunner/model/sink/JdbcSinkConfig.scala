@@ -4,102 +4,106 @@ import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.FlinkConnectorName.Jdbc
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.model.sink.JdbcSinkConfig.DEFAULT_CONNECTION_TIMEOUT
+import io.epiphanous.flinkrunner.operator.CreateTableJdbcSinkFunction
+import org.apache.flink.api.common.functions.RuntimeContext
+import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat
+import org.apache.flink.connector.jdbc.internal.connection.SimpleJdbcConnectionProvider
+import org.apache.flink.connector.jdbc.internal.executor.JdbcBatchStatementExecutor
 import org.apache.flink.connector.jdbc.{
   JdbcConnectionOptions,
   JdbcExecutionOptions,
   JdbcStatementBuilder
 }
+import org.apache.flink.streaming.api.datastream.DataStreamSink
+import org.apache.flink.streaming.api.scala.DataStream
 
 import java.sql.DriverManager
-import java.time.Duration
-import java.util.Properties
+import java.util.function.{Function => JavaFunction}
 import scala.util.{Failure, Success, Try}
 
-/**
- * A JDBC sink configuration
- * @param config
- *   the flink runner configuration in which this sink is defined
- * @param connector
- *   JDBC
- * @param name
- *   name of the sink
- * @param url
- *   required jdbc url
- * @param username
- *   optional jdbc username (if not provided here, should be embedded in
- *   the url)
- * @param password
- *   optional jdbc password associated with the user (if not provided here,
- *   should be embedded in the url)
- * @param driverName
- *   optional jdbc driver name for the target database (if not provided
- *   here, should be embedded in the url)
- * @param connTimeout
- *   optional timeout for jdbc connection attempts
- * @param batchInterval
- *   a jdbc batch will be sent after this many milliseconds has transpired
- *   since the last batch was sent, if this config is greater than zero
- *   (defaults to zero)
- * @param batchSize
- *   a jdbc batch will be sent once this many rows is accumulated in the
- *   buffer
- * @param maxRetries
- *   max number of times an event will be retried before dropping the event
- *   due to a database connection issue
- * @param createIfNotExists
- *   true if you want to auto-create the target table if it does not
- *   already exist in the database schema (defaults to true)
- * @param schema
- *   the name of the database schema containing the target table
- * @param table
- *   the name of the target table within the schema
- * @param columns
- *   an object defining the structure of the target table (see
- *   [[JdbcSinkColumn]] for the structure of these configs)
- * @param properties
- *   a general java properties object containing any other configs to pass
- *   on to the jdbc sink
- */
-case class JdbcSinkConfig(
-    config: FlinkConfig,
-    connector: FlinkConnectorName = Jdbc,
+/** A JDBC sink configuration
+  * @param config
+  *   the flink runner configuration in which this sink is defined
+  * @param connector
+  *   JDBC
+  * @param name
+  *   name of the sink
+  */
+case class JdbcSinkConfig[ADT <: FlinkEvent](
     name: String,
-    dbType: SupportedDatabase,
-    url: String,
-    username: Option[String],
-    password: Option[String],
-    driverName: Option[String],
-    connTimeout: Option[Duration],
-    batchInterval: Option[Duration],
-    batchSize: Option[Int],
-    maxRetries: Option[Int],
-    createIfNotExists: Boolean,
-    schema: String,
-    table: String,
-    columns: Seq[JdbcSinkColumn],
-    properties: Properties)
-    extends SinkConfig
+    config: FlinkConfig,
+    connector: FlinkConnectorName = Jdbc)
+    extends SinkConfig[ADT]
     with LazyLogging {
 
-  val qTable = s"${qid(schema)}.${qid(table)}"
+  val url: String               = config.getString(pfx("url"))
+  val dbType: SupportedDatabase =
+    config
+      .getStringOpt(pfx("connection.driver"))
+      .map(d => SupportedDatabase.fromDriver(d))
+      .getOrElse(SupportedDatabase.fromUrl(url))
+  val driverName: String        = SupportedDatabase.driverFor(dbType)
 
-  /**
-   * optional sql code to create the sink's table in the target database
-   */
+  val username: Option[String] = config.getStringOpt(pfx("username"))
+  val password: Option[String] = config.getStringOpt(pfx("password"))
+
+  val connTimeout: Int             =
+    config
+      .getDurationOpt(pfx("connection.timeout"))
+      .map(_.toSeconds.toInt)
+      .getOrElse(DEFAULT_CONNECTION_TIMEOUT)
+  val batchInterval: Long          =
+    config
+      .getDurationOpt(pfx("execution.batch.interval"))
+      .map(_.toSeconds)
+      .getOrElse(0L)
+  val batchSize: Int               =
+    config
+      .getIntOpt(pfx("execution.batch.size"))
+      .getOrElse(JdbcExecutionOptions.DEFAULT_SIZE)
+  val maxRetries: Int              =
+    config
+      .getIntOpt(pfx("execution.max.retries"))
+      .getOrElse(JdbcExecutionOptions.DEFAULT_MAX_RETRY_TIMES)
+  val createIfNotExists: Boolean   =
+    config.getBooleanOpt(pfx("table.create.if.not.exists")).getOrElse(true)
+  val schema: String               =
+    config.getStringOpt("table.schema").getOrElse("_default_")
+  val table: String                = config.getString("table.name")
+  val columns: Seq[JdbcSinkColumn] = config
+    .getObjectList(pfx("table.columns"))
+    .map(_.toConfig)
+    .map(c =>
+      JdbcSinkColumn(
+        c.getString("name"),
+        c.getString("type"),
+        Try(c.getInt("precision")).toOption,
+        Try(c.getInt("scale")).toOption,
+        Try(c.getBoolean("nullable")).toOption.getOrElse(true),
+        Try(c.getInt("primaryKey")).toOption
+      )
+    )
+
+  val qTable = s"${if (schema.equalsIgnoreCase("_default_")) ""
+    else qid(schema) + "."}${qid(table)}"
+
+  /** optional sql code to create the sink's table in the target database
+    */
   val createTableDdl: Option[String] =
     if (createIfNotExists)
       Some(s"""
          |CREATE TABLE IF NOT EXISTS $qTable (
          |${columns
-        .map(c =>
-          s"${qid(c.name)} ${c.calciteType.getName}${c.columnExtra}"
-        )
-        .mkString("  ", ",\n  ", ",\n  ")}
+               .map(c =>
+                 s"${qid(c.name)} ${c.calciteType.getName}${c.columnExtra}"
+               )
+               .mkString("  ", ",\n  ", ",\n  ")}
          |${columns
-        .filter(_.primaryKey.nonEmpty)
-        .sortBy(_.primaryKey.get)
-        .map(_.name)
-        .mkString(s"  primary key pk_$table(", ", ", ")")}
+               .filter(_.primaryKey.nonEmpty)
+               .sortBy(_.primaryKey.get)
+               .map(_.name)
+               .mkString(s"  primary key pk_$table(", ", ", ")")}
         |)
         |""".stripMargin)
     else None
@@ -139,58 +143,31 @@ case class JdbcSinkConfig(
   def getJdbcExecutionOptions: JdbcExecutionOptions = {
     JdbcExecutionOptions
       .builder()
-      .withMaxRetries(
-        Option(properties.getProperty("max.retries"))
-          .map(o => o.toInt)
-          .getOrElse(JdbcExecutionOptions.DEFAULT_MAX_RETRY_TIMES)
-      )
-      .withBatchSize(
-        Option(properties.getProperty("batch.size"))
-          .map(o => o.toInt)
-          .getOrElse(JdbcExecutionOptions.DEFAULT_SIZE)
-      )
-      .withBatchIntervalMs(
-        Option(properties.getProperty("batch.interval.ms"))
-          .map(o => o.toLong)
-          .getOrElse(0)
-      )
+      .withMaxRetries(maxRetries)
+      .withBatchSize(batchSize)
+      .withBatchIntervalMs(batchInterval)
       .build()
   }
 
   def getJdbcConnectionOptions: JdbcConnectionOptions = {
     val jcoBuilder =
-      new JdbcConnectionOptions.JdbcConnectionOptionsBuilder().withUrl(url)
-    Option(properties.getProperty("connection.username"))
-      .foreach(jcoBuilder.withUsername)
-    Option(properties.getProperty("connection.password"))
-      .foreach(jcoBuilder.withPassword)
-    Option(properties.getProperty("connection.driver"))
-      .foreach(jcoBuilder.withDriverName)
-    Option(
-      Duration
-        .ofMillis(
-          properties
-            .getProperty(
-              "connection.timeout.ms",
-              DEFAULT_CONNECTION_TIMEOUT
-            )
-            .toLong
-        )
-        .toSeconds
-        .toInt
-    ).foreach(jcoBuilder.withConnectionCheckTimeoutSeconds)
+      new JdbcConnectionOptions.JdbcConnectionOptionsBuilder()
+        .withUrl(url)
+        .withDriverName(driverName)
+        .withConnectionCheckTimeoutSeconds(connTimeout)
+    username.foreach(jcoBuilder.withUsername)
+    password.foreach(jcoBuilder.withPassword)
     jcoBuilder.build()
   }
 
-  /**
-   * Creates a statement builder based on the target table columns and the
-   * values in an event
-   * @tparam E
-   *   the event type
-   * @return
-   *   JdbcStatementBuilder[E]
-   */
-  def getStatementBuilder[E <: FlinkEvent]: JdbcStatementBuilder[E] = {
+  /** Creates a statement builder based on the target table columns and the
+    * values in an event
+    * @tparam E
+    *   the event type
+    * @return
+    *   JdbcStatementBuilder[E]
+    */
+  def getStatementBuilder[E <: ADT]: JdbcStatementBuilder[E] = {
     case (statement, element) =>
       val data = element.getClass.getDeclaredFields
         .map(_.getName)
@@ -208,9 +185,33 @@ case class JdbcSinkConfig(
           }
       }
   }
+
+  def getSink[E <: ADT: TypeInformation](
+      dataStream: DataStream[E]): DataStreamSink[E] = {
+    val jdbcOutputFormat =
+      new JdbcOutputFormat[E, E, JdbcBatchStatementExecutor[E]](
+        new SimpleJdbcConnectionProvider(
+          getJdbcConnectionOptions
+        ),
+        getJdbcExecutionOptions,
+        (_: RuntimeContext) =>
+          JdbcBatchStatementExecutor.simple(
+            queryDml,
+            getStatementBuilder[E],
+            JavaFunction.identity[E]
+          ),
+        JdbcOutputFormat.RecordExtractor.identity[E]
+      )
+    dataStream
+      .addSink(
+        new CreateTableJdbcSinkFunction[E, ADT](this, jdbcOutputFormat)
+      )
+      .uid(label)
+      .name(label)
+  }
 }
 
 object JdbcSinkConfig {
-  final val DEFAULT_CONNECTION_TIMEOUT = "5"
+  final val DEFAULT_CONNECTION_TIMEOUT = 5
   final val QUOTE_CHAR                 = "\""
 }

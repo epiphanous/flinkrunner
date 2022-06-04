@@ -9,12 +9,13 @@ import org.apache.flink.util.Collector
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
 class JsonKafkaRecordDeserializationSchema[
-    E <: FlinkEvent: TypeInformation](kafkaSourceConfig: KafkaSourceConfig)
+    E <: ADT: TypeInformation,
+    ADT <: FlinkEvent](kafkaSourceConfig: KafkaSourceConfig[ADT])
     extends KafkaRecordDeserializationSchema[E]
     with LazyLogging {
 
   val deserializationSchema =
-    new JsonDeserializationSchema[E](kafkaSourceConfig)
+    new JsonDeserializationSchema[E, ADT](kafkaSourceConfig)
 
   override def deserialize(
       record: ConsumerRecord[Array[Byte], Array[Byte]],

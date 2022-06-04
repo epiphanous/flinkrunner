@@ -2,15 +2,13 @@ package io.epiphanous.flinkrunner.serde
 
 import com.typesafe.scalalogging.LazyLogging
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
-import io.confluent.kafka.serializers.{
-  KafkaAvroDeserializer,
-  KafkaAvroDeserializerConfig
-}
+import io.confluent.kafka.serializers.KafkaAvroDeserializer
 import io.epiphanous.flinkrunner.model.source.KafkaSourceConfig
 import io.epiphanous.flinkrunner.model.{
   EmbeddedAvroRecord,
   FlinkConfig,
-  FlinkEvent
+  FlinkEvent,
+  SchemaRegistryConfig
 }
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.{TypeHint, TypeInformation}
@@ -18,51 +16,44 @@ import org.apache.flink.connector.kafka.source.reader.deserializer.KafkaRecordDe
 import org.apache.flink.util.Collector
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
-import java.util
-
-/**
- * A deserialization schema that uses a confluent schema registry to
- * deserialize a kafka key/value pair into instances of a flink runner ADT
- * that also implements the [[EmbeddedAvroRecord]] trait.
- * @param sourceConfig
- *   config for the kafka source
- * @param schemaRegistryClientOpt
- *   an optional schema registry client
- */
+/** A deserialization schema that uses a confluent schema registry to
+  * deserialize a kafka key/value pair into instances of a flink runner ADT
+  * that also implements the [[EmbeddedAvroRecord]] trait.
+  * @param sourceConfig
+  *   config for the kafka source
+  * @param schemaRegistryClientOpt
+  *   an optional schema registry client
+  */
 class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
-    E <: FlinkEvent with EmbeddedAvroRecord[A],
-    A <: GenericRecord
+    E <: ADT with EmbeddedAvroRecord[A],
+    A <: GenericRecord,
+    ADT <: FlinkEvent
 ](
-    sourceConfig: KafkaSourceConfig,
+    sourceConfig: KafkaSourceConfig[ADT],
     schemaRegistryClientOpt: Option[SchemaRegistryClient] = None
 )(implicit fromKV: (Option[String], A) => E)
     extends KafkaRecordDeserializationSchema[E]
     with LazyLogging {
 
-  val topic: String       = sourceConfig.topic
-  val config: FlinkConfig = sourceConfig.config
-
-  lazy val schemaRegistryProps: util.HashMap[String, String] =
-    config.schemaRegistryPropsForSource(
-      sourceConfig,
-      Map(
-        KafkaAvroDeserializerConfig.SPECIFIC_AVRO_READER_CONFIG             -> "true",
-        KafkaAvroDeserializerConfig.AVRO_USE_LOGICAL_TYPE_CONVERTERS_CONFIG -> "true"
-      )
-    )
+  val topic: String                              = sourceConfig.topic
+  val config: FlinkConfig                        = sourceConfig.config
+  val schemaRegistryConfig: SchemaRegistryConfig =
+    sourceConfig.schemaRegistryConfig
 
   lazy val schemaRegistryClient: SchemaRegistryClient =
-    schemaRegistryClientOpt.getOrElse(config.getSchemaRegistryClient)
+    schemaRegistryClientOpt.getOrElse(
+      schemaRegistryConfig.getClient(config.mockEdges)
+    )
 
   lazy val valueDeserializer = new KafkaAvroDeserializer(
     schemaRegistryClient,
-    schemaRegistryProps
+    schemaRegistryConfig.props
   )
 
   lazy val keyDeserializer: Option[KafkaAvroDeserializer] =
     if (sourceConfig.isKeyed) {
       val ks = new KafkaAvroDeserializer(schemaRegistryClient)
-      ks.configure(schemaRegistryProps, true)
+      ks.configure(schemaRegistryConfig.props, true)
       Some(ks)
     } else None
 

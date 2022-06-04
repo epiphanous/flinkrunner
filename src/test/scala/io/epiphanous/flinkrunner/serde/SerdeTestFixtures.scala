@@ -17,6 +17,7 @@ import org.apache.avro.generic.{
 }
 import org.apache.avro.io.{DecoderFactory, EncoderFactory}
 import org.apache.avro.specific.{SpecificDatumReader, SpecificDatumWriter}
+import org.apache.flink.api.scala.createTypeInformation
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
 import java.io.{ByteArrayOutputStream, DataOutputStream}
@@ -36,8 +37,8 @@ trait SerdeTestFixtures extends PropSpec {
        |    topic = test
        |    isKeyed = true
        |    bootstrap.servers = "kafka:9092"
-       |    config {
-       |      schema.registry.url = "mock://test"
+       |    schema.registry {
+       |      url = "mock://test"
        |      avro.use.logical.type.converters = true
        |      avro.remove.java.properties = true
        |    }
@@ -49,21 +50,19 @@ trait SerdeTestFixtures extends PropSpec {
        |    topic = test
        |    isKeyed = true
        |    bootstrap.servers = "kafka:9092"
-       |    config {
-       |      schema.registry.url = "mock://test"
+       |    schema.registry {
+       |      url = "mock://test"
        |      avro.use.logical.type.converters = true
        |      avro.remove.java.properties = true
        |    }
        |  }
        |}
        |""".stripMargin
-  val config            = new FlinkConfig(
-    Array.empty[String],
-    Some(optConfig)
-  )
+  val runner            =
+    getRunner[MyAvroADT](Array("confluent-serde-test"), Some(optConfig))
 
-  val kafkaSinkConfig: KafkaSinkConfig =
-    config.getSinkConfig("test").asInstanceOf[KafkaSinkConfig]
+  val kafkaSinkConfig: KafkaSinkConfig[MyAvroADT] =
+    runner.getSinkConfig("test").asInstanceOf[KafkaSinkConfig[MyAvroADT]]
 
   val aWrapper: AWrapper = genOne[AWrapper]
   val bWrapper: BWrapper = genOne[BWrapper]
@@ -73,7 +72,7 @@ trait SerdeTestFixtures extends PropSpec {
 
   val stringSchema: AvroSchema                   = new AvroSchema("""{"type":"string"}""")
   val schemaRegistryClient: SchemaRegistryClient =
-    config.getSchemaRegistryClient
+    kafkaSinkConfig.schemaRegistryConfig.getClient(true)
   schemaRegistryClient.register(
     s"test-key",
     stringSchema,
@@ -102,20 +101,30 @@ trait SerdeTestFixtures extends PropSpec {
     )
 
   def getSerializerFor[
-      E <: FlinkEvent with EmbeddedAvroRecord[A],
+      E <: MyAvroADT with EmbeddedAvroRecord[A],
       A <: GenericRecord] =
-    new ConfluentAvroRegistryKafkaRecordSerializationSchema[E, A](
+    new ConfluentAvroRegistryKafkaRecordSerializationSchema[
+      E,
+      A,
+      MyAvroADT
+    ](
       kafkaSinkConfig,
       Some(schemaRegistryClient)
     )
 
-  val kafkaSourceConfig: KafkaSourceConfig =
-    config.getSourceConfig("test").asInstanceOf[KafkaSourceConfig]
+  val kafkaSourceConfig: KafkaSourceConfig[MyAvroADT] =
+    runner
+      .getSourceConfig("test")
+      .asInstanceOf[KafkaSourceConfig[MyAvroADT]]
 
   def getDeserializerFor[
-      E <: FlinkEvent with EmbeddedAvroRecord[A],
+      E <: MyAvroADT with EmbeddedAvroRecord[A],
       A <: GenericRecord](implicit fromKV: (Option[String], A) => E) =
-    new ConfluentAvroRegistryKafkaRecordDeserializationSchema[E, A](
+    new ConfluentAvroRegistryKafkaRecordDeserializationSchema[
+      E,
+      A,
+      MyAvroADT
+    ](
       kafkaSourceConfig,
       Some(schemaRegistryClient)
     )

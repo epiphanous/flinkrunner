@@ -13,18 +13,17 @@ import org.apache.flink.streaming.api.scala.{
 }
 import org.apache.flink.util.Collector
 
-/**
- * A [[StreamJob]] with Avro inputs and outputs
- * @param runner
- *   an instance of [[FlinkRunner]]
- * @tparam OUT
- *   the output type, with an embedded avro record of type A
- * @tparam A
- *   the type of avro record that is embedded in our output type. only this
- *   avro part will be written to the sink.
- * @tparam ADT
- *   the algebraic data type of the [[FlinkRunner]] instance
- */
+/** A [[StreamJob]] with Avro inputs and outputs
+  * @param runner
+  *   an instance of [[FlinkRunner]]
+  * @tparam OUT
+  *   the output type, with an embedded avro record of type A
+  * @tparam A
+  *   the type of avro record that is embedded in our output type. only
+  *   this avro part will be written to the sink.
+  * @tparam ADT
+  *   the algebraic data type of the [[FlinkRunner]] instance
+  */
 abstract class AvroStreamJob[
     OUT <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
     A <: GenericRecord: TypeInformation,
@@ -35,7 +34,7 @@ abstract class AvroStreamJob[
       IN <: ADT with EmbeddedAvroRecord[INA]: TypeInformation,
       INA <: GenericRecord: TypeInformation](name: String)(implicit
       fromKV: (Option[String], INA) => IN): DataStream[IN] =
-    runner.fromAvroSource[IN, INA](name)
+    runner.configToAvroSource[IN, INA](runner.getSourceConfig(name))
 
   def connectedAvroSource[
       IN1 <: ADT with EmbeddedAvroRecord[IN1A]: TypeInformation,
@@ -134,4 +133,9 @@ abstract class AvroStreamJob[
       )
     keyedSource.connect(broadcastSource)
   }
+
+  override def sink(out: DataStream[OUT]): Unit =
+    config.getSinkNames.foreach(name =>
+      runner.toAvroSink[OUT, A](out, name)
+    )
 }

@@ -7,11 +7,13 @@ import org.apache.flink.streaming.connectors.kinesis.serialization.KinesisSerial
 
 import java.nio.ByteBuffer
 
-class JsonKinesisSerializationSchema[E <: FlinkEvent: TypeInformation](
-    kinesisSinkConfig: KinesisSinkConfig)
+class JsonKinesisSerializationSchema[
+    E <: ADT: TypeInformation,
+    ADT <: FlinkEvent: TypeInformation](
+    kinesisSinkConfig: KinesisSinkConfig[ADT])
     extends KinesisSerializationSchema[E] {
   val jsonSerializationSchema =
-    new JsonSerializationSchema[E](kinesisSinkConfig)
+    new JsonSerializationSchema[E, ADT](kinesisSinkConfig)
 
   override def serialize(element: E): ByteBuffer =
     ByteBuffer.wrap(jsonSerializationSchema.serialize(element))

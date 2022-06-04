@@ -5,32 +5,40 @@ import io.epiphanous.flinkrunner.model.FlinkConnectorName.Socket
 import io.epiphanous.flinkrunner.model.{
   FlinkConfig,
   FlinkConnectorName,
+  FlinkEvent,
   StreamFormatName
 }
 import io.epiphanous.flinkrunner.serde.RowEncoder
 import org.apache.flink.api.common.serialization.SerializationSchema
 import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.streaming.api.datastream.DataStreamSink
+import org.apache.flink.streaming.api.functions.sink.SocketClientSink
+import org.apache.flink.streaming.api.scala.DataStream
 
 import java.nio.charset.StandardCharsets
-import java.util.Properties
 import scala.util.{Failure, Success}
 
-case class SocketSinkConfig(
-    config: FlinkConfig,
-    connector: FlinkConnectorName = Socket,
+case class SocketSinkConfig[ADT <: FlinkEvent](
     name: String,
-    host: String,
-    port: Int,
-    format: StreamFormatName,
-    maxRetries: Option[Int] = None,
-    autoFlush: Option[Boolean] = None,
-    properties: Properties)
-    extends SinkConfig
+    config: FlinkConfig,
+    connector: FlinkConnectorName = Socket)
+    extends SinkConfig[ADT]
     with LazyLogging {
-  def getTextLineEncoder[E: TypeInformation]: RowEncoder[E] =
+
+  val host: String             = config.getString(pfx("host"))
+  val port: Int                = config.getInt(pfx("port"))
+  val format: StreamFormatName = StreamFormatName.withNameInsensitive(
+    config.getStringOpt(pfx("format")).getOrElse("csv")
+  )
+  val maxRetries: Int          = config.getIntOpt(pfx("max.retries")).getOrElse(0)
+  val autoFlush: Boolean       =
+    config.getBooleanOpt(pfx("auto.flush")).getOrElse(false)
+
+  def getTextLineEncoder[E <: ADT: TypeInformation]: RowEncoder[E] =
     RowEncoder.forEventType[E](format, properties)
 
-  def getSerializationSchema[E: TypeInformation]: SerializationSchema[E] =
+  def getSerializationSchema[E <: ADT: TypeInformation]
+      : SerializationSchema[E] =
     new SerializationSchema[E] {
       val encoder: RowEncoder[E]                = getTextLineEncoder[E]
       override def serialize(t: E): Array[Byte] =
@@ -41,4 +49,15 @@ case class SocketSinkConfig(
             null
         }
     }
+
+  def getSink[E <: ADT: TypeInformation](
+      dataStream: DataStream[E]): DataStreamSink[E] = dataStream.addSink(
+    new SocketClientSink[E](
+      host,
+      port,
+      getSerializationSchema[E],
+      maxRetries,
+      autoFlush
+    )
+  )
 }

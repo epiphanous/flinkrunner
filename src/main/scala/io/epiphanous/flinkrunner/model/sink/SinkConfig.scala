@@ -1,173 +1,56 @@
 package io.epiphanous.flinkrunner.model.sink
 
-import com.google.common.collect.Maps
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.FlinkConnectorName._
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.util.ConfigToProps
-import org.apache.flink.connector.base.DeliveryGuarantee
+import io.epiphanous.flinkrunner.util.StreamUtils._
+import org.apache.flink.api.common.typeinfo.TypeInformation
 
 import java.util
 import java.util.Properties
-import scala.util.Try
 
-trait SinkConfig extends LazyLogging {
+trait SinkConfig[ADT <: FlinkEvent] extends LazyLogging {
+  def name: String
   def config: FlinkConfig
-
   def connector: FlinkConnectorName
 
-  def name: String
+  def pfx(path: String = ""): String = Seq(
+    Some("sinks"),
+    Some(name),
+    if (path.isEmpty) None else Some(path)
+  ).flatten.mkString(".")
 
-  def label: String = s"$connector/$name"
+  val properties: Properties = config.getProperties(pfx("config"))
 
-  def properties: Properties
+  lazy val propertiesMap: util.HashMap[String, String] =
+    properties.asJavaMap
 
-  def propertiesMap: util.HashMap[String, String] =
-    Maps.newHashMap(Maps.fromProperties(properties))
+  val label: String = s"${connector.entryName.toLowerCase}/$name"
+
 }
 
 object SinkConfig {
-  def apply(name: String, config: FlinkConfig): SinkConfig = {
-    val p = s"sinks.$name"
+  def apply[ADT <: FlinkEvent: TypeInformation](
+      name: String,
+      config: FlinkConfig): SinkConfig[ADT] = {
 
-    val connector = FlinkConnectorName
+    FlinkConnectorName
       .fromSinkName(
         name,
         config.jobName,
-        config.getStringOpt(s"$p.connector")
-      )
-
-    connector match {
-      case Kafka             =>
-        val props = ConfigToProps.normalizeProps(
-          config,
-          p,
-          List("bootstrap.servers")
-        )
-        KafkaSinkConfig(
-          config,
-          connector,
-          name,
-          config.getString(s"$p.topic"),
-          config.getBoolean(s"$p.isKeyed"),
-          props.getProperty("bootstrap.servers"),
-          config
-            .getStringOpt(s"$p.delivery.guarantee")
-            .map(s => s.toLowerCase.replaceAll("[^a-z]+", "-")) match {
-            case Some("at-least-once") =>
-              DeliveryGuarantee.AT_LEAST_ONCE
-            case Some("none")          =>
-              DeliveryGuarantee.NONE
-            case _                     => DeliveryGuarantee.EXACTLY_ONCE
-          },
-          props
-        )
-      case Kinesis           =>
-        KinesisSinkConfig(
-          config,
-          connector,
-          name,
-          config.getString(s"$p.stream"),
-          config.getProperties(s"$p.config")
-        )
-      case File              =>
-        val rowFormat = StreamFormatName.withNameInsensitiveOption(
-          config.getString(s"$p.format")
-        )
-        FileSinkConfig(
-          config,
-          connector,
-          name,
-          config.getString(s"$p.path"),
-          rowFormat.isEmpty,
-          rowFormat,
-          config.getProperties(s"$p.config")
-        )
-      case Socket            =>
-        SocketSinkConfig(
-          config,
-          connector,
-          name,
-          config.getString(s"$p.host"),
-          config.getInt(s"$p.port"),
-          StreamFormatName.withNameInsensitive(
-            config.getString(s"$p.format")
-          ),
-          config.getIntOpt(s"$p.max.retries"),
-          config.getBooleanOpt(s"$p.auto.flush"),
-          config.getProperties(s"$p.config")
-        )
-      case Jdbc              =>
-        val url        = config.getString(s"$p.url")
-        val driverName = config.getStringOpt(s"$p.connection.driver")
-        val dbType     = driverName
-          .map(d => SupportedDatabase.fromDriver(d))
-          .getOrElse(SupportedDatabase.fromUrl(url))
-        JdbcSinkConfig(
-          config,
-          connector,
-          name,
-          dbType,
-          config.getString(s"$p.url"),
-          config.getStringOpt(s"$p.connection.username"),
-          config.getStringOpt(s"$p.connection.password"),
-          config.getStringOpt(s"$p.connection.driver"),
-          config.getDurationOpt(s"$p.connection.timeout"),
-          config.getDurationOpt(s"$p.execution.batch.interval"),
-          config.getIntOpt(s"$p.execution.batch.size"),
-          config.getIntOpt(s"$p.execution.max.retries"),
-          config
-            .getBooleanOpt(s"$p.table.create.if.not.exists")
-            .getOrElse(true),
-          config.getString(s"$p.table.schema"),
-          config.getString(s"$p.table.name"),
-          config
-            .getObjectList(s"$p.table.columns")
-            .map(_.toConfig)
-            .map(c =>
-              JdbcSinkColumn(
-                c.getString("name"),
-                c.getString("type"),
-                Try(c.getInt("precision")).toOption,
-                Try(c.getInt("scale")).toOption,
-                Try(c.getBoolean("nullable")).toOption.getOrElse(true),
-                Try(c.getInt("primaryKey")).toOption
-              )
-            ),
-          config.getProperties(s"$p.config")
-        )
+        config.getStringOpt(s"sinks.$name.connector")
+      ) match {
+      case Kafka             => KafkaSinkConfig(name, config, Kafka)
+      case Kinesis           => KinesisSinkConfig(name, config, Kinesis)
+      case File              => FileSinkConfig(name, config, File)
+      case Socket            => SocketSinkConfig(name, config, Socket)
+      case Jdbc              => JdbcSinkConfig(name, config, Jdbc)
       case CassandraSink     =>
-        CassandraSinkConfig(
-          config,
-          connector,
-          name,
-          config.getString(s"$p.host"),
-          config.getString(s"$p.query"),
-          config.getProperties(s"$p.config")
-        )
+        CassandraSinkConfig(name, config, CassandraSink)
       case ElasticsearchSink =>
-        ElasticsearchSinkConfig(
-          config,
-          connector,
-          name,
-          config.getStringList(s"$p.transports"),
-          config.getString(s"$p.index"),
-          config.getProperties(s"$p.config")
-        )
-      case RabbitMQ          =>
-        val c   = config.getProperties(s"$p.config")
-        val uri = config.getString(s"$p.uri")
-        RabbitMQSinkConfig(
-          config,
-          connector,
-          name,
-          uri,
-          config.getBoolean(s"$p.use.correlation.id"),
-          RabbitMQConnectionInfo(uri, c),
-          Option(c.getProperty("queue")),
-          c
-        )
-      case _                 =>
+        ElasticsearchSinkConfig(name, config, ElasticsearchSink)
+      case RabbitMQ          => RabbitMQSinkConfig(name, config, RabbitMQ)
+      case connector         =>
         throw new RuntimeException(
           s"Don't know how to configure ${connector.entryName} sink connector $name (job ${config.jobName}"
         )

@@ -6,13 +6,14 @@ import io.epiphanous.flinkrunner.model.source.KinesisSourceConfig
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.connectors.kinesis.serialization.KinesisDeserializationSchema
 
-class JsonKinesisDeserializationSchema[E <: FlinkEvent: TypeInformation](
-    kinesisSourceConfig: KinesisSourceConfig)
+class JsonKinesisDeserializationSchema[
+    E <: ADT: TypeInformation,
+    ADT <: FlinkEvent](kinesisSourceConfig: KinesisSourceConfig[ADT])
     extends KinesisDeserializationSchema[E]
     with LazyLogging {
 
   val deserializationSchema =
-    new JsonDeserializationSchema[E](kinesisSourceConfig)
+    new JsonDeserializationSchema[E, ADT](kinesisSourceConfig)
 
   override def deserialize(
       recordValue: Array[Byte],

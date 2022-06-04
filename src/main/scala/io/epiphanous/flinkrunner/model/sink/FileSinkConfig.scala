@@ -14,6 +14,7 @@ import org.apache.flink.connector.file.sink.FileSink
 import org.apache.flink.core.fs.Path
 import org.apache.flink.core.io.SimpleVersionedSerializer
 import org.apache.flink.formats.parquet.avro.AvroParquetWriters
+import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.{
   BasePathBucketAssigner,
   DateTimeBucketAssigner
@@ -26,28 +27,32 @@ import org.apache.flink.streaming.api.functions.sink.filesystem.{
   BucketAssigner,
   OutputFileConfig
 }
+import org.apache.flink.streaming.api.scala.DataStream
 
 import java.nio.charset.StandardCharsets
-import java.util.Properties
 
-case class FileSinkConfig(
-    config: FlinkConfig,
-    connector: FlinkConnectorName = File,
+case class FileSinkConfig[ADT <: FlinkEvent](
     name: String,
-    path: String,
-    isBulk: Boolean,
-    format: Option[StreamFormatName],
-    properties: Properties)
-    extends SinkConfig
+    config: FlinkConfig,
+    connector: FlinkConnectorName = File)
+    extends SinkConfig[ADT]
     with LazyLogging {
 
-  def getFileSink[E <: FlinkEvent: TypeInformation]: FileSink[E] =
-    if (isBulk) getBulkSink[E] else getRowSink[E]
+  val path: String             = config.getString(pfx("path"))
+  val destination: Path        = new Path(path)
+  val format: StreamFormatName = StreamFormatName.withNameInsensitive(
+    config.getString(pfx("format"))
+  )
+  val isBulk: Boolean          = StreamFormatName.isBulk(format)
 
-  def getBulkSink[E <: FlinkEvent: TypeInformation]: FileSink[E] = {
+  def getSink[E <: ADT: TypeInformation](
+      dataStream: DataStream[E]): DataStreamSink[E] =
+    dataStream.sinkTo(if (isBulk) getBulkSink[E] else getRowSink[E])
+
+  def getBulkSink[E <: ADT: TypeInformation]: FileSink[E] = {
     FileSink
       .forBulkFormat(
-        new Path(path),
+        destination,
         AvroParquetWriters.forReflectRecord(
           implicitly[TypeInformation[E]].getTypeClass
         )
@@ -59,9 +64,9 @@ case class FileSinkConfig(
       .build()
   }
 
-  def getRowSink[E <: FlinkEvent: TypeInformation]: FileSink[E] = {
+  def getRowSink[E <: ADT: TypeInformation]: FileSink[E] = {
     FileSink
-      .forRowFormat(new Path(path), getRowEncoder[E])
+      .forRowFormat(destination, getRowEncoder[E])
       .withBucketAssigner(getBucketAssigner)
       .withBucketCheckInterval(getBucketCheckInterval)
       .withRollingPolicy(getCheckpointRollingPolicy)
@@ -72,7 +77,7 @@ case class FileSinkConfig(
   def getBucketCheckInterval: Long =
     properties.getProperty("bucket.check.interval.ms", "60000").toLong
 
-  def getBucketAssigner[E <: FlinkEvent]: BucketAssigner[E, String] = {
+  def getBucketAssigner[E <: ADT]: BucketAssigner[E, String] = {
     properties.getProperty("bucket.assigner.type", "datetime") match {
       case "none"     => new BasePathBucketAssigner[E]()
       case "datetime" =>
@@ -107,7 +112,7 @@ case class FileSinkConfig(
     }
   }
 
-  def getCheckpointRollingPolicy[E <: FlinkEvent]
+  def getCheckpointRollingPolicy[E <: ADT]
       : CheckpointRollingPolicy[E, String] =
     OnCheckpointRollingPolicy.build()
 
@@ -121,18 +126,14 @@ case class FileSinkConfig(
     ofc.build()
   }
 
-  def getDelimitedConfig: DelimitedConfig = format match {
-    case Some(StreamFormatName.Json) =>
+  def getRowEncoder[E <: ADT: TypeInformation]: Encoder[E] = format match {
+    case StreamFormatName.Json    => new JsonFileEncoder[E]
+    case StreamFormatName.Parquet =>
       throw new RuntimeException(
-        s"Invalid argument to getDelimitedConfig"
+        s"Invalid format for getRowEncoder: $format"
       )
-    case Some(fmt)                   => DelimitedConfig.get(fmt, properties)
-    case None                        => DelimitedConfig.CSV
-  }
-
-  def getRowEncoder[E: TypeInformation]: Encoder[E] = format match {
-    case Some(StreamFormatName.Json) => new JsonFileEncoder[E]
-    case _                           => new DelimitedFileEncoder[E](getDelimitedConfig)
+    case _                        =>
+      new DelimitedFileEncoder[E](DelimitedConfig.get(format, properties))
   }
 
 }

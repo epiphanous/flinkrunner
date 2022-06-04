@@ -10,12 +10,14 @@ import org.apache.kafka.clients.producer.ProducerRecord
 import java.lang
 import java.nio.charset.StandardCharsets
 
-class JsonKafkaRecordSerializationSchema[E <: FlinkEvent: TypeInformation](
-    kafkaSinkConfig: KafkaSinkConfig)
+class JsonKafkaRecordSerializationSchema[
+    E <: ADT: TypeInformation,
+    ADT <: FlinkEvent: TypeInformation](
+    kafkaSinkConfig: KafkaSinkConfig[ADT])
     extends KafkaRecordSerializationSchema[E]
     with LazyLogging {
   val serializationSchema =
-    new JsonSerializationSchema[E](kafkaSinkConfig)
+    new JsonSerializationSchema[E, ADT](kafkaSinkConfig)
 
   override def serialize(
       element: E,

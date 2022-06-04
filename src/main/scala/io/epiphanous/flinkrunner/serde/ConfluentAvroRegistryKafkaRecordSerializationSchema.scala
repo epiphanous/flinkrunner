@@ -2,37 +2,36 @@ package io.epiphanous.flinkrunner.serde
 
 import com.typesafe.scalalogging.LazyLogging
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
-import io.confluent.kafka.serializers.{
-  KafkaAvroDeserializerConfig,
-  KafkaAvroSerializer
-}
+import io.confluent.kafka.serializers.KafkaAvroSerializer
 import io.epiphanous.flinkrunner.model.sink.KafkaSinkConfig
 import io.epiphanous.flinkrunner.model.{
   EmbeddedAvroRecord,
   FlinkConfig,
-  FlinkEvent
+  FlinkEvent,
+  SchemaRegistryConfig
 }
 import io.epiphanous.flinkrunner.util.SinkDestinationNameUtils.RichSinkDestinationName
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.connector.kafka.sink.KafkaRecordSerializationSchema
 import org.apache.kafka.clients.producer.ProducerRecord
 
-import java.{lang, util}
+import java.lang
 
-/**
- * A serialization schema that uses a confluent avro schema registry client
- * to serialize an instance of a flink runner ADT into kafka. The flink
- * runner ADT class must also extend the [[EmbeddedAvroRecord]] trait.
- * @param sinkConfig
- *   the kafka sink config
- * @param config
- *   flink runner config
- */
+/** A serialization schema that uses a confluent avro schema registry
+  * client to serialize an instance of a flink runner ADT into kafka. The
+  * flink runner ADT class must also extend the [[EmbeddedAvroRecord]]
+  * trait.
+  * @param sinkConfig
+  *   the kafka sink config
+  * @param config
+  *   flink runner config
+  */
 case class ConfluentAvroRegistryKafkaRecordSerializationSchema[
-    E <: FlinkEvent with EmbeddedAvroRecord[A],
-    A <: GenericRecord
+    E <: ADT with EmbeddedAvroRecord[A],
+    A <: GenericRecord,
+    ADT <: FlinkEvent
 ](
-    sinkConfig: KafkaSinkConfig,
+    sinkConfig: KafkaSinkConfig[ADT],
     schemaRegistryClientOpt: Option[SchemaRegistryClient] = None
 ) extends KafkaRecordSerializationSchema[E]
     with LazyLogging {
@@ -40,29 +39,25 @@ case class ConfluentAvroRegistryKafkaRecordSerializationSchema[
   val topic: String       = sinkConfig.topic
   val config: FlinkConfig = sinkConfig.config
 
-  lazy val schemaRegistryProps: util.HashMap[String, String] =
-    config.schemaRegistryPropsForSink(
-      sinkConfig,
-      Map(
-        KafkaAvroDeserializerConfig.SPECIFIC_AVRO_READER_CONFIG             -> "true",
-        KafkaAvroDeserializerConfig.AVRO_USE_LOGICAL_TYPE_CONVERTERS_CONFIG -> "true"
-      )
-    )
+  val schemaRegistryConfig: SchemaRegistryConfig =
+    sinkConfig.schemaRegistryConfig
 
   lazy val schemaRegistryClient: SchemaRegistryClient =
-    schemaRegistryClientOpt.getOrElse(config.getSchemaRegistryClient)
+    schemaRegistryClientOpt.getOrElse(
+      schemaRegistryConfig.getClient(config.mockEdges)
+    )
 
   /** value serializer */
   lazy val valueSerializer = new KafkaAvroSerializer(
     schemaRegistryClient,
-    schemaRegistryProps
+    schemaRegistryConfig.props
   )
 
   /** add the key serializer if needed */
   lazy val keySerializer: Option[KafkaAvroSerializer] =
     if (sinkConfig.isKeyed) {
       val ks = new KafkaAvroSerializer(schemaRegistryClient)
-      ks.configure(schemaRegistryProps, true)
+      ks.configure(schemaRegistryConfig.props, true)
       Some(ks)
     } else None
 

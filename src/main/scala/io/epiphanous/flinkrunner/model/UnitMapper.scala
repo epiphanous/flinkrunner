@@ -101,8 +101,8 @@ trait UnitMapper extends LazyLogging {
         Momentum(vs).map(q => aggregate.update(q, aggLU, this))
       case "MomentOfInertia"     =>
         MomentOfInertia(vs).map(q => aggregate.update(q, aggLU, this))
-      //needs an implicit MoneyContext...
-      //case "Money"               => Money(vss).map(q => aggregate.update(q, aggLU, this))
+      // needs an implicit MoneyContext...
+      // case "Money"               => Money(vss).map(q => aggregate.update(q, aggLU, this))
       case "Power"               => Power(vs).map(q => aggregate.update(q, aggLU, this))
       case "Pressure"            =>
         Pressure(vs).map(q => aggregate.update(q, aggLU, this))
@@ -145,8 +145,11 @@ trait UnitMapper extends LazyLogging {
     )
   }
 
-  //noinspection ScalaUnusedSymbol
-  def getSymbolFromString(dimension: String, unit: String): String = unit
+  def getSymbolFromString(dimension: String, unit: String): String =
+    Seq(
+      unit,
+      dimension
+    ).head // to avoid stupid warning on unused symbol dimension
 
 }
 

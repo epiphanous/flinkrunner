@@ -1,6 +1,7 @@
 package io.epiphanous.flinkrunner.operator
 
 import com.typesafe.scalalogging.LazyLogging
+import io.epiphanous.flinkrunner.model.FlinkEvent
 import io.epiphanous.flinkrunner.model.sink.JdbcSinkConfig
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.connector.jdbc.internal.executor.JdbcBatchStatementExecutor
@@ -9,12 +10,13 @@ import org.apache.flink.connector.jdbc.internal.{
   JdbcOutputFormat
 }
 
-class CreateTableJdbcSinkFunction[E](
-    sinkConfig: JdbcSinkConfig,
+class CreateTableJdbcSinkFunction[E <: ADT, ADT <: FlinkEvent](
+    sinkConfig: JdbcSinkConfig[ADT],
     jdbcOutputFormat: JdbcOutputFormat[
       E,
       E,
-      JdbcBatchStatementExecutor[E]])
+      JdbcBatchStatementExecutor[E]
+    ])
     extends GenericJdbcSinkFunction[E](jdbcOutputFormat)
     with LazyLogging {
 

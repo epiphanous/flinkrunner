@@ -9,57 +9,63 @@ import io.epiphanous.flinkrunner.model.{
 }
 import io.epiphanous.flinkrunner.serde.JsonRMQDeserializationSchema
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.streaming.connectors.rabbitmq.RMQDeserializationSchema
+import org.apache.flink.streaming.api.scala.{
+  DataStream,
+  StreamExecutionEnvironment
+}
+import org.apache.flink.streaming.connectors.rabbitmq.{
+  RMQDeserializationSchema,
+  RMQSource
+}
 
-import java.util.Properties
-
-/**
- * Source configuration for Rabbit MQ.
- * @param config
- *   The full flink config in which this source is defined
- * @param connector
- *   always RabbitMQ for this
- * @param name
- *   unique name of the source
- * @param uri
- *   the uri of the connection
- * @param useCorrelationId
- *   true if the source queue uses correlation ids
- * @param queue
- *   name of the source queue
- * @param watermarkStrategy
- *   a strategy for applying watermarks to the event stream
- * @param maxAllowedLateness
- *   a duration defining when late arriving messages are dropped
- * @param connectionInfo
- *   rabbit mq connection info object (constructed from other properties
- *   defined in this source configuration)
- * @param properties
- *   a java properties object for other configs not specified above
- */
-case class RabbitMQSourceConfig(
-    config: FlinkConfig,
-    connector: FlinkConnectorName = RabbitMQ,
+/** Source configuration for Rabbit MQ.
+  * @param name
+  *   unique name of the source
+  * @param config
+  *   The full flink config in which this source is defined
+  * @param connector
+  *   always RabbitMQ for this
+  */
+case class RabbitMQSourceConfig[ADT <: FlinkEvent](
     name: String,
-    uri: String,
-    useCorrelationId: Boolean,
-    queue: String,
-    watermarkStrategy: String,
-    maxAllowedLateness: Long,
-    connectionInfo: RabbitMQConnectionInfo,
-    properties: Properties)
-    extends SourceConfig {
+    config: FlinkConfig,
+    connector: FlinkConnectorName = RabbitMQ)
+    extends SourceConfig[ADT] {
 
-  /**
-   * Return a deserialization schema for rabbit mq. This implementation
-   * assumes a JSON fomatted messages in rabbit.
-   * @tparam E
-   *   event type
-   * @return
-   *   RMQDeserializationSchema[E]
-   */
-  def getDeserializationSchema[E <: FlinkEvent: TypeInformation]
+  val uri: String               = config.getString(pfx("uri"))
+  val useCorrelationId: Boolean =
+    config.getBoolean(pfx("use.correlation.id"))
+  val queue: String             = config.getString(pfx("queue"))
+
+  val connectionInfo: RabbitMQConnectionInfo =
+    RabbitMQConnectionInfo(uri, properties)
+
+  /** Return a deserialization schema for rabbit mq. This implementation
+    * assumes a JSON fomatted messages in rabbit.
+    * @tparam E
+    *   event type
+    * @return
+    *   RMQDeserializationSchema[E]
+    */
+  def getDeserializationSchema[E <: ADT: TypeInformation]
       : RMQDeserializationSchema[E] =
-    new JsonRMQDeserializationSchema[E](this)
+    new JsonRMQDeserializationSchema[E, ADT](this)
 
+  def getSource[E <: ADT: TypeInformation](
+      env: StreamExecutionEnvironment): DataStream[E] =
+    env
+      .addSource(
+        new RMQSource(
+          connectionInfo.rmqConfig,
+          queue,
+          useCorrelationId,
+          getDeserializationSchema[E]
+        )
+      )
+      .setParallelism(1) // exactly one semantics
+      .assignTimestampsAndWatermarks(
+        getWatermarkStrategy[E]
+      )
+      .name(s"wm:$label")
+      .uid(s"wm:$label")
 }
