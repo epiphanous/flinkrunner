@@ -57,7 +57,7 @@ class JsonDeserializationSchema[
 
   /** Compute the produced type when deserializing a byte array
     * @return
-    *   [[TypeInformation]] [E]
+    *   TypeInformation[E]
     */
   override def getProducedType: TypeInformation[E] =
     typeInfo

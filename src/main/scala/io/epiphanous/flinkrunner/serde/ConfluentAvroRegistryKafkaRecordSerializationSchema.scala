@@ -19,12 +19,9 @@ import java.lang
 
 /** A serialization schema that uses a confluent avro schema registry
   * client to serialize an instance of a flink runner ADT into kafka. The
-  * flink runner ADT class must also extend the [[EmbeddedAvroRecord]]
-  * trait.
+  * flink runner ADT class must also extend the EmbeddedAvroRecord trait.
   * @param sinkConfig
   *   the kafka sink config
-  * @param config
-  *   flink runner config
   */
 case class ConfluentAvroRegistryKafkaRecordSerializationSchema[
     E <: ADT with EmbeddedAvroRecord[A],

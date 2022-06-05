@@ -43,6 +43,7 @@ val V = new {
   val squants            = "1.8.3"
   val confluentAvroSerde = "7.1.1"
   val parquet            = "1.12.3"
+  val awsSdk             = "1.12.233"
 }
 
 val flinkDeps =
@@ -95,6 +96,7 @@ val circeDeps = Seq(
 val otherDeps = Seq(
   "io.confluent"       % "kafka-avro-serializer" % V.confluentAvroSerde % Provided,
   "org.apache.parquet" % "parquet-avro"          % V.parquet            % Provided,
+  "com.amazonaws"      % "aws-java-sdk-core"     % V.awsSdk             % Provided,
   "com.beachape"      %% "enumeratum"            % V.enumeratum,
   "com.typesafe"       % "config"                % V.typesafeConfig,
   "com.google.guava"   % "guava"                 % V.guava,
@@ -121,26 +123,25 @@ def excludeLog4j(m: ModuleID) = m.excludeAll(
 lazy val flink_runner = (project in file("."))
   .enablePlugins(BuildInfoPlugin)
   .settings(
-    buildInfoKeys                  := Seq[BuildInfoKey](
+    buildInfoKeys      := Seq[BuildInfoKey](
       name,
       version,
       scalaVersion,
       sbtVersion
     ),
-    buildInfoPackage               := "io.epiphanous.flinkrunner",
+    buildInfoPackage   := "io.epiphanous.flinkrunner",
     buildInfoOptions += BuildInfoOption.ToMap,
     buildInfoOptions += BuildInfoOption.ToJson,
     buildInfoOptions += BuildInfoOption.BuildTime,
-    crossScalaVersions             := supportedScalaVersions,
-    libraryDependencies ++=
-      (flinkDeps ++ http4sDeps ++ circeDeps ++ otherDeps)
-        .map(excludeLog4j)
-        ++ loggingDeps,
-    Compile / sourceGenerators += (Compile / avroScalaGenerateSpecific).taskValue,
-    Compile / avroScalaCustomTypes :=
-      avrohugger.format.Standard.defaultTypes
-        .copy(timestampMillis = JavaTimeInstant)
+    crossScalaVersions := supportedScalaVersions,
+    libraryDependencies ++= (flinkDeps ++ http4sDeps ++ circeDeps ++ otherDeps)
+      .map(excludeLog4j) ++ loggingDeps
   )
+
+Test / sourceGenerators += (Compile / avroScalaGenerateSpecific).taskValue
+Test / avroScalaCustomTypes :=
+  avrohugger.format.Standard.defaultTypes
+    .copy(timestampMillis = JavaTimeInstant)
 
 scalacOptions ++= Seq(
   "-encoding",

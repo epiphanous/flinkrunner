@@ -16,7 +16,7 @@ import org.apache.avro.generic.{
   GenericRecord
 }
 import org.apache.avro.io.{DecoderFactory, EncoderFactory}
-import org.apache.avro.specific.{SpecificDatumReader, SpecificDatumWriter}
+import org.apache.avro.specific.SpecificDatumReader
 import org.apache.flink.api.scala.createTypeInformation
 import org.apache.kafka.clients.consumer.ConsumerRecord
 

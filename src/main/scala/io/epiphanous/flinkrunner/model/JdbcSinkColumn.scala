@@ -2,30 +2,29 @@ package io.epiphanous.flinkrunner.model
 
 import org.apache.calcite.sql.`type`.SqlTypeName
 
-/**
- * A small product to store the name and type of a field that is being
- * written to the sink. This is used to construct a dynamic jdbc statement
- * for the jdbc sink. In the jdbc sink config, you should specify the
- * "jdbc.type" config using the calcite name from their
- * <tt>org.apache.calcite.sql.`type`.SqlTypeName</tt> library.
- *
- * @param name
- *   the name of the parameter (must be the same as the field going to the
- *   sink)
- * @param calciteType
- *   the name of the calcite [[SqlTypeName]]
- * @param jdbcType
- *   the jdbc type (as an integer) from [[java.sql.Types]] (automatically
- *   set based on the calcite sql type name)
- * @param precision
- *   optional column length for relevant types
- * @param scale
- *   optional column decimal places for relevant types
- * @param nullable
- *   true if this column can be null (defaults to true)
- * @param primaryKey
- *   optional ordinal position of this column in the table's primary key
- */
+/** A small product to store the name and type of a field that is being
+  * written to the sink. This is used to construct a dynamic jdbc statement
+  * for the jdbc sink. In the jdbc sink config, you should specify the
+  * "jdbc.type" config using the calcite name from their
+  * <tt>org.apache.calcite.sql.`type`.SqlTypeName</tt> library.
+  *
+  * @param name
+  *   the name of the parameter (must be the same as the field going to the
+  *   sink)
+  * @param calciteType
+  *   the name of the calcite SqlTypeName
+  * @param jdbcType
+  *   the jdbc type (as an integer) from java.sql.Types (automatically set
+  *   based on the calcite sql type name)
+  * @param precision
+  *   optional column length for relevant types
+  * @param scale
+  *   optional column decimal places for relevant types
+  * @param nullable
+  *   true if this column can be null (defaults to true)
+  * @param primaryKey
+  *   optional ordinal position of this column in the table's primary key
+  */
 case class JdbcSinkColumn(
     name: String,
     calciteType: SqlTypeName,

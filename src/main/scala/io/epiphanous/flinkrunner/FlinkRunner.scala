@@ -29,8 +29,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     * @param jobName
     *   the job name
     * @return
-    *   either a list of events output by the job or a
-    *   [[JobExecutionResult]]
+    *   either a list of events output by the job or a JobExecutionResult
     */
   def invoke(jobName: String): Either[List[ADT], JobExecutionResult]
 
@@ -145,10 +144,9 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     *   implicit function to construct a event from an optional key and
     *   avro value. This is usually provided by making sure the companion
     *   object of the stream element type mixes in the
-    *   [[io.epiphanous.flinkrunner.model.EmbeddedAvroRecordFactory]]
-    *   trait.
+    *   EmbeddedAvroRecordFactory trait.
     * @tparam E
-    *   stream element type (which must mixin [[EmbeddedAvroRecord]] )
+    *   stream element type (which must mixin EmbeddedAvroRecord)
     * @tparam A
     *   an avro record type (subclass of generic record)
     * @return

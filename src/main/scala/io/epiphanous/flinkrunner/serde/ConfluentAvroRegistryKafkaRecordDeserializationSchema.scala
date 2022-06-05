@@ -18,7 +18,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord
 
 /** A deserialization schema that uses a confluent schema registry to
   * deserialize a kafka key/value pair into instances of a flink runner ADT
-  * that also implements the [[EmbeddedAvroRecord]] trait.
+  * that also implements the EmbeddedAvroRecord trait.
   * @param sourceConfig
   *   config for the kafka source
   * @param schemaRegistryClientOpt

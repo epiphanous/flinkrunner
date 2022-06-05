@@ -164,7 +164,7 @@ abstract class EnrichmentAsyncFunction[
     */
   def getConfigPrefix: String = configPrefix
 
-  /** Return an http4s [[Request]] [IO] for the requested cache key.
+  /** Return an http4s Request[IO] for the requested cache key.
     * Implementers can override this to handle setting the headers or body
     * of the request based on the requested key. The default method here
     * simply makes a simple get request to the cacheKey as if it were a
@@ -172,7 +172,7 @@ abstract class EnrichmentAsyncFunction[
     * @param cacheKey
     *   the cache key to load (treated here as a json endpoint url)
     * @return
-    *   an http4s [[Request]] [IO]
+    *   an http4s Request[IO]
     */
   def requestFor(cacheKey: CK): Request[IO] =
     Request(
