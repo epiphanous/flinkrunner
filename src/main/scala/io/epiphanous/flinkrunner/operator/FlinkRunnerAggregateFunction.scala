@@ -8,7 +8,10 @@ import io.epiphanous.flinkrunner.model.aggregate.{
   AggregateQuantityInput,
   AggregateType
 }
-import org.apache.flink.api.common.functions.RichAggregateFunction
+import org.apache.flink.api.common.functions.{
+  AggregateFunction,
+  RichAggregateFunction
+}
 import squants.{Dimension, Quantity, UnitOfMeasure}
 
 /** A general RichAggregationFunction for building aggregating state around
@@ -34,7 +37,7 @@ class FlinkRunnerAggregateFunction[A <: Quantity[A], ACC <: Aggregate](
     unit: UnitOfMeasure[A],
     params: Map[String, String] = Map.empty,
     unitMapper: UnitMapper = UnitMapper.defaultUnitMapper)
-    extends RichAggregateFunction[Either[AggregateQuantityInput[
+    extends AggregateFunction[Either[AggregateQuantityInput[
       A
     ], AggregateDoubleInput], ACC, ACC]
     with LazyLogging {
