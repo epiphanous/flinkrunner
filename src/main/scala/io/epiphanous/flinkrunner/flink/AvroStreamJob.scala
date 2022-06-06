@@ -32,7 +32,8 @@ abstract class AvroStreamJob[
 
   def singleAvroSource[
       IN <: ADT with EmbeddedAvroRecord[INA]: TypeInformation,
-      INA <: GenericRecord: TypeInformation](name: String)(implicit
+      INA <: GenericRecord: TypeInformation](
+      name: String = runner.getDefaultSourceName)(implicit
       fromKV: (Option[String], INA) => IN): DataStream[IN] =
     runner.configToAvroSource[IN, INA](runner.getSourceConfig(name))
 

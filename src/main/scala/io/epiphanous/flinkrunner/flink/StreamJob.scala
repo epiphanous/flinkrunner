@@ -32,7 +32,7 @@ abstract class StreamJob[
   def transform: DataStream[OUT]
 
   def singleSource[IN <: ADT: TypeInformation](
-      name: String): DataStream[IN] =
+      name: String = runner.getDefaultSourceName): DataStream[IN] =
     runner.configToSource[IN](runner.getSourceConfig(name))
 
   def connectedSource[
@@ -123,7 +123,7 @@ abstract class StreamJob[
     *   a transformed stream from transform()
     */
   def sink(out: DataStream[OUT]): Unit =
-    config.getSinkNames.foreach(name => runner.toSink[OUT](out, name))
+    runner.getSinkNames.foreach(name => runner.toSink[OUT](out, name))
 
   /** The output stream will only be passed to BaseFlinkJob.sink if
     * FlinkConfig.mockEdges is false (ie, you're not testing).

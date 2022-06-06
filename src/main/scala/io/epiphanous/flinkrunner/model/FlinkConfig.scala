@@ -166,22 +166,6 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
         if (_config.hasPath(p)) Some(_config.getObject(p)) else None
     }).asProperties
 
-  def getSourceNames(mockSourceNames: Seq[String]): Seq[String] =
-    if (mockSourceNames.nonEmpty) mockSourceNames
-    else
-      getStringListOpt("source.names") match {
-        case sn if sn.nonEmpty => sn
-        case _                 =>
-          getObject("sources").unwrapped().keySet().asScala.toSeq.sorted
-      }
-
-  def getSinkNames: Seq[String] =
-    getStringListOpt("sink.names") match {
-      case sn if sn.nonEmpty => sn
-      case _                 =>
-        getObject("sinks").unwrapped().keySet().asScala.toSeq.sorted
-    }
-
   lazy val environment: String =
     getStringOpt("environment").getOrElse("production")
   lazy val isDev: Boolean      = environment.startsWith("dev")

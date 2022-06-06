@@ -10,6 +10,7 @@ import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.table.api.bridge.scala.StreamTableEnvironment
+import scala.collection.JavaConverters._
 
 /** Flink Job Invoker
   */
@@ -101,6 +102,34 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     println(usage)
   }
 
+  def getSourceOrSinkNames(sourceOrSink: String): Seq[String] =
+    (if (mockSources.nonEmpty) mockSources.keySet.toSeq
+     else
+       config.getStringListOpt(s"$sourceOrSink.names") match {
+         case sn if sn.nonEmpty => sn
+         case _                 =>
+           config
+             .getObject(s"${sourceOrSink}s")
+             .unwrapped()
+             .keySet()
+             .asScala
+             .toSeq
+       }).sorted
+
+  def getSourceNames: Seq[String] =
+    getSourceOrSinkNames("source")
+
+  def getSinkNames: Seq[String] =
+    getSourceOrSinkNames("sink")
+
+  def getDefaultSourceName: String = getSourceNames.headOption.getOrElse(
+    throw new RuntimeException("no sources are configured")
+  )
+
+  def getDefaultSinkname: String = getSinkNames.headOption.getOrElse(
+    throw new RuntimeException("no sinks are configured")
+  )
+
   /** Helper method to resolve the source configuration. Implementers can
     * override this method to customize source configuration behavior, in
     * particular, the deserialization schemas used by flink runner.
@@ -109,7 +138,8 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     * @return
     *   SourceConfig
     */
-  def getSourceConfig(sourceName: String): SourceConfig[ADT] =
+  def getSourceConfig(
+      sourceName: String = getDefaultSourceName): SourceConfig[ADT] =
     SourceConfig[ADT](sourceName, this)
 
   /** Helper method to convert a source config into a json-encoded source
@@ -172,8 +202,8 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     *
     * @param stream
     *   the data stream to send to sink
-    * @param sinkNameOpt
-    *   an optional sink name to obtain configuration
+    * @param sinkName
+    *   the sink to send it to
     * @tparam E
     *   stream element type
     * @return
@@ -205,7 +235,8 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
   ): Object =
     configToAvroSink[E, A](stream, getSinkConfig(sinkName))
 
-  def getSinkConfig(sinkName: String): SinkConfig[ADT] =
+  def getSinkConfig(
+      sinkName: String = getDefaultSinkname): SinkConfig[ADT] =
     SinkConfig[ADT](sinkName, config)
 
   def configToSink[E <: ADT: TypeInformation](

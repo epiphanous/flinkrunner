@@ -24,7 +24,7 @@ trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
   def connector: FlinkConnectorName
 
   def pfx(path: String = ""): String = Seq(
-    Some("sinks"),
+    Some("sources"),
     Some(name),
     if (path.isEmpty) None else Some(path)
   ).flatten.mkString(".")

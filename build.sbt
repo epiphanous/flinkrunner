@@ -67,8 +67,8 @@ val flinkDeps =
     "org.apache.flink"  % "flink-avro"                     % V.flink % Provided, // ds and table avro format
     "org.apache.flink"  % "flink-avro-confluent-registry"  % V.flink % Provided, // ds and table avro registry format
     // table api support
-    "org.apache.flink" %% "flink-table-api-scala-bridge"   % V.flink % Provided, // table api scala
-    "org.apache.flink" %% "flink-table-planner"            % V.flink % Provided, // table api
+    "org.apache.flink" %% "flink-table-api-scala-bridge"   % V.flink, // table api scala
+    "org.apache.flink" %% "flink-table-planner"            % V.flink, // table api
     "org.apache.flink"  % "flink-csv"                      % V.flink % Provided, // table api csv format
     "org.apache.flink"  % "flink-json"                     % V.flink % Provided, // table api json format
     // test support
