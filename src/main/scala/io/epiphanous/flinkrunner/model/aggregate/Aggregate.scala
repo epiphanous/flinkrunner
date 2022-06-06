@@ -30,6 +30,16 @@ trait Aggregate extends Product with Serializable with LazyLogging {
 
   def outUnit: String = unit
 
+  /** Merge another aggregate of the same type into this one.
+    * @param other
+    *   the other aggregate
+    * @tparam AGG
+    *   the type of aggregate
+    * @return
+    *   a merged aggregate
+    */
+  def merge[AGG <: Aggregate](other: AGG): AGG = ???
+
   // a copy constructor
   private def _copy(
       newValue: Double,
@@ -48,42 +58,40 @@ trait Aggregate extends Product with Serializable with LazyLogging {
       params
     )
 
-  /**
-   * Used by some subclasses to update the underlying aggregate value as a
-   * Quantity. When this is called, any dependent aggregations will be
-   * updated and passed into the depAggs parameter. You can find the
-   * previous dependent aggregations in `this.dependentAggregations` if you
-   * need them.
-   *
-   * @param current
-   *   Quantity value of the aggregate
-   * @param quantity
-   *   Quantity the new quantity to incorporate into the aggregate
-   * @param depAggs
-   *   dependent aggregations already updated with the new quantity
-   * @tparam A
-   *   the dimension of the quantity
-   * @return
-   *   A
-   */
+  /** Used by some subclasses to update the underlying aggregate value as a
+    * Quantity. When this is called, any dependent aggregations will be
+    * updated and passed into the depAggs parameter. You can find the
+    * previous dependent aggregations in `this.dependentAggregations` if
+    * you need them.
+    *
+    * @param current
+    *   Quantity value of the aggregate
+    * @param quantity
+    *   Quantity the new quantity to incorporate into the aggregate
+    * @param depAggs
+    *   dependent aggregations already updated with the new quantity
+    * @tparam A
+    *   the dimension of the quantity
+    * @return
+    *   A
+    */
   def updateQuantity[A <: Quantity[A]](
       current: A,
       quantity: A,
       depAggs: Map[String, Aggregate]): A = ???
 
-  /**
-   * Update dependent aggregations.
-   *
-   * @param q
-   *   the quantity being added to the aggregations
-   * @param aggLU
-   *   the instant associated with the new quantity
-   * @param unitMapper
-   *   a unit mapper
-   * @tparam A
-   *   the type of the quantity
-   * @return
-   */
+  /** Update dependent aggregations.
+    *
+    * @param q
+    *   the quantity being added to the aggregations
+    * @param aggLU
+    *   the instant associated with the new quantity
+    * @param unitMapper
+    *   a unit mapper
+    * @tparam A
+    *   the type of the quantity
+    * @return
+    */
   def updateDependents[A <: Quantity[A]](
       q: A,
       aggLU: Instant,
@@ -93,20 +101,19 @@ trait Aggregate extends Product with Serializable with LazyLogging {
       .filter(_._2.nonEmpty)
       .map(kv => kv._1 -> kv._2.get)
 
-  def getDependents: Map[String, Aggregate]           = this.dependentAggregations
+  def getDependents: Map[String, Aggregate] = this.dependentAggregations
 
-  /**
-   * Update the aggregate with a Quantity.
-   *
-   * @param q
-   *   Quantity[A]
-   * @param aggLU
-   *   event timestamp of quantity
-   * @tparam A
-   *   dimension of Quantity
-   * @return
-   *   Aggregate
-   */
+  /** Update the aggregate with a Quantity.
+    *
+    * @param q
+    *   Quantity[A]
+    * @param aggLU
+    *   event timestamp of quantity
+    * @tparam A
+    *   dimension of Quantity
+    * @return
+    *   Aggregate
+    */
   def update[A <: Quantity[A]](
       q: A,
       aggLU: Instant,
@@ -141,19 +148,18 @@ trait Aggregate extends Product with Serializable with LazyLogging {
     }
   }
 
-  /**
-   * Most common entry point for updating aggregates.
-   *
-   * @param value
-   *   Double value of quantity to update aggregate with
-   * @param unit
-   *   String unit of quantity to update aggregate with
-   * @param aggLU
-   *   event timestamp of value
-   * @param unitMapper
-   *   allows caller to customize unit system mappings
-   * @return
-   */
+  /** Most common entry point for updating aggregates.
+    *
+    * @param value
+    *   Double value of quantity to update aggregate with
+    * @param unit
+    *   String unit of quantity to update aggregate with
+    * @param aggLU
+    *   event timestamp of value
+    * @param unitMapper
+    *   allows caller to customize unit system mappings
+    * @return
+    */
   def update(
       value: Double,
       unit: String,

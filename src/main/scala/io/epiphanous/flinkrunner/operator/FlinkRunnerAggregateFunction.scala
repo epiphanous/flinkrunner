@@ -32,7 +32,7 @@ class FlinkRunnerAggregateFunction[A <: Quantity[A], ACC <: Aggregate](
     aggType: AggregateType,
     dimension: Dimension[A],
     unit: UnitOfMeasure[A],
-    params: Map[String, Any] = Map.empty,
+    params: Map[String, String] = Map.empty,
     unitMapper: UnitMapper = UnitMapper.defaultUnitMapper)
     extends RichAggregateFunction[Either[AggregateQuantityInput[
       A
@@ -52,7 +52,6 @@ class FlinkRunnerAggregateFunction[A <: Quantity[A], ACC <: Aggregate](
 
   override def getResult(accumulator: ACC): ACC = accumulator
 
-  // TODO: need to figure this out
-  override def merge(a: ACC, b: ACC): ACC = ???
+  override def merge(a: ACC, b: ACC): ACC = a.merge(b)
 
 }
