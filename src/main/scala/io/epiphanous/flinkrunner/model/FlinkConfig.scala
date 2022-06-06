@@ -7,6 +7,7 @@ import io.epiphanous.flinkrunner.util.FileUtils.getResourceOrFile
 import org.apache.flink.api.common.RuntimeExecutionMode
 import org.apache.flink.api.java.utils.ParameterTool
 import org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackend
+import org.apache.flink.runtime.state.hashmap.HashMapStateBackend
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 
 import java.io.File
@@ -194,9 +195,12 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
         checkpointMaxConcurrent
       )
 
-      env.setStateBackend(
-        new EmbeddedRocksDBStateBackend(checkpointIncremental)
-      )
+      env.setStateBackend(stateBackend.toLowerCase match {
+        case b if b.startsWith("rocks") =>
+          new EmbeddedRocksDBStateBackend(checkpointIncremental)
+        case b if b.startsWith("hash")  => new HashMapStateBackend()
+        case b                          => throw new RuntimeException(s"unknown state backend $b")
+      })
       env.getCheckpointConfig.setCheckpointStorage(checkpointUrl)
     }
 
