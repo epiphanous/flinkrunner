@@ -8,10 +8,7 @@ import io.epiphanous.flinkrunner.model.aggregate.{
   AggregateQuantityInput,
   AggregateType
 }
-import org.apache.flink.api.common.functions.{
-  AggregateFunction,
-  RichAggregateFunction
-}
+import org.apache.flink.api.common.functions.AggregateFunction
 import squants.{Dimension, Quantity, UnitOfMeasure}
 
 /** A general RichAggregationFunction for building aggregating state around
