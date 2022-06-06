@@ -98,7 +98,7 @@ class SBFDeduplicationFilter[E <: ADT: TypeInformation, ADT <: FlinkEvent](
       val count = dupCount.value() + 1
       dupCount.update(count)
       logger.debug(
-        s"${sourceConfig.name}: event $id already seen (dup count: $dupCount)"
+        s"${sourceConfig.name}: event $id already seen (dup count: $count)"
       )
     }
 
