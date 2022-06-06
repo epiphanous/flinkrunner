@@ -2,13 +2,7 @@ package io.epiphanous.flinkrunner
 
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.flink.{AvroStreamJob, StreamJob}
-import io.epiphanous.flinkrunner.model.{
-  EmbeddedAvroRecord,
-  FlinkConfig,
-  FlinkEvent,
-  MySimpleADT,
-  NothingADT
-}
+import io.epiphanous.flinkrunner.model._
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.JobExecutionResult
 import org.apache.flink.api.common.typeinfo.TypeInformation

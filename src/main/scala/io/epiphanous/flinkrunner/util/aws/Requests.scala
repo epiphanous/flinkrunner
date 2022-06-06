@@ -1,8 +1,8 @@
 package io.epiphanous.flinkrunner.util.aws
 
 import cats.effect.IO
-import org.http4s.dsl.io.{GET, POST}
 import org.http4s.client.dsl.io._
+import org.http4s.dsl.io.{GET, POST}
 import org.http4s.{EntityEncoder, Headers, Request, Uri}
 
 object Requests {

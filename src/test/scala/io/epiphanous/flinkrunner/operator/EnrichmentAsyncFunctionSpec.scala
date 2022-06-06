@@ -3,8 +3,6 @@ package io.epiphanous.flinkrunner.operator
 import io.circe.generic.auto._
 import io.epiphanous.flinkrunner.PropSpec
 
-import scala.util.Try
-
 class EnrichmentAsyncFunctionSpec extends PropSpec {
 
   case class MyOrigin(origin: String)

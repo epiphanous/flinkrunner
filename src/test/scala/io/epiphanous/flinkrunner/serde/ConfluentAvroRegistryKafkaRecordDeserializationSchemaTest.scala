@@ -18,7 +18,7 @@ class ConfluentAvroRegistryKafkaRecordDeserializationSchemaTest
     val collected = mutable.ArrayBuffer.empty[BWrapper]
     val collector = new Collector[BWrapper] {
       override def collect(t: BWrapper): Unit = collected += t
-      override def close(): Unit = {}
+      override def close(): Unit              = {}
     }
 //    showBytes("bWrapper key  ", bConsumerRecord.key())
 //    showBytes("bWrapper value", bConsumerRecord.value())
@@ -32,7 +32,7 @@ class ConfluentAvroRegistryKafkaRecordDeserializationSchemaTest
     val collected = mutable.ArrayBuffer.empty[AWrapper]
     val collector = new Collector[AWrapper] {
       override def collect(t: AWrapper): Unit = collected += t
-      override def close(): Unit = {}
+      override def close(): Unit              = {}
     }
 //    showBytes("aWrapper key  ", aConsumerRecord.key())
 //    showBytes("aWrapper value", aConsumerRecord.value())
