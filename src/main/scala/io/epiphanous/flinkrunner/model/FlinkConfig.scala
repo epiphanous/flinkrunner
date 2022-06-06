@@ -13,7 +13,7 @@ import java.io.File
 import java.time.Duration
 import java.util.Properties
 import scala.collection.JavaConverters._
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 @SerialVersionUID(1544548116L)
 class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
@@ -169,17 +169,17 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
   def getSourceNames(mockSourceNames: Seq[String]): Seq[String] =
     if (mockSourceNames.nonEmpty) mockSourceNames
     else
-      Try(getStringList("source.names")) match {
-        case Success(sn) => sn
-        case Failure(_)  =>
-          getObject("sources").unwrapped().keySet().asScala.toSeq
+      getStringListOpt("source.names") match {
+        case sn if sn.nonEmpty => sn
+        case _                 =>
+          getObject("sources").unwrapped().keySet().asScala.toSeq.sorted
       }
 
   def getSinkNames: Seq[String] =
-    Try(getStringList("sink.names")) match {
-      case Success(sn) => sn
-      case Failure(_)  =>
-        getObject("sinks").unwrapped().keySet().asScala.toSeq
+    getStringListOpt("sink.names") match {
+      case sn if sn.nonEmpty => sn
+      case _                 =>
+        getObject("sinks").unwrapped().keySet().asScala.toSeq.sorted
     }
 
   lazy val environment: String =

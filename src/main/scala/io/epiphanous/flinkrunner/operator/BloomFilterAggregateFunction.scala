@@ -10,10 +10,11 @@ class BloomFilterAggregateFunction(
     numCells: Long,
     bitsPerCell: Int = 3,
     falsePositiveRate: Double = 0.001)
-    extends RichAggregateFunction[
-      CharSequence,
-      StableBloomFilter[CharSequence],
-      StableBloomFilter[CharSequence]] {
+    extends RichAggregateFunction[String, StableBloomFilter[
+      CharSequence
+    ], StableBloomFilter[
+      CharSequence
+    ]] {
 
   override def createAccumulator(): StableBloomFilter[CharSequence] =
     StableBloomFilter
@@ -24,7 +25,7 @@ class BloomFilterAggregateFunction(
       .build()
 
   override def add(
-      value: CharSequence,
+      value: String,
       accumulator: StableBloomFilter[CharSequence])
       : StableBloomFilter[CharSequence] = {
     accumulator.add(value)

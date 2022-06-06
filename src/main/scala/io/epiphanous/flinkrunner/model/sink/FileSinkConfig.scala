@@ -91,7 +91,7 @@ case class FileSinkConfig[ADT <: FlinkEvent](
         new BucketAssigner[E, String] {
           override def getBucketId(
               in: E,
-              context: BucketAssigner.Context): String = in.$key
+              context: BucketAssigner.Context): String = in.$bucketId
 
           override def getSerializer: SimpleVersionedSerializer[String] =
             new SimpleVersionedSerializer[String] {
