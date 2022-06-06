@@ -12,7 +12,9 @@ import org.typelevel.ci.CIString
 
 import scala.util.matching.Regex
 
-class AWSSigner(request: Request[IO]) {
+class AWSSigner(
+    request: Request[IO],
+    providedCredentials: Option[AWSCredentials] = None) {
 
   val Some(Tuple2(service, maybeUri)) = resolveAWSService
 
@@ -37,8 +39,9 @@ class AWSSigner(request: Request[IO]) {
       .getOrElse(request)
   )
 
-  val credentials: AWSCredentials =
+  val credentials: AWSCredentials = providedCredentials.getOrElse(
     DefaultAWSCredentialsProviderChain.getInstance().getCredentials
+  )
 
   def sign: Request[IO] = {
     signer.sign(signable, credentials)
