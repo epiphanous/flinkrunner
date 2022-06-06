@@ -62,17 +62,18 @@ class SBFDeduplicationFilter[E <: ADT: TypeInformation, ADT <: FlinkEvent](
   var dupCount: ValueState[Long] = _
 
   override def open(parameters: Configuration): Unit = {
-    bfs = getRuntimeContext.getAggregatingState(
-      new AggregatingStateDescriptor(
-        s"${sourceConfig.label}_BloomFilter",
-        new BloomFilterAggregateFunction(
-          numCells,
-          bitsPerCell,
-          falsePositiveRate
-        ),
-        createTypeInformation[StableBloomFilter[CharSequence]]
+    bfs = getRuntimeContext
+      .getAggregatingState(
+        new AggregatingStateDescriptor(
+          s"${sourceConfig.label}_BloomFilter",
+          new BloomFilterAggregateFunction(
+            numCells,
+            bitsPerCell,
+            falsePositiveRate
+          ),
+          createTypeInformation[StableBloomFilter[CharSequence]]
+        )
       )
-    )
     dupCount = getRuntimeContext.getState(
       new ValueStateDescriptor[Long](
         s"${sourceConfig.label}_DuplicateCount",
@@ -82,14 +83,13 @@ class SBFDeduplicationFilter[E <: ADT: TypeInformation, ADT <: FlinkEvent](
   }
 
   override def filter(in: E): Boolean = {
-
     if (Option(dupCount.value()).isEmpty) dupCount.update(0L)
 
     // compute the identifier for the input event
     val id = identifier(in)
 
     // see if it's already in the bloom filter
-    val alreadySeen = bfs.get().mightContain(id)
+    val alreadySeen = Option(bfs.get()).exists(_.mightContain(id))
 
     // if not, add it to the bloom filter
     if (!alreadySeen) bfs.add(id)

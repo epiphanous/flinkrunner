@@ -3,6 +3,7 @@ package io.epiphanous.flinkrunner.operator
 import com.google.common.hash.Funnels
 import io.epiphanous.flinkrunner.algorithm.membership.StableBloomFilter
 import org.apache.flink.api.common.functions.RichAggregateFunction
+import org.apache.flink.configuration.Configuration
 
 import java.nio.charset.StandardCharsets
 
