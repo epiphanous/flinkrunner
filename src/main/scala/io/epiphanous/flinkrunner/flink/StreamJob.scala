@@ -2,14 +2,22 @@ package io.epiphanous.flinkrunner.flink
 
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.FlinkRunner
+import io.epiphanous.flinkrunner.model.aggregate.{
+  Aggregate,
+  AggregateAccumulator,
+  WindowedAggregationInitializer
+}
 import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkEvent}
 import io.epiphanous.flinkrunner.util.StreamUtils.Pipe
 import org.apache.flink.api.common.JobExecutionResult
 import org.apache.flink.api.common.state.MapStateDescriptor
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.scala._
+import org.apache.flink.streaming.api.windowing.time.Time
+import org.apache.flink.streaming.api.windowing.windows.Window
 import org.apache.flink.table.api.bridge.scala.StreamTableEnvironment
 import org.apache.flink.util.Collector
+import squants.Quantity
 
 /** A streaming job. Implementers must provide a transform method,
   * responsible for transforming inputs into outputs.
@@ -115,6 +123,47 @@ abstract class StreamJob[
         )
       )
     keyedSource.connect(broadcastSource)
+  }
+
+  /** Create a data stream of windowed aggregates of type AGG. This output
+    * stream is usually mapped into an instance of the ADT to be written to
+    * a sink.
+    * @param source
+    *   a keyed stream of events of type E
+    * @param initializer
+    *   a windowed aggregation initializer
+    * @tparam E
+    *   the input event type
+    * @tparam KEY
+    *   the type the stream is keyed on
+    * @tparam WINDOW
+    *   the window assigner type
+    * @tparam AGG
+    *   the aggregation type
+    * @tparam QUANTITY
+    *   the type of quantity being aggregate
+    * @return
+    */
+  def windowedAggregation[
+      E <: ADT,
+      KEY,
+      WINDOW <: Window,
+      AGG <: Aggregate: TypeInformation,
+      QUANTITY <: Quantity[QUANTITY]](
+      source: KeyedStream[E, KEY],
+      initializer: WindowedAggregationInitializer[
+        E,
+        WINDOW,
+        AGG,
+        QUANTITY,
+        ADT
+      ]): DataStream[AGG] = {
+    implicit val typeInfo: TypeInformation[AggregateAccumulator[AGG]] =
+      createTypeInformation[AggregateAccumulator[AGG]]
+    source
+      .window(initializer.windowAssigner)
+      .allowedLateness(Time.seconds(initializer.allowedLateness.toSeconds))
+      .aggregate(initializer.aggregateFunction)
   }
 
   /** Writes the transformed data stream to configured output sinks.

@@ -4,6 +4,7 @@ import io.epiphanous.flinkrunner.model.UnitMapper
 import squants.Quantity
 
 import java.time.Instant
+import scala.util.Try
 
 final case class Histogram(
     dimension: String,
@@ -22,22 +23,21 @@ final case class Histogram(
   def bin(key: String): Aggregate =
     this.dependentAggregations.getOrElse(key, Count(dimension, unit))
 
-  /**
-   * Compute a dynamic bin for the requested quantity. This picks a bin
-   * based on the order of magnitude of the quantity in the aggregate's
-   * preferred unit. If the order of magnitude is 3 (say the value is 2345)
-   * For instance if the quantity value is 0.00157, its order of magnitude
-   * is -3. We reduce that in absolute value by 1 (= -2) to compute the min
-   * and max of the bin as [floor(0.0157 * 10**2)/10**2 (= 0.01) and
-   * ceil(0.0157 * 10**2)/10**2 (= 0.02).
-   *
-   * @param q
-   *   the quantity to compute a bin of
-   * @return
-   */
+  /** Compute a dynamic bin for the requested quantity. This picks a bin
+    * based on the order of magnitude of the quantity in the aggregate's
+    * preferred unit. If the order of magnitude is 3 (say the value is
+    * 2345) For instance if the quantity value is 0.00157, its order of
+    * magnitude is -3. We reduce that in absolute value by 1 (= -2) to
+    * compute the min and max of the bin as [floor(0.0157 * 10**2)/10**2 (=
+    * 0.01) and ceil(0.0157 * 10**2)/10**2 (= 0.02).
+    *
+    * @param q
+    *   the quantity to compute a bin of
+    * @return
+    */
   def binOf[A <: Quantity[A]](
       q: A,
-      unitMapper: UnitMapper): Option[String] = {
+      unitMapper: UnitMapper): Try[String] = {
     unitMapper
       .createQuantity(q.dimension, value, unit)
       .map(_.unit)
@@ -66,26 +66,14 @@ final case class Histogram(
   override def update[A <: Quantity[A]](
       q: A,
       aggLU: Instant,
-      unitMapper: UnitMapper): Option[Histogram] =
-    binOf(q, unitMapper) match {
-      case Some(binKey) =>
-        bin(binKey)
-          .update(q.value, q.unit.symbol, aggLU, unitMapper) match {
-          case Some(updatedBin) =>
-            Some(
-              copy(dependentAggregations =
-                dependentAggregations.updated(binKey, updatedBin)
-              )
-            )
-          case None             =>
-            logger.error(
-              s"$name[$dimension,$unit] Quantity[$q] can't be binned"
-            )
-            None
-        }
-      case None         =>
-        logger.error(s"$name[$dimension,$unit] can't be updated with $q")
-        None
+      unitMapper: UnitMapper): Try[Histogram] =
+    binOf(q, unitMapper).flatMap { binKey =>
+      bin(binKey).update(q.value, q.unit.symbol, aggLU, unitMapper).map {
+        updatedBin =>
+          copy(dependentAggregations =
+            dependentAggregations.updated(binKey, updatedBin)
+          )
+      }
     }
 
   override def toString =

@@ -33,13 +33,12 @@ final case class ExponentialMovingStandardDeviation(
   override def updateQuantity[A <: Quantity[A]](
       current: A,
       quantity: A,
-      depAggs: Map[String, Aggregate]): A = {
+      depAggs: Map[String, Aggregate]): A =
     if (count == 0) current.unit(0d)
     else {
       val updatedEmv = depAggs("ExponentialMovingVariance")
       current.unit(Math.sqrt(updatedEmv.value))
     }
-  }
 
 }
 

@@ -5,6 +5,7 @@ import io.epiphanous.flinkrunner.model.UnitMapper
 import squants.Quantity
 
 import java.time.Instant
+import scala.util.{Failure, Success, Try}
 
 trait Aggregate extends Product with Serializable with LazyLogging {
 
@@ -95,13 +96,34 @@ trait Aggregate extends Product with Serializable with LazyLogging {
   def updateDependents[A <: Quantity[A]](
       q: A,
       aggLU: Instant,
-      unitMapper: UnitMapper): Map[String, Aggregate] =
-    getDependents
-      .map(kv => kv._1 -> kv._2.update(q, aggLU, unitMapper))
-      .filter(_._2.nonEmpty)
-      .map(kv => kv._1 -> kv._2.get)
+      unitMapper: UnitMapper): Try[Map[String, Aggregate]] = Try {
+    val split =
+      getDependents
+        .mapValues(agg => agg.update(q, aggLU, unitMapper))
+        .groupBy { case (_, v) =>
+          if (v.isFailure) "f" else "s"
+        }
+    if (split.contains("f")) {
+      val fails = split("f")
+      throw new RuntimeException(
+        s"""
+           |update failed for ${if (
+            fails.size < dependentAggregations.size
+          ) "some"
+          else "all"} dependents: (${fails.keySet})
+           |${fails
+            .map {
+              case (k, Failure(exception)) =>
+                s"$k: ${exception.getMessage}"
+              case _                       => "wont happen"
+            }
+            .mkString("=====\n  - ", "\n  - ", "\n=====")}
+           |""".stripMargin
+      )
+    } else split("s").collect { case (k, Success(agg)) => (k, agg) }
+  }
 
-  def getDependents: Map[String, Aggregate] = this.dependentAggregations
+  def getDependents: Map[String, Aggregate] = dependentAggregations
 
   /** Update the aggregate with a Quantity.
     *
@@ -117,34 +139,24 @@ trait Aggregate extends Product with Serializable with LazyLogging {
   def update[A <: Quantity[A]](
       q: A,
       aggLU: Instant,
-      unitMapper: UnitMapper): Option[Aggregate] = {
+      unitMapper: UnitMapper): Try[Aggregate] = {
     if (q.dimension.name != dimension) {
-      logger.error(
-        s"$name[$dimension,$unit] can not be updated with (Quantity[${q.dimension.name}]=$q)"
-      )
-      None
-    } else {
-      val depAggs = updateDependents(q, aggLU, unitMapper)
-      if (depAggs.size < this.dependentAggregations.size) {
-        logger.error(
-          s"$name[$dimension,$unit] dependents can not be updated with (Quantity[${q.dimension.name}]=$q)"
+      Failure(
+        new RuntimeException(
+          s"$name[$dimension,$unit] can not be updated with (Quantity[${q.dimension.name}]=$q)"
         )
-        None
-      } else {
-        unitMapper
-          .createQuantity(q.dimension, value, unit)
-          .map(current =>
-            updateQuantity(current, q, depAggs) in current.unit
-          ) match {
-          case Some(updated) =>
-            Some(_copy(updated.value, aggLU, depAggs))
-          case None          =>
-            logger.error(
-              s"$name[$dimension,$unit] can not be updated with (Quantity[${q.dimension.name}]=$q)"
-            )
-            None
-        }
-      }
+      )
+
+    } else {
+      for {
+        deps <- updateDependents(q, aggLU, unitMapper)
+        current <- unitMapper.createQuantity(q.dimension, value, unit)
+        updated <-
+          Success(
+            (updateQuantity(current, q, deps) in current.unit).value
+          )
+        agg <- Success(_copy(updated, aggLU, deps))
+      } yield agg
     }
   }
 
@@ -165,7 +177,7 @@ trait Aggregate extends Product with Serializable with LazyLogging {
       unit: String,
       aggLU: Instant,
       unitMapper: UnitMapper = UnitMapper.defaultUnitMapper
-  ): Option[Aggregate] =
+  ): Try[Aggregate] =
     unitMapper.updateAggregateWith(this, value, unit, aggLU)
 
   def isEmpty: Boolean = count == BigInt(0)

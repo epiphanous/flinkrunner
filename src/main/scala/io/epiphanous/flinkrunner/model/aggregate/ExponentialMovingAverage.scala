@@ -26,7 +26,8 @@ final case class ExponentialMovingAverage(
       current: A,
       quantity: A,
       depAggs: Map[String, Aggregate]): A =
-    if (count == 0) quantity else current * (1 - alpha) + quantity * alpha
+    if (count == 0) quantity
+    else current * (1 - alpha) + quantity * alpha
 
 }
 
