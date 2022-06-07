@@ -142,28 +142,44 @@ abstract class StreamJob[
     *   the aggregation type
     * @tparam QUANTITY
     *   the type of quantity being aggregate
+    * @tparam PWF_OUT
+    *   the type of output collected from the optional process window
+    *   function in the initializer; if not process window function is
+    *   defined in the initializer, this can be Nothing
     * @return
     */
   def windowedAggregation[
-      E <: ADT,
-      KEY,
-      WINDOW <: Window,
+      E <: ADT: TypeInformation,
+      KEY: TypeInformation,
+      WINDOW <: Window: TypeInformation,
       AGG <: Aggregate: TypeInformation,
-      QUANTITY <: Quantity[QUANTITY]](
+      QUANTITY <: Quantity[QUANTITY]: TypeInformation,
+      PWF_OUT: TypeInformation](
       source: KeyedStream[E, KEY],
       initializer: WindowedAggregationInitializer[
         E,
+        KEY,
         WINDOW,
         AGG,
         QUANTITY,
+        PWF_OUT,
         ADT
-      ]): DataStream[AGG] = {
-    implicit val typeInfo: TypeInformation[AggregateAccumulator[AGG]] =
+      ]): Any = {
+
+    implicit val accumulatorTypeInfo
+        : TypeInformation[AggregateAccumulator[AGG]] =
       createTypeInformation[AggregateAccumulator[AGG]]
-    source
+
+    val windowedStream: WindowedStream[E, KEY, WINDOW] = source
       .window(initializer.windowAssigner)
       .allowedLateness(Time.seconds(initializer.allowedLateness.toSeconds))
-      .aggregate(initializer.aggregateFunction)
+    (
+      initializer.aggregateFunction,
+      initializer.processWindowFunction
+    ) match {
+      case (af, Some(pwf)) => windowedStream.aggregate(af, pwf)
+      case (af, None)      => windowedStream.aggregate(af)
+    }
   }
 
   /** Writes the transformed data stream to configured output sinks.
