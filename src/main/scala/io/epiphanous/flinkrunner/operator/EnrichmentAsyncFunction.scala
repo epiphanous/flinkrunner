@@ -107,9 +107,16 @@ abstract class EnrichmentAsyncFunction[
     )
     .build
 
-  /** The default cache loader implementation. This uses a blaze client to
-    * make an api call and converts the result to the cache value type
-    * (CV). This loader will be used unless one is passed into the class
+  /** The default cache loader implementation. This uses an http4s client
+    * to make an api call to a json endpoint and converts the JSON-encoded
+    * result to the cache value type (CV) using an implicit circe decoder
+    * made available by the implementing class.
+    *
+    * If the api call fails to return and decode a CV, it will log the
+    * error and return None. If the api call succeeds the cache value is
+    * returned wrapped in a Some.
+    *
+    * This loader will be used unless one is passed into the class
     * constructor (usually just done for testing).
     */
   @transient
@@ -137,32 +144,46 @@ abstract class EnrichmentAsyncFunction[
       }
     }
 
+  /** A cache of enrichers */
   @transient
-  lazy val cache: LoadingCache[CK, Option[CV]] = {
-    logger.debug("=== initializing new cache")
-    val expireAfter =
-      config.getDuration(s"$configPrefix.cache.expire.after")
-    val builder     = CacheBuilder
-      .newBuilder()
-      .concurrencyLevel(
-        config.getInt(s"$configPrefix.cache.concurrency.level")
-      )
-      .maximumSize(config.getLong(s"$configPrefix.cache.max.size"))
-      .expireAfterWrite(expireAfter.toMillis, TimeUnit.MILLISECONDS)
-    if (!config.getBoolean(s"$configPrefix.cache.use.strong.keys"))
-      builder.weakKeys()
-    if (config.getBoolean(s"$configPrefix.cache.record.stats"))
-      builder.recordStats()
-    builder.build[CK, Option[CV]](
-      cacheLoaderOpt.getOrElse(defaultCacheLoader)
-    )
-  }
+  lazy val cache: LoadingCache[CK, Option[CV]] = getCache(
+    cacheLoaderOpt.getOrElse(defaultCacheLoader)
+  )
 
   /** Getter for configPrefix value
     *
     * @return
     */
   def getConfigPrefix: String = configPrefix
+
+  /** Return a configured cache with the requested cache loader.
+    * @param cacheLoader
+    *   the cache loader
+    * @tparam K
+    *   the cache key type
+    * @tparam V
+    *   the cache value type
+    * @return
+    *   configured cache
+    */
+  def getCache[K <: AnyRef, V >: Null <: AnyRef](
+      cacheLoader: CacheLoader[K, V]): LoadingCache[K, V] = {
+    val builder = CacheBuilder
+      .newBuilder()
+      .concurrencyLevel(
+        config.getInt(s"$configPrefix.cache.concurrency.level")
+      )
+      .maximumSize(config.getLong(s"$configPrefix.cache.max.size"))
+      .expireAfterWrite(
+        config.getDuration(s"$configPrefix.cache.expire.after").toMillis,
+        TimeUnit.MILLISECONDS
+      )
+    if (!config.getBoolean(s"$configPrefix.cache.use.strong.keys"))
+      builder.weakKeys()
+    if (config.getBoolean(s"$configPrefix.cache.record.stats"))
+      builder.recordStats()
+    builder.build[K, V](cacheLoader)
+  }
 
   /** Return an http4s Request[IO] for the requested cache key.
     * Implementers can override this to handle setting the headers or body
