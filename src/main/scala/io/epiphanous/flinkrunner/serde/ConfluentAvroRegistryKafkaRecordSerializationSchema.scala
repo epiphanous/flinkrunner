@@ -4,14 +4,10 @@ import com.typesafe.scalalogging.LazyLogging
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
 import io.confluent.kafka.serializers.KafkaAvroSerializer
 import io.epiphanous.flinkrunner.model.sink.KafkaSinkConfig
-import io.epiphanous.flinkrunner.model.{
-  EmbeddedAvroRecord,
-  FlinkConfig,
-  FlinkEvent,
-  SchemaRegistryConfig
-}
+import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, FlinkEvent}
 import io.epiphanous.flinkrunner.util.SinkDestinationNameUtils.RichSinkDestinationName
 import org.apache.avro.generic.GenericRecord
+import org.apache.flink.api.common.serialization.SerializationSchema
 import org.apache.flink.connector.kafka.sink.KafkaRecordSerializationSchema
 import org.apache.kafka.clients.producer.ProducerRecord
 
@@ -33,41 +29,46 @@ case class ConfluentAvroRegistryKafkaRecordSerializationSchema[
 ) extends KafkaRecordSerializationSchema[E]
     with LazyLogging {
 
-  val topic: String       = sinkConfig.topic
-  val config: FlinkConfig = sinkConfig.config
-
-  val schemaRegistryConfig: SchemaRegistryConfig =
-    sinkConfig.schemaRegistryConfig
-
-  lazy val schemaRegistryClient: SchemaRegistryClient =
-    schemaRegistryClientOpt.getOrElse(
-      schemaRegistryConfig.getClient(config.mockEdges)
-    )
-
   /** value serializer */
-  lazy val valueSerializer = new KafkaAvroSerializer(
-    schemaRegistryClient,
-    schemaRegistryConfig.props
-  )
+  var valueSerializer: KafkaAvroSerializer = _
 
   /** add the key serializer if needed */
-  lazy val keySerializer: Option[KafkaAvroSerializer] =
-    if (sinkConfig.isKeyed) {
+  var keySerializer: Option[KafkaAvroSerializer] = _
+
+  override def open(
+      context: SerializationSchema.InitializationContext,
+      sinkContext: KafkaRecordSerializationSchema.KafkaSinkContext)
+      : Unit = {
+    val schemaRegistryConfig = sinkConfig.schemaRegistryConfig
+
+    val schemaRegistryClient: SchemaRegistryClient =
+      schemaRegistryClientOpt.getOrElse(
+        schemaRegistryConfig.getClient(sinkConfig.config.mockEdges)
+      )
+
+    valueSerializer = new KafkaAvroSerializer(
+      schemaRegistryClient,
+      schemaRegistryConfig.props
+    )
+
+    keySerializer = if (sinkConfig.isKeyed) {
       val ks = new KafkaAvroSerializer(schemaRegistryClient)
       ks.configure(schemaRegistryConfig.props, true)
       Some(ks)
     } else None
+  }
 
   override def serialize(
       element: E,
       context: KafkaRecordSerializationSchema.KafkaSinkContext,
       timestamp: lang.Long): ProducerRecord[Array[Byte], Array[Byte]] = {
     val (k, v) = element.toKV
+    val topic  = sinkConfig.expandTemplate(v)
     val key    =
       keySerializer.flatMap(ks => k.map(kk => ks.serialize(topic, kk)))
     val value  = valueSerializer.serialize(topic, v)
     new ProducerRecord(
-      sinkConfig.expandTemplate(v),
+      topic,
       null,
       element.$timestamp,
       key.orNull,

@@ -6,11 +6,11 @@ import io.confluent.kafka.serializers.KafkaAvroDeserializer
 import io.epiphanous.flinkrunner.model.source.KafkaSourceConfig
 import io.epiphanous.flinkrunner.model.{
   EmbeddedAvroRecord,
-  FlinkConfig,
   FlinkEvent,
   SchemaRegistryConfig
 }
 import org.apache.avro.generic.GenericRecord
+import org.apache.flink.api.common.serialization.DeserializationSchema
 import org.apache.flink.api.common.typeinfo.{TypeHint, TypeInformation}
 import org.apache.flink.connector.kafka.source.reader.deserializer.KafkaRecordDeserializationSchema
 import org.apache.flink.util.Collector
@@ -35,32 +35,37 @@ class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
     extends KafkaRecordDeserializationSchema[E]
     with LazyLogging {
 
-  val topic: String                              = sourceConfig.topic
-  val config: FlinkConfig                        = sourceConfig.config
-  val schemaRegistryConfig: SchemaRegistryConfig =
-    sourceConfig.schemaRegistryConfig
+  var valueDeserializer: KafkaAvroDeserializer       = _
+  var keyDeserializer: Option[KafkaAvroDeserializer] = _
 
-  lazy val schemaRegistryClient: SchemaRegistryClient =
-    schemaRegistryClientOpt.getOrElse(
-      schemaRegistryConfig.getClient(config.mockEdges)
+  override def open(
+      context: DeserializationSchema.InitializationContext): Unit = {
+
+    val schemaRegistryConfig: SchemaRegistryConfig =
+      sourceConfig.schemaRegistryConfig
+
+    val schemaRegistryClient: SchemaRegistryClient =
+      schemaRegistryClientOpt.getOrElse(
+        schemaRegistryConfig.getClient(sourceConfig.config.mockEdges)
+      )
+
+    valueDeserializer = new KafkaAvroDeserializer(
+      schemaRegistryClient,
+      schemaRegistryConfig.props
     )
 
-  lazy val valueDeserializer = new KafkaAvroDeserializer(
-    schemaRegistryClient,
-    schemaRegistryConfig.props
-  )
-
-  lazy val keyDeserializer: Option[KafkaAvroDeserializer] =
-    if (sourceConfig.isKeyed) {
+    keyDeserializer = if (sourceConfig.isKeyed) {
       val ks = new KafkaAvroDeserializer(schemaRegistryClient)
       ks.configure(schemaRegistryConfig.props, true)
       Some(ks)
     } else None
+  }
 
   override def deserialize(
       record: ConsumerRecord[Array[Byte], Array[Byte]],
       out: Collector[E]): Unit = {
-    val key =
+    val topic = sourceConfig.topic
+    val key   =
       keyDeserializer.map(ds =>
         ds.deserialize(topic, record.key()).toString
       )

@@ -71,8 +71,10 @@ val flinkDeps =
     "org.apache.flink" %% "flink-table-planner"            % V.flink, // table api
     "org.apache.flink"  % "flink-csv"                      % V.flink % Provided, // table api csv format
     "org.apache.flink"  % "flink-json"                     % V.flink % Provided, // table api json format
+    "org.apache.flink"  % "flink-clients"                  % V.flink % Provided,
     // test support
-    "org.apache.flink"  % "flink-test-utils"               % V.flink % Test
+    "org.apache.flink"  % "flink-test-utils"               % V.flink % Test,
+    "org.apache.flink"  % "flink-runtime-web"              % V.flink % Test
   )
 
 val loggingDeps = Seq(

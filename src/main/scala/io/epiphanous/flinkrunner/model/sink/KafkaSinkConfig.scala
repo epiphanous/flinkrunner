@@ -42,7 +42,7 @@ case class KafkaSinkConfig[ADT <: FlinkEvent: TypeInformation](
   val isKeyed: Boolean =
     config.getBooleanOpt(pfx("is.keyed")).getOrElse(true)
 
-  val deliveryGuarantee: DeliveryGuarantee = config
+  def deliveryGuarantee: DeliveryGuarantee = config
     .getStringOpt(pfx("delivery.guarantee"))
     .map(s => s.toLowerCase.replaceAll("[^a-z]+", "-")) match {
     case Some("at-least-once") =>

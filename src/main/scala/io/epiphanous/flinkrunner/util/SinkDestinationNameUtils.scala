@@ -10,20 +10,20 @@ import org.apache.avro.generic.GenericRecord
   * kafka sink topics, kinesis sink streams, file sink paths and elastic
   * sink indexes:
   *
-  *   - <tt>{canonical-name}</tt>: for avro containers, expands to the full
-  *     name of the schema; for other values expands to the result of
-  *     <tt>value.getClass.getCanonicalName</tt>
-  *   - <tt>{simple-name}<tt>: for avro containers, expands to the short
-  *     name of the schema; for other values, expands to the result of
-  *     <tt>value.getClass.getSimpleName</tt>
+  *   - <tt>&lt;canonical-name&gt;</tt>: for avro containers, expands to
+  *     the full name of the schema; for other values expands to the result
+  *     of <tt>value.getClass.getCanonicalName</tt>
+  *   - <tt>&lt;simple-name&gt;<tt>: for avro containers, expands to the
+  *     short name of the schema; for other values, expands to the result
+  *     of <tt>value.getClass.getSimpleName</tt>
   *
   * Null values always expand all tokens to <tt>"null"</tt>.
   */
-object SinkDestinationNameUtils {
+object SinkDestinationNameUtils extends Serializable {
   def expandDestinationTemplate[T](template: String, value: T): String =
     dataFromValue(value)
       .foldLeft(template) { case (t, (k, v)) =>
-        t.replaceAll(s"\\{$k}", v)
+        t.replaceAll(s"<$k>", v)
       }
 
   def dataFromValue[T](value: T): Map[String, String] = value match {
@@ -48,7 +48,8 @@ object SinkDestinationNameUtils {
 
   implicit class RichSinkDestinationName[ADT <: FlinkEvent](
       sinkConfig: SinkConfig[ADT])
-      extends LazyLogging {
+      extends Serializable
+      with LazyLogging {
     def expandTemplate[T](value: T): String = {
       val template = sinkConfig match {
         // normalize kafka topics
