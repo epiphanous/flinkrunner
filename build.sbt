@@ -43,14 +43,19 @@ val V = new {
   val squants            = "1.8.3"
   val confluentAvroSerde = "7.1.1"
   val parquet            = "1.12.3"
-  val awsSdk             = "1.12.233"
+  val awsSdk             = "1.12.237"
+  val calcite            = "1.30.0"
 }
 
 val flinkDeps =
   Seq(
-    "org.apache.flink" %% "flink-scala"                    % V.flink, // scala
-    "org.apache.flink" %% "flink-streaming-scala"          % V.flink, // ds api scala
+    // scala
+    "org.apache.flink" %% "flink-scala"                    % V.flink % Provided,
+    "org.apache.flink" %% "flink-streaming-scala"          % V.flink,
+    // rocksdb
     "org.apache.flink"  % "flink-statebackend-rocksdb"     % V.flink,
+    // queryable state
+    "org.apache.flink"  % "flink-queryable-state-runtime"  % V.flink % Provided,
     // complex event processing
     "org.apache.flink"  % "flink-cep"                      % V.flink % Provided,
     // connectors
@@ -68,7 +73,7 @@ val flinkDeps =
     "org.apache.flink"  % "flink-avro-confluent-registry"  % V.flink % Provided, // ds and table avro registry format
     // table api support
     "org.apache.flink" %% "flink-table-api-scala-bridge"   % V.flink, // table api scala
-    "org.apache.flink" %% "flink-table-planner"            % V.flink, // table api
+    "org.apache.flink"  % "flink-table-planner-loader"     % V.flink % Provided, // table api
     "org.apache.flink"  % "flink-csv"                      % V.flink % Provided, // table api csv format
     "org.apache.flink"  % "flink-json"                     % V.flink % Provided, // table api json format
     "org.apache.flink"  % "flink-clients"                  % V.flink % Provided,
@@ -99,6 +104,7 @@ val otherDeps = Seq(
   "io.confluent"       % "kafka-avro-serializer" % V.confluentAvroSerde % Provided,
   "org.apache.parquet" % "parquet-avro"          % V.parquet            % Provided,
   "com.amazonaws"      % "aws-java-sdk-core"     % V.awsSdk             % Provided,
+  "org.apache.calcite" % "calcite-core"          % V.calcite,
   "com.beachape"      %% "enumeratum"            % V.enumeratum,
   "com.typesafe"       % "config"                % V.typesafeConfig,
   "com.google.guava"   % "guava"                 % V.guava,

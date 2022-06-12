@@ -50,22 +50,23 @@ case class FileSourceConfig[ADT <: FlinkEvent](
     .getProperty("monitor.continuously", "0")
     .toLong
 
-  def getStreamFileSource[E <: ADT: TypeInformation]: FileSource[E] = {
-
-    val streamFormat = format match {
+  def getStreamFormat[E <: ADT: TypeInformation]: StreamFormat[E] =
+    format match {
       case StreamFormatName.Csv       => getCsvStreamFormat
       case StreamFormatName.Tsv       => getTsvStreamFormat
       case StreamFormatName.Psv       => getPsvStreamFormat
       case StreamFormatName.Delimited =>
         getDelimitedStreamFormat(DelimitedConfig.get(format, properties))
       case StreamFormatName.Parquet   => getParquetStreamFormat
-      case StreamFormatName.Json      =>
+      case _                          =>
         throw new RuntimeException(
-          "oops, json not handled by getStreamFileSource"
+          s"oops, ${format.entryName} not handled by getStreamFileSource"
         )
     }
 
-    val fsb = FileSource.forRecordStreamFormat(streamFormat, destination)
+  def getStreamFileSource[E <: ADT: TypeInformation]: FileSource[E] = {
+    val fsb =
+      FileSource.forRecordStreamFormat(getStreamFormat, destination)
     (if (monitorDuration > 0)
        fsb.monitorContinuously(Duration.ofSeconds(monitorDuration))
      else fsb).build()

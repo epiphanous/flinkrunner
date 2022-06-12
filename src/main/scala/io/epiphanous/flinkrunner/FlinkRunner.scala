@@ -84,7 +84,9 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
       case s if s.isEmpty => "  *** No jobs defined ***"
       case s              =>
         s.map { jn =>
-          val desc = config.getString(s"jobs.$jn.description")
+          val desc = config
+            .getStringOpt(s"jobs.$jn.description")
+            .getOrElse("** no description **")
           s"  - $jn: $desc"
         }.mkString("\n")
     }
@@ -96,7 +98,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
           |
           |$jobInfo
           |
-          |Try "${config.systemName} <jobName> --help" for details)
+          |Try "${config.systemName} <jobName> --help" for details
           |${config.systemHelp}
       """.stripMargin
     error.foreach(m => logger.error(m))

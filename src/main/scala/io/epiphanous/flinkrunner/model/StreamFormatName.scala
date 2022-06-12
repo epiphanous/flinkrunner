@@ -26,6 +26,8 @@ object StreamFormatName extends Enum[StreamFormatName] {
 
   case object Parquet extends StreamFormatName
 
+  case object Avro extends StreamFormatName
+
   def isBulk(format: StreamFormatName): Boolean = format match {
     case Parquet => true
     case _       => false
