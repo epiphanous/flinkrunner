@@ -268,10 +268,6 @@ class FlinkConfigSpec extends PropSpec {
   property("showPlan") {
     config2.showPlan shouldEqual false
   }
-  property("mockEdges") {
-    config.mockEdges shouldEqual true
-    config2.mockEdges shouldEqual true
-  }
   property("maxLateness") {
     config2.maxLateness shouldEqual Some(Duration.ofSeconds(90))
   }

@@ -22,6 +22,7 @@ class ExponentialMovingVarianceSpec extends PropSpec {
       v2 <- v1.update(Kilograms(20), t, u)
       v3 <- v2.update(Kilograms(30), t, u)
     } yield v3.value
-    q.value shouldEqual 41.79
+    q.isSuccess shouldBe true
+    q.get shouldEqual 41.79
   }
 }

@@ -52,6 +52,13 @@ case class KafkaSinkConfig[ADT <: FlinkEvent: TypeInformation](
     case _                     => DeliveryGuarantee.EXACTLY_ONCE
   }
 
+  /** ensure transaction.timeout.ms is set */
+  val transactionTimeoutMs: Long = {
+    val t = properties.getProperty("transaction.timeout.ms", "3600000")
+    properties.setProperty("transaction.timeout.ms", t)
+    t.toLong
+  }
+
   val schemaRegistryConfig: SchemaRegistryConfig =
     config
       .getObjectOption(pfx("schema.registry"))

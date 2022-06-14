@@ -4,7 +4,6 @@ import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.flink.{AvroStreamJob, StreamJob}
 import io.epiphanous.flinkrunner.model._
 import org.apache.avro.generic.GenericRecord
-import org.apache.flink.api.common.JobExecutionResult
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.scala.createTypeInformation
 import org.scalatest.matchers.should.Matchers
@@ -23,8 +22,7 @@ trait BaseSpec
       optConfig: Option[String] = None): FlinkRunner[ADT] = {
     val config = new FlinkConfig(args, optConfig)
     new FlinkRunner[ADT](config) {
-      override def invoke(
-          jobName: String): Either[List[ADT], JobExecutionResult] = ???
+      override def invoke(jobName: String): Unit = ???
     }
   }
 
@@ -65,16 +63,14 @@ trait BaseSpec
       ADT <: FlinkEvent: TypeInformation](
       args: Array[String],
       configStr: String,
-      mockSources: Map[String, Seq[ADT]],
-      mockSink: (List[ADT]) => Unit,
+      checkResults: CheckResults[ADT],
       getJob: (String, FlinkRunner[ADT]) => JOB): FlinkRunner[ADT] = {
     val config = new FlinkConfig(
       args,
       Some(configStr + "\nenvironment=dev\nmock.edges=true\n")
     )
-    new FlinkRunner[ADT](config, mockSources, mockSink) {
-      override def invoke(
-          jobName: String): Either[List[ADT], JobExecutionResult] =
+    new FlinkRunner[ADT](config, Some(checkResults)) {
+      override def invoke(jobName: String): Unit =
         getJob(jobName, this).run()
     }
   }
@@ -164,16 +160,14 @@ trait BaseSpec
       ADT <: FlinkEvent: TypeInformation](
       args: Array[String],
       configStr: String,
-      mockSources: Map[String, Seq[ADT]],
-      mockSink: (List[ADT]) => Unit,
+      checkResults: CheckResults[ADT],
       getJob: (String, FlinkRunner[ADT]) => JOB): FlinkRunner[ADT] = {
     val config = new FlinkConfig(
       args,
       Some(configStr + "\nenvironment=dev\nmock.edges=true\n")
     )
-    new FlinkRunner[ADT](config, mockSources, mockSink) {
-      override def invoke(
-          jobName: String): Either[List[ADT], JobExecutionResult] =
+    new FlinkRunner[ADT](config, Some(checkResults)) {
+      override def invoke(jobName: String): Unit =
         getJob(jobName, this).run()
     }
   }

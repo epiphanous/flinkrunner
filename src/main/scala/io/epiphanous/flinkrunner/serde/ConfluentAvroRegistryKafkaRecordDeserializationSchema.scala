@@ -46,7 +46,7 @@ class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
 
     val schemaRegistryClient: SchemaRegistryClient =
       schemaRegistryClientOpt.getOrElse(
-        schemaRegistryConfig.getClient(sourceConfig.config.mockEdges)
+        schemaRegistryConfig.getClient
       )
 
     valueDeserializer = new KafkaAvroDeserializer(

@@ -10,6 +10,8 @@ sealed trait FlinkConnectorName extends EnumEntry with Snakecase
 object FlinkConnectorName extends Enum[FlinkConnectorName] {
   val values: immutable.IndexedSeq[FlinkConnectorName] = findValues
 
+  case object Hybrid extends FlinkConnectorName
+
   case object Kinesis extends FlinkConnectorName
 
   case object Kafka extends FlinkConnectorName
@@ -24,14 +26,12 @@ object FlinkConnectorName extends Enum[FlinkConnectorName] {
 
   case object Jdbc extends FlinkConnectorName
 
-  case object Collection extends FlinkConnectorName
-
   case object RabbitMQ extends FlinkConnectorName
 
   val sources: immutable.Seq[FlinkConnectorName] =
     values diff IndexedSeq(CassandraSink, ElasticsearchSink)
   val sinks: immutable.Seq[FlinkConnectorName]   =
-    values diff IndexedSeq(Collection)
+    values diff IndexedSeq(Hybrid)
 
   def fromSourceName(
       sourceName: String,

@@ -6,6 +6,7 @@ import squants.Kilograms
 import squants.mass.Mass
 
 import java.time.Instant
+import scala.util.Success
 
 class SumOfSquaredDeviationsSpec extends PropSpec {
   property("updateQuantity property") {
@@ -17,6 +18,6 @@ class SumOfSquaredDeviationsSpec extends PropSpec {
       s2 <- s1.update(Kilograms(20), t, u)
       s3 <- s2.update(Kilograms(30), t, u)
     } yield s3.value
-    q.value shouldBe 200
+    q.success shouldBe Success(200)
   }
 }

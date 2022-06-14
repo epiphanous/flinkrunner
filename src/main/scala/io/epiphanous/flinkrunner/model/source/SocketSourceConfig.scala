@@ -28,7 +28,7 @@ case class SocketSourceConfig[ADT <: FlinkEvent](
   def getRowDecoder[E <: ADT: TypeInformation]: RowDecoder[E] =
     RowDecoder.forEventType[E](format, properties)
 
-  def getSource[E <: ADT: TypeInformation](
+  override def getSourceStream[E <: ADT: TypeInformation](
       env: StreamExecutionEnvironment): DataStream[E] = {
     val decoder = getRowDecoder[E]
     env

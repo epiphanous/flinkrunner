@@ -26,7 +26,6 @@ class ConfluentAvroRegistryKafkaRecordSerializationSchemaTest
     serialized.key() shouldEqual bKeyBytes
     serialized.value() shouldEqual bValueBytes
     serialized.timestamp() shouldEqual bWrapper.$timestamp
-    serialized.topic() shouldEqual serializer.topic
   }
 
 }

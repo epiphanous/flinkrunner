@@ -9,7 +9,6 @@ import io.epiphanous.flinkrunner.model.aggregate.{
 }
 import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkEvent}
 import io.epiphanous.flinkrunner.util.StreamUtils.Pipe
-import org.apache.flink.api.common.JobExecutionResult
 import org.apache.flink.api.common.state.MapStateDescriptor
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.scala._
@@ -197,17 +196,11 @@ abstract class StreamJob[
     *   the output data stream to pass into BaseFlinkJob.sink)
     */
   def maybeSink(out: DataStream[OUT]): Unit =
-    if (!config.mockEdges) sink(out)
+    if (!runner.mockEdges) sink(out)
 
   /** Runs the job, meaning it constructs the flow and executes it.
-    *
-    * @param limitOpt
-    *   optional number of output events to return, for testing
-    * @return
-    *   either a list of output events or the job execution result
     */
-  def run(limitOpt: Option[Int] = None)
-      : Either[List[OUT], JobExecutionResult] = {
+  def run(): Unit = {
 
     logger.info(
       s"\nSTARTING FLINK JOB: ${config.jobName} ${config.jobArgs.mkString(" ")}\n"
@@ -219,12 +212,20 @@ abstract class StreamJob[
     if (config.showPlan)
       logger.info(s"\nPLAN:\n${env.getExecutionPlan}\n")
 
-    if (config.mockEdges) {
-      val limit = limitOpt.getOrElse(
-        config.getIntOpt("run.limit").getOrElse(100)
-      )
-      Left(stream.executeAndCollect(config.jobName, limit))
-    } else
-      Right(env.execute(config.jobName))
+    runner.checkResultsOpt match {
+
+      case Some(checkResults) =>
+        logger.info(
+          s"routing job ${config.jobName} results back through CheckResults<${checkResults.name}>"
+        )
+        val limit = config.getIntOpt("run.limit").getOrElse(100)
+        checkResults.checkOutputEvents[OUT](
+          stream.executeAndCollect(config.jobName, limit)
+        )
+
+      case _ =>
+        val result = env.execute(config.jobName)
+        logger.info(result.toString)
+    }
   }
 }

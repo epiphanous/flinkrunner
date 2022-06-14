@@ -10,16 +10,14 @@ import io.epiphanous.flinkrunner.util.ConfigToProps._
 import io.epiphanous.flinkrunner.util.StreamUtils.RichProps
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.api.connector.source.{Source, SourceSplit}
 import org.apache.flink.connector.kafka.source.KafkaSource
 import org.apache.flink.connector.kafka.source.enumerator.initializer.{
   NoStoppingOffsetsInitializer,
   OffsetsInitializer
 }
 import org.apache.flink.connector.kafka.source.reader.deserializer.KafkaRecordDeserializationSchema
-import org.apache.flink.streaming.api.scala.{
-  DataStream,
-  StreamExecutionEnvironment
-}
+import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.kafka.clients.consumer.OffsetResetStrategy
 
 import java.util.Properties
@@ -66,6 +64,10 @@ case class KafkaSourceConfig[ADT <: FlinkEvent](
         OffsetsInitializer.timestamp(o.toLong)
       case _                                          => new NoStoppingOffsetsInitializer()
     }
+
+  val groupId: String = config
+    .getStringOpt(pfx("group.id"))
+    .getOrElse(s"${config.jobName}.$name")
 
   val schemaRegistryConfig: SchemaRegistryConfig =
     config
@@ -122,38 +124,31 @@ case class KafkaSourceConfig[ADT <: FlinkEvent](
       : KafkaRecordDeserializationSchema[E] =
     new JsonKafkaRecordDeserializationSchema[E, ADT](this)
 
-  def getAvroSource[
+  override def getAvroSource[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
-      A <: GenericRecord: TypeInformation](
-      env: StreamExecutionEnvironment)(implicit
-      fromKV: (Option[String], A) => E): DataStream[E] =
-    _getSource(env, getAvroDeserializationSchema[E, A])
+      A <: GenericRecord: TypeInformation](implicit
+      fromKV: (Option[String], A) => E)
+      : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] =
+    Right(_getSource(getAvroDeserializationSchema[E, A]))
 
-  def getSource[E <: ADT: TypeInformation](
-      env: StreamExecutionEnvironment): DataStream[E] =
-    _getSource(env, getDeserializationSchema)
+  override def getSource[E <: ADT: TypeInformation]
+      : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] =
+    Right(_getSource(getDeserializationSchema))
 
   def _getSource[E <: ADT: TypeInformation](
-      env: StreamExecutionEnvironment,
-      deserializer: KafkaRecordDeserializationSchema[E]): DataStream[E] = {
-    val ksb             = KafkaSource
+      deserializer: KafkaRecordDeserializationSchema[E])
+      : KafkaSource[E] = {
+    val ksb = KafkaSource
       .builder[E]()
       .setTopics(topic)
+      .setGroupId(groupId)
       .setProperties(properties)
       .setStartingOffsets(startingOffsets)
       .setDeserializer(
         deserializer
       )
-    val kafkaSrcBuilder =
-      if (bounded)
-        ksb.setBounded(stoppingOffsets)
-      else ksb
-    env
-      .fromSource(
-        kafkaSrcBuilder.build(),
-        getWatermarkStrategy[E],
-        s"wm:$label"
-      )
-      .uid(s"wm:$label")
+    (if (bounded)
+       ksb.setBounded(stoppingOffsets)
+     else ksb).build()
   }
 }

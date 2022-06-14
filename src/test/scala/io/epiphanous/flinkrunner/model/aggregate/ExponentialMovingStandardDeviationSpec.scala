@@ -7,6 +7,7 @@ import squants.Kilograms
 import squants.mass.Mass
 
 import java.time.Instant
+import scala.util.Success
 
 class ExponentialMovingStandardDeviationSpec extends PropSpec {
 
@@ -22,6 +23,6 @@ class ExponentialMovingStandardDeviationSpec extends PropSpec {
       v2 <- v1.update(Kilograms(20), t, u)
       v3 <- v2.update(Kilograms(30), t, u)
     } yield v3.value
-    q.value shouldEqual (Math.sqrt(41.79))
+    q.success shouldEqual Success(Math.sqrt(41.79))
   }
 }

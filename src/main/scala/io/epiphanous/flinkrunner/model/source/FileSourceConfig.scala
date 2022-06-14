@@ -15,6 +15,7 @@ import io.epiphanous.flinkrunner.serde.{
 import io.epiphanous.flinkrunner.util.FileUtils.getResourceOrFile
 import org.apache.flink.api.common.eventtime.WatermarkStrategy
 import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.api.connector.source.{Source, SourceSplit}
 import org.apache.flink.api.scala.createTypeInformation
 import org.apache.flink.connector.file.src.FileSource
 import org.apache.flink.connector.file.src.reader.{
@@ -28,6 +29,7 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.dataformat.csv.{
   CsvMapper,
   CsvSchema
 }
+import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.flink.streaming.api.scala.{
   DataStream,
   StreamExecutionEnvironment
@@ -64,14 +66,6 @@ case class FileSourceConfig[ADT <: FlinkEvent](
         )
     }
 
-  def getStreamFileSource[E <: ADT: TypeInformation]: FileSource[E] = {
-    val fsb =
-      FileSource.forRecordStreamFormat(getStreamFormat, destination)
-    (if (monitorDuration > 0)
-       fsb.monitorContinuously(Duration.ofSeconds(monitorDuration))
-     else fsb).build()
-  }
-
   def getCsvStreamFormat[E <: ADT: TypeInformation]: StreamFormat[E] =
     getDelimitedStreamFormat(DelimitedConfig.CSV)
   def getTsvStreamFormat[E <: ADT: TypeInformation]: StreamFormat[E] =
@@ -104,46 +98,51 @@ case class FileSourceConfig[ADT <: FlinkEvent](
         new DelimitedRowDecoder[E](DelimitedConfig.get(format, properties))
     }
 
-  def getSource[E <: ADT: TypeInformation](
+  override def getSource[E <: ADT: TypeInformation]
+      : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] = {
+    val fsb =
+      FileSource.forRecordStreamFormat(getStreamFormat, destination)
+    Right(
+      (if (monitorDuration > 0)
+         fsb.monitorContinuously(Duration.ofSeconds(monitorDuration))
+       else fsb).build()
+    )
+  }
+  override def getSourceStream[E <: ADT: TypeInformation](
       env: StreamExecutionEnvironment): DataStream[E] = {
     // all this grossness, because flink hasn't built a JsonStreamFormat?
-    (if (format == StreamFormatName.Json) {
-       val rawName = s"raw:$label"
-       val decoder = getRowDecoder
-       val fsb     =
-         FileSource
-           .forRecordStreamFormat[String](
-             new TextLineInputFormat(),
-             destination
-           )
-       if (monitorDuration > 0) {
-         fsb.monitorContinuously(
-           Duration.ofSeconds(monitorDuration)
-         )
-       }
-       env
-         .fromSource(
-           fsb.build(),
-           WatermarkStrategy.noWatermarks(),
-           rawName
-         )
-         .uid(rawName)
-         .flatMap(line => decoder.decode(line).toOption)
-         .name(label)
-     } else {
-       // for all other source streams
-       env.fromSource(
-         getStreamFileSource[E],
-         WatermarkStrategy.noWatermarks(),
-         label
-       )
-     })
-      .uid(label)
-      .assignTimestampsAndWatermarks(
-        getWatermarkStrategy[E]
-      )
-      .name(s"wm:$label")
-      .uid(s"wm:$label")
+    if (format == StreamFormatName.Json) {
+      val rawName = s"raw:$label"
+      val decoder = getRowDecoder
+      val fsb     =
+        FileSource
+          .forRecordStreamFormat[String](
+            new TextLineInputFormat(),
+            destination
+          )
+      if (monitorDuration > 0) {
+        fsb.monitorContinuously(
+          Duration.ofSeconds(monitorDuration)
+        )
+      }
+      env
+        .fromSource(
+          fsb.build(),
+          WatermarkStrategy.noWatermarks(),
+          rawName
+        )
+        .uid(rawName)
+        .flatMap(line => decoder.decode(line).toOption)
+        .name(label)
+        .uid(label)
+        .assignTimestampsAndWatermarks(
+          getWatermarkStrategy[E]
+        )
+        .name(s"wm:$label")
+        .uid(s"wm:$label")
+    } else
+      super.getSourceStream(env)
+
   }
 
 }

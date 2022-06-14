@@ -6,12 +6,13 @@ import squants.Kilograms
 import squants.mass.Mass
 
 import java.time.Instant
+import scala.util.Success
 
 class RangeSpec extends PropSpec {
 
   property("updateQuantity property") {
     val q = for {
-      r <- Some(Range(Mass.name, Kilograms.symbol))
+      r <- Success(Range(Mass.name, Kilograms.symbol))
       r2 <- r.update(
               Kilograms(10),
               Instant.now(),
@@ -28,7 +29,7 @@ class RangeSpec extends PropSpec {
               UnitMapper.defaultUnitMapper
             )
     } yield r4.labeledValue
-    q.value shouldBe "Range: 27.000000 kg"
+    q.success shouldBe Success("Range: 27.000000 kg")
   }
 
 }

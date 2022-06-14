@@ -6,6 +6,7 @@ import squants.Kilograms
 import squants.mass.Mass
 
 import java.time.Instant
+import scala.util.Success
 
 class MaxSpec extends PropSpec {
 
@@ -17,6 +18,6 @@ class MaxSpec extends PropSpec {
       m1 <- m.update(Kilograms(10), t, u)
       m2 <- m1.update(Kilograms(16), t, u)
     } yield m2.value
-    q.value shouldBe 16
+    q.success shouldBe Success(16)
   }
 }

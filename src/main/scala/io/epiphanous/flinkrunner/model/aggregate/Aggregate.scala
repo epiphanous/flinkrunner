@@ -103,7 +103,8 @@ trait Aggregate extends Product with Serializable with LazyLogging {
         .groupBy { case (_, v) =>
           if (v.isFailure) "f" else "s"
         }
-    if (split.contains("f")) {
+    if (split.isEmpty) Map.empty[String, Aggregate]
+    else if (split.contains("f")) {
       val fails = split("f")
       throw new RuntimeException(
         s"""

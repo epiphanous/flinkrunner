@@ -42,9 +42,7 @@ case class ConfluentAvroRegistryKafkaRecordSerializationSchema[
     val schemaRegistryConfig = sinkConfig.schemaRegistryConfig
 
     val schemaRegistryClient: SchemaRegistryClient =
-      schemaRegistryClientOpt.getOrElse(
-        schemaRegistryConfig.getClient(sinkConfig.config.mockEdges)
-      )
+      schemaRegistryClientOpt.getOrElse(schemaRegistryConfig.getClient)
 
     valueSerializer = new KafkaAvroSerializer(
       schemaRegistryClient,

@@ -2,7 +2,6 @@ package io.epiphanous.flinkrunner.model
 
 import io.confluent.kafka.schemaregistry.client.{
   CachedSchemaRegistryClient,
-  MockSchemaRegistryClient,
   SchemaRegistryClient
 }
 
@@ -16,14 +15,12 @@ case class SchemaRegistryConfig(
   props.put("schema.registry.url", url)
   props.putIfAbsent("use.logical.type.converters", "true")
   props.putIfAbsent("specific.avro.reader", "true")
-  def getClient(wantsMock: Boolean = false): SchemaRegistryClient = {
-    if (wantsMock) new MockSchemaRegistryClient()
-    else
-      new CachedSchemaRegistryClient(
-        url,
-        cacheCapacity,
-        props,
-        headers
-      )
+  def getClient: SchemaRegistryClient = {
+    new CachedSchemaRegistryClient(
+      url,
+      cacheCapacity,
+      props,
+      headers
+    )
   }
 }

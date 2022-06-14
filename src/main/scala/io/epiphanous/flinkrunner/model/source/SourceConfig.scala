@@ -1,17 +1,21 @@
 package io.epiphanous.flinkrunner.model.source
 
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.FlinkRunner
 import io.epiphanous.flinkrunner.model.FlinkConnectorName._
 import io.epiphanous.flinkrunner.model.{
+  EmbeddedAvroRecord,
   FlinkConfig,
   FlinkConnectorName,
   FlinkEvent
 }
 import io.epiphanous.flinkrunner.util.BoundedLatenessWatermarkStrategy
 import io.epiphanous.flinkrunner.util.StreamUtils._
+import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.eventtime.WatermarkStrategy
 import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.api.connector.source.{Source, SourceSplit}
+import org.apache.flink.streaming.api.functions.source.SourceFunction
+import org.apache.flink.streaming.api.scala._
 
 import java.time.Duration
 import java.util
@@ -84,28 +88,66 @@ trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
     }
     maxIdleness.map(idleness => ws.withIdleness(idleness)).getOrElse(ws)
   }
+
+  def getSource[E <: ADT: TypeInformation]
+      : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] =
+    ??? // intentionally unimplemented
+
+  def getSourceStream[E <: ADT: TypeInformation](
+      env: StreamExecutionEnvironment): DataStream[E] = {
+    getSource
+      .fold(
+        f =>
+          env
+            .addSource(f)
+            .assignTimestampsAndWatermarks(getWatermarkStrategy)
+            .name(label),
+        s => env.fromSource(s, getWatermarkStrategy, label)
+      )
+      .uid(label)
+  }
+
+  def getAvroSource[
+      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+      A <: GenericRecord: TypeInformation](implicit
+      fromKV: (Option[String], A) => E)
+      : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] =
+    ??? // intentionally unimplemented
+
+  def getAvroSourceStream[
+      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+      A <: GenericRecord: TypeInformation](
+      env: StreamExecutionEnvironment)(implicit
+      fromKV: (Option[String], A) => E): DataStream[E] =
+    getAvroSource[E, A]
+      .fold(
+        f =>
+          env
+            .addSource(f)
+            .assignTimestampsAndWatermarks(getWatermarkStrategy)
+            .name(label),
+        s => env.fromSource(s, getWatermarkStrategy, label)
+      )
+      .uid(label)
 }
 
 object SourceConfig {
   def apply[ADT <: FlinkEvent](
       name: String,
-      runner: FlinkRunner[ADT]): SourceConfig[ADT] = {
-    val config = runner.config
+      config: FlinkConfig): SourceConfig[ADT] = {
     FlinkConnectorName
       .fromSourceName(
         name,
         config.jobName,
-        config.getStringOpt(s"sources.$name.connector"),
-        Some(Collection)
+        config.getStringOpt(s"sources.$name.connector")
       ) match {
-      case Kafka      => KafkaSourceConfig[ADT](name, config, Kafka)
-      case Kinesis    => KinesisSourceConfig(name, config, Kinesis)
-      case File       => FileSourceConfig(name, config, File)
-      case Socket     => SocketSourceConfig(name, config, Socket)
-      case Collection =>
-        CollectionSourceConfig[ADT](name, config, Collection)
-      case RabbitMQ   => RabbitMQSourceConfig(name, config, RabbitMQ)
-      case connector  =>
+      case File      => FileSourceConfig(name, config, File)
+      case Hybrid    => HybridSourceConfig(name, config, Hybrid)
+      case Kafka     => KafkaSourceConfig[ADT](name, config, Kafka)
+      case Kinesis   => KinesisSourceConfig(name, config, Kinesis)
+      case RabbitMQ  => RabbitMQSourceConfig(name, config, RabbitMQ)
+      case Socket    => SocketSourceConfig(name, config, Socket)
+      case connector =>
         throw new RuntimeException(
           s"Don't know how to configure ${connector.entryName} source connector $name in job ${config.jobName}"
         )

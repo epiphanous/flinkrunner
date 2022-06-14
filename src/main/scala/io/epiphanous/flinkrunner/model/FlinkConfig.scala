@@ -249,7 +249,6 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
     "checkpoint.incremental"
   )
   lazy val showPlan: Boolean                          = getBoolean("show.plan")
-  lazy val mockEdges: Boolean                         = isDev && getBoolean("mock.edges")
   lazy val maxLateness: Option[Duration]              = getDurationOpt("max.lateness")
   lazy val maxIdleness: Option[Duration]              = getDurationOpt("max.idleness")
   lazy val executionRuntimeMode: RuntimeExecutionMode =

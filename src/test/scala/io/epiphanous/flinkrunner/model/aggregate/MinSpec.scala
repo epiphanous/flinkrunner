@@ -6,6 +6,7 @@ import squants.Kilograms
 import squants.mass.Mass
 
 import java.time.Instant
+import scala.util.Success
 
 class MinSpec extends PropSpec {
   property("updateQuantity property") {
@@ -16,6 +17,6 @@ class MinSpec extends PropSpec {
       m1 <- m.update(Kilograms(10), t, u)
       m2 <- m1.update(Kilograms(8), t, u)
     } yield m2.value
-    q.value shouldBe 8
+    q.success shouldBe Success(8)
   }
 }

@@ -9,6 +9,8 @@ import io.epiphanous.flinkrunner.model.{
 }
 import io.epiphanous.flinkrunner.serde.JsonRMQDeserializationSchema
 import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.api.connector.source.{Source, SourceSplit}
+import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.flink.streaming.api.scala.{
   DataStream,
   StreamExecutionEnvironment
@@ -51,21 +53,19 @@ case class RabbitMQSourceConfig[ADT <: FlinkEvent](
       : RMQDeserializationSchema[E] =
     new JsonRMQDeserializationSchema[E, ADT](this)
 
-  def getSource[E <: ADT: TypeInformation](
+  override def getSource[E <: ADT: TypeInformation]
+      : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] =
+    Left(
+      new RMQSource[E](
+        connectionInfo.rmqConfig,
+        queue,
+        useCorrelationId,
+        getDeserializationSchema
+      )
+    )
+
+  override def getSourceStream[E <: ADT: TypeInformation](
       env: StreamExecutionEnvironment): DataStream[E] =
-    env
-      .addSource(
-        new RMQSource(
-          connectionInfo.rmqConfig,
-          queue,
-          useCorrelationId,
-          getDeserializationSchema[E]
-        )
-      )
-      .setParallelism(1) // exactly one semantics
-      .assignTimestampsAndWatermarks(
-        getWatermarkStrategy[E]
-      )
-      .name(s"wm:$label")
-      .uid(s"wm:$label")
+    super.getSourceStream(env).setParallelism(1) // to ensure exactly once
+
 }

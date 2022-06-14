@@ -6,6 +6,7 @@ import squants.Kilograms
 import squants.mass.Mass
 
 import java.time.Instant
+import scala.util.Success
 
 class StandardDeviationSpec extends PropSpec {
 
@@ -19,7 +20,7 @@ class StandardDeviationSpec extends PropSpec {
       s3 <- s2.update(Kilograms(30), t, u)
       s4 <- s3.update(Kilograms(40), t, u)
     } yield s4.value
-    q.value shouldBe (Math.sqrt(166 + 2d / 3))
+    q.success shouldBe Success(Math.sqrt(166 + 2d / 3))
   }
 
 }

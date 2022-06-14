@@ -2,6 +2,7 @@ package io.epiphanous.flinkrunner.serde
 
 import io.confluent.kafka.schemaregistry.avro.AvroSchema
 import io.confluent.kafka.schemaregistry.client.{
+  MockSchemaRegistryClient,
   SchemaMetadata,
   SchemaRegistryClient
 }
@@ -72,7 +73,7 @@ trait SerdeTestFixtures extends PropSpec {
 
   val stringSchema: AvroSchema                   = new AvroSchema("""{"type":"string"}""")
   val schemaRegistryClient: SchemaRegistryClient =
-    kafkaSinkConfig.schemaRegistryConfig.getClient(true)
+    new MockSchemaRegistryClient()
   schemaRegistryClient.register(
     s"test-key",
     stringSchema,
@@ -102,8 +103,8 @@ trait SerdeTestFixtures extends PropSpec {
 
   def getSerializerFor[
       E <: MyAvroADT with EmbeddedAvroRecord[A],
-      A <: GenericRecord] =
-    new ConfluentAvroRegistryKafkaRecordSerializationSchema[
+      A <: GenericRecord] = {
+    val ss = new ConfluentAvroRegistryKafkaRecordSerializationSchema[
       E,
       A,
       MyAvroADT
@@ -111,6 +112,9 @@ trait SerdeTestFixtures extends PropSpec {
       kafkaSinkConfig,
       Some(schemaRegistryClient)
     )
+    ss.open(null, null)
+    ss
+  }
 
   val kafkaSourceConfig: KafkaSourceConfig[MyAvroADT] =
     runner
@@ -119,8 +123,8 @@ trait SerdeTestFixtures extends PropSpec {
 
   def getDeserializerFor[
       E <: MyAvroADT with EmbeddedAvroRecord[A],
-      A <: GenericRecord](implicit fromKV: (Option[String], A) => E) =
-    new ConfluentAvroRegistryKafkaRecordDeserializationSchema[
+      A <: GenericRecord](implicit fromKV: (Option[String], A) => E) = {
+    val ds = new ConfluentAvroRegistryKafkaRecordDeserializationSchema[
       E,
       A,
       MyAvroADT
@@ -128,6 +132,9 @@ trait SerdeTestFixtures extends PropSpec {
       kafkaSourceConfig,
       Some(schemaRegistryClient)
     )
+    ds.open(null)
+    ds
+  }
 
   // helper to return the class name of the object passed in (without a $ at the end)
   def className[T](obj: T): String = {

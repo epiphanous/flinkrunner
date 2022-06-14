@@ -5,7 +5,6 @@ import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.model.sink._
 import io.epiphanous.flinkrunner.model.source._
 import org.apache.avro.generic.GenericRecord
-import org.apache.flink.api.common.JobExecutionResult
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala._
@@ -17,23 +16,24 @@ import scala.collection.JavaConverters._
   */
 abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     val config: FlinkConfig,
-    val mockSources: Map[String, Seq[ADT]] = Map.empty[String, Seq[ADT]],
-    val mockSink: List[ADT] => Unit = { _: List[ADT] => () })
+    val checkResultsOpt: Option[CheckResults[ADT]] = None)
     extends LazyLogging {
 
-  val env: StreamExecutionEnvironment  =
+  /** the configured StreamExecutionEnvironment */
+  val env: StreamExecutionEnvironment =
     config.configureStreamExecutionEnvironment
+
+  /** the configured StreamTableEnvironment (for table jobs) */
   val tableEnv: StreamTableEnvironment = StreamTableEnvironment.create(env)
 
-  /** Invoke a job by name. Must be provided by an implementing class. The
-    * complex return type can be obtained by simply calling the run method
-    * on an instance of a sub-class of FlinkRunner's StreamJob class.
+  /** True if [[checkResultsOpt]] is not empty */
+  val mockEdges: Boolean = checkResultsOpt.nonEmpty
+
+  /** Invoke a job by name. Must be provided by an implementing class.
     * @param jobName
     *   the job name
-    * @return
-    *   either a list of events output by the job or a JobExecutionResult
     */
-  def invoke(jobName: String): Either[List[ADT], JobExecutionResult]
+  def invoke(jobName: String): Unit
 
   /** Invoke a job based on the job name and arguments passed in and handle
     * the result produced.
@@ -44,23 +44,9 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
       config.jobArgs.headOption
         .exists(s => List("help", "--help", "-help", "-h").contains(s))
     ) showJobHelp()
-    else {
-      handleResults(invoke(config.jobName))
-    }
+    else
+      invoke(config.jobName)
   }
-
-  /** Handles the complex return type of the invoke method, optionally
-    * processing the list of events output by the job with the [[mockSink]]
-    * function.
-    * @param result
-    *   the result of executing a streaming job
-    */
-  def handleResults(result: Either[List[ADT], JobExecutionResult]): Unit =
-    result match {
-      case Left(events)           => mockSink(events)
-      case Right(executionResult) =>
-        logger.debug(s"JOB DONE in ${executionResult.getNetRuntime}ms")
-    }
 
   /** Show help for a particular job
     */
@@ -106,18 +92,16 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
   }
 
   def getSourceOrSinkNames(sourceOrSink: String): Seq[String] =
-    (if (mockSources.nonEmpty) mockSources.keySet.toSeq
-     else
-       config.getStringListOpt(s"$sourceOrSink.names") match {
-         case sn if sn.nonEmpty => sn
-         case _                 =>
-           config
-             .getObject(s"${sourceOrSink}s")
-             .unwrapped()
-             .keySet()
-             .asScala
-             .toSeq
-       }).sorted
+    (config.getStringListOpt(s"$sourceOrSink.names") match {
+      case sn if sn.nonEmpty => sn
+      case _                 =>
+        config
+          .getObject(s"${sourceOrSink}s")
+          .unwrapped()
+          .keySet()
+          .asScala
+          .toSeq
+    }).sorted
 
   def getSourceNames: Seq[String] =
     getSourceOrSinkNames("source")
@@ -143,7 +127,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     */
   def getSourceConfig(
       sourceName: String = getDefaultSourceName): SourceConfig[ADT] =
-    SourceConfig[ADT](sourceName, this)
+    SourceConfig[ADT](sourceName, config)
 
   /** Helper method to convert a source config into a json-encoded source
     * data stream.
@@ -156,16 +140,24 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     *   DataStream[E]
     */
   def configToSource[E <: ADT: TypeInformation](
-      sourceConfig: SourceConfig[ADT]): DataStream[E] =
-    sourceConfig match {
-      case s: CollectionSourceConfig[ADT] =>
-        s.getSource[E](env, mockSources)
-      case s: FileSourceConfig[ADT]       => s.getSource[E](env)
-      case s: KafkaSourceConfig[ADT]      => s.getSource[E](env)
-      case s: KinesisSourceConfig[ADT]    => s.getSource[E](env)
-      case s: RabbitMQSourceConfig[ADT]   => s.getSource[E](env)
-      case s: SocketSourceConfig[ADT]     => s.getSource[E](env)
+      sourceConfig: SourceConfig[ADT]): DataStream[E] = {
+    checkResultsOpt
+      .map(c => c.getInputEvents[E](sourceConfig))
+      .getOrElse(Seq.empty[E]) match {
+      case mockEvents if mockEvents.nonEmpty =>
+        val lbl = s"mock:${sourceConfig.label}"
+        env.fromCollection(mockEvents).name(lbl).uid(lbl)
+      case _                                 =>
+        sourceConfig match {
+          case s: FileSourceConfig[ADT]     => s.getSourceStream[E](env)
+          case s: KafkaSourceConfig[ADT]    => s.getSourceStream[E](env)
+          case s: KinesisSourceConfig[ADT]  => s.getSourceStream[E](env)
+          case s: RabbitMQSourceConfig[ADT] => s.getSourceStream[E](env)
+          case s: SocketSourceConfig[ADT]   => s.getSourceStream[E](env)
+          case s: HybridSourceConfig[ADT]   => s.getSourceStream[E](env)
+        }
     }
+  }
 
   /** Helper method to convert a source config into an avro-encoded source
     * data stream. At the moment this is only supported for kafka sources
@@ -190,13 +182,26 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
       A <: GenericRecord: TypeInformation](
       sourceConfig: SourceConfig[ADT])(implicit
       fromKV: (Option[String], A) => E): DataStream[E] =
-    sourceConfig match {
-      case s: CollectionSourceConfig[ADT] => s.getSource(env, mockSources)
-      case s: KafkaSourceConfig[ADT]      => s.getAvroSource[E, A](env)
-      case s                              =>
-        throw new RuntimeException(
-          s"Avro deserialization not supported for ${s.connector} sources"
-        )
+    checkResultsOpt
+      .map(c => c.getInputEvents[E](sourceConfig))
+      .getOrElse(Seq.empty[E]) match {
+      case mockEvents if mockEvents.nonEmpty =>
+        val lbl = s"mock:${sourceConfig.label}"
+        env.fromCollection(mockEvents).name(lbl).uid(lbl)
+      case _                                 =>
+        sourceConfig match {
+          case s: FileSourceConfig[ADT]     => s.getAvroSourceStream[E, A](env)
+          case s: KafkaSourceConfig[ADT]    =>
+            s.getAvroSourceStream[E, A](env)
+          case s: KinesisSourceConfig[ADT]  =>
+            s.getAvroSourceStream[E, A](env)
+          case s: RabbitMQSourceConfig[ADT] =>
+            s.getAvroSourceStream[E, A](env)
+          case s: SocketSourceConfig[ADT]   =>
+            s.getAvroSourceStream[E, A](env)
+          case s: HybridSourceConfig[ADT]   =>
+            s.getAvroSourceStream[E, A](env)
+        }
     }
 
   //  ********************** SINKS **********************
@@ -221,7 +226,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
   /** Create an avro-encoded stream sink from configuration.
     * @param stream
     *   the data stream to send to the sink
-    * @param sinkNameOpt
+    * @param sinkName
     *   an optional sink name (defaults to first sink)
     * @tparam E
     *   the event type

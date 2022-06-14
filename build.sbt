@@ -74,6 +74,7 @@ val flinkDeps =
     // table api support
     "org.apache.flink" %% "flink-table-api-scala-bridge"   % V.flink, // table api scala
     "org.apache.flink"  % "flink-table-planner-loader"     % V.flink % Provided, // table api
+    "org.apache.flink"  % "flink-table-runtime"            % V.flink % Provided, // table runtime
     "org.apache.flink"  % "flink-csv"                      % V.flink % Provided, // table api csv format
     "org.apache.flink"  % "flink-json"                     % V.flink % Provided, // table api json format
     "org.apache.flink"  % "flink-clients"                  % V.flink % Provided,
@@ -128,6 +129,32 @@ def excludeLog4j(m: ModuleID) = m.excludeAll(
   ExclusionRule(organization = "org.slf4j", name = "*")
 )
 
+lazy val AvroGenSettings = Seq(
+  Test / sourceGenerators += (Test / avroScalaGenerateSpecific).taskValue,
+  Test / avroSpecificSourceDirectories += (Test / resourceDirectory).value / "avro",
+  Test / avroSpecificScalaSource := {
+    val base = thisProject.value.base
+    new File(
+      new File(
+        new File(
+          new File(new File(base, "target"), "scala-2.12"),
+          "src_managed"
+        ),
+        "test"
+      ),
+      "compiled_avro"
+    )
+  },
+  Test / avroScalaCustomTypes    :=
+    avrohugger.format.Standard.defaultTypes
+      .copy(timestampMillis = JavaTimeInstant),
+  Test / managedSourceDirectories ++= baseDirectory { base =>
+    Seq(
+      base / "target/scala/src_managed/test/compiled_avro"
+    )
+  }.value
+)
+
 lazy val flink_runner = (project in file("."))
   .enablePlugins(BuildInfoPlugin)
   .settings(
@@ -145,11 +172,7 @@ lazy val flink_runner = (project in file("."))
     libraryDependencies ++= (flinkDeps ++ http4sDeps ++ circeDeps ++ otherDeps)
       .map(excludeLog4j) ++ loggingDeps
   )
-
-Test / sourceGenerators += (Compile / avroScalaGenerateSpecific).taskValue
-Test / avroScalaCustomTypes :=
-  avrohugger.format.Standard.defaultTypes
-    .copy(timestampMillis = JavaTimeInstant)
+  .settings(AvroGenSettings: _*)
 
 scalacOptions ++= Seq(
   "-encoding",
