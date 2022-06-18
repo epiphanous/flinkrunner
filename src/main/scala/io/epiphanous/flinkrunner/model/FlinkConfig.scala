@@ -249,6 +249,13 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
     "checkpoint.incremental"
   )
   lazy val showPlan: Boolean                          = getBoolean("show.plan")
+  lazy val showConfig: ShowConfigOption               = ShowConfigOption
+    .withNameInsensitiveOption(getString("show.config").toLowerCase match {
+      case "true" | "yes" => "formatted"
+      case "false" | "no" => "none"
+      case sco            => sco
+    })
+    .getOrElse(ShowConfigOption.None)
   lazy val maxLateness: Option[Duration]              = getDurationOpt("max.lateness")
   lazy val maxIdleness: Option[Duration]              = getDurationOpt("max.idleness")
   lazy val executionRuntimeMode: RuntimeExecutionMode =

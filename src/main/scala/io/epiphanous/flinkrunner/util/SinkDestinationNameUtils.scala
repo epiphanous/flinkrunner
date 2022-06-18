@@ -55,7 +55,7 @@ object SinkDestinationNameUtils extends Serializable {
         // normalize kafka topics
         case s: KafkaSinkConfig[ADT]         =>
           val normalized = s.topic.toLowerCase
-            .replaceAll("[^a-z\\d._\\-]", "")
+            .replaceAll("[^<>a-z\\d._\\-]", "")
             // standardize on periods instead of underscores
             .replaceAll(
               "_",
@@ -73,7 +73,7 @@ object SinkDestinationNameUtils extends Serializable {
         case s                               => s.name
       }
       // only expand templates if they contain template characters
-      if (template.contains("{"))
+      if (template.contains("<") && template.contains(">"))
         expandDestinationTemplate(template, value)
       else template
     }

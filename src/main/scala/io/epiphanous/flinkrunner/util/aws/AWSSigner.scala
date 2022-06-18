@@ -7,6 +7,7 @@ import com.amazonaws.auth.{
   AWSCredentials,
   DefaultAWSCredentialsProviderChain
 }
+import com.typesafe.scalalogging.LazyLogging
 import org.http4s.{Header, Request, Uri}
 import org.typelevel.ci.CIString
 
@@ -14,7 +15,8 @@ import scala.util.matching.Regex
 
 class AWSSigner(
     request: Request[IO],
-    providedCredentials: Option[AWSCredentials] = None) {
+    providedCredentials: Option[AWSCredentials] = None)
+    extends LazyLogging {
 
   val Some(Tuple2(service, maybeUri)) = resolveAWSService
 
@@ -45,7 +47,12 @@ class AWSSigner(
 
   def sign: Request[IO] = {
     signer.sign(signable, credentials)
-    signable.getSignedRequest
+    val req = signable.getSignedRequest
+    logger.debug(s"AWS Signer: $req")
+    logger.debug(
+      s"AWS Signature: ${req.headers.get(CIString("Authorization"))}"
+    )
+    req
   }
 
   private val serviceEndpointPattern: Regex =

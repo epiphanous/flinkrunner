@@ -54,7 +54,7 @@ case class KafkaSinkConfig[ADT <: FlinkEvent: TypeInformation](
 
   /** ensure transaction.timeout.ms is set */
   val transactionTimeoutMs: Long = {
-    val t = properties.getProperty("transaction.timeout.ms", "3600000")
+    val t = properties.getProperty("transaction.timeout.ms", "60000")
     properties.setProperty("transaction.timeout.ms", t)
     t.toLong
   }

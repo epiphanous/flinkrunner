@@ -51,10 +51,9 @@ class AWSSignableRequest(request: Request[IO])
   override def setContent(content: InputStream): Unit = {}
 
   override def getHeaders: util.Map[String, String] =
-    request.headers.headers
+    (request.headers.headers
       .map(raw => (raw.name.toString, raw.value))
-      .toMap
-      .asJava
+      .toMap ++ headers).asJava
 
   override def getResourcePath: String = request.uri.path.toString()
 

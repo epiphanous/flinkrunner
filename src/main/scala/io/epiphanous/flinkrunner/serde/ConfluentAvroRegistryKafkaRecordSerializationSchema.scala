@@ -62,6 +62,9 @@ case class ConfluentAvroRegistryKafkaRecordSerializationSchema[
       timestamp: lang.Long): ProducerRecord[Array[Byte], Array[Byte]] = {
     val (k, v) = element.toKV
     val topic  = sinkConfig.expandTemplate(v)
+    logger.trace(
+      s"serializing ${v.getSchema.getFullName} record ${element.$id} to $topic"
+    )
     val key    =
       keySerializer.flatMap(ks => k.map(kk => ks.serialize(topic, kk)))
     val value  = valueSerializer.serialize(topic, v)

@@ -9,8 +9,8 @@ import io.circe.Decoder
 import io.epiphanous.flinkrunner.BuildInfo
 import io.epiphanous.flinkrunner.model.FlinkConfig
 import org.apache.flink.streaming.api.scala.async.{
-  AsyncFunction,
-  ResultFuture
+  ResultFuture,
+  RichAsyncFunction
 }
 import org.apache.flink.util.concurrent.Executors
 import org.http4s.circe.jsonOf
@@ -84,7 +84,7 @@ abstract class EnrichmentAsyncFunction[
     cacheLoaderOpt: Option[CacheLoader[CK, Option[CV]]] = None,
     preloaded: Map[CK, CV] = Map.empty[CK, CV]
 )(implicit decoder: Decoder[CV])
-    extends AsyncFunction[IN, OUT]
+    extends RichAsyncFunction[IN, OUT]
     with LazyLogging {
 
   @transient
@@ -123,7 +123,7 @@ abstract class EnrichmentAsyncFunction[
   lazy val defaultCacheLoader: CacheLoader[CK, Option[CV]] =
     new CacheLoader[CK, Option[CV]] {
       override def load(cacheKey: CK): Option[CV] = {
-        logger.debug(s"=== cache load $cacheKey")
+        logger.trace(s"=== cache load $cacheKey")
         preloaded.get(cacheKey) match {
           case Some(cv) => Some(cv)
           case None     =>
@@ -135,10 +135,13 @@ abstract class EnrichmentAsyncFunction[
               .unsafeRunSync() match {
               case Left(failure) =>
                 logger.error(
-                  s"Can't load key [$cacheKey]: ${failure.getMessage}"
+                  s"Can't load key [$cacheKey] from endpoint",
+                  failure
                 )
                 None
-              case Right(value)  => Some(value)
+              case Right(value)  =>
+                logger.trace(s"received value from endpoint: $value")
+                Some(value)
             }
         }
       }
