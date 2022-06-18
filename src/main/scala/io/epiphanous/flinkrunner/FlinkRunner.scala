@@ -1,5 +1,6 @@
 package io.epiphanous.flinkrunner
 
+import com.typesafe.config.ConfigRenderOptions
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.model.sink._
@@ -28,6 +29,13 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
 
   /** True if [[checkResultsOpt]] is not empty */
   val mockEdges: Boolean = checkResultsOpt.nonEmpty
+
+  config.showConfig match {
+    case ShowConfigOption.None      => ()
+    case ShowConfigOption.Concise   =>
+      config._config.root().render(ConfigRenderOptions.concise())
+    case ShowConfigOption.Formatted => config._config.root().render()
+  }
 
   /** Invoke a job by name. Must be provided by an implementing class.
     * @param jobName
