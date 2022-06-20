@@ -28,6 +28,7 @@ import org.http4s.{
 }
 
 import java.io.{PrintWriter, StringWriter}
+import java.time.Duration
 import java.util.concurrent.TimeUnit
 import scala.concurrent.{
   ExecutionContext,
@@ -140,7 +141,11 @@ abstract class EnrichmentAsyncFunction[
                 )
                 None
               case Right(value)  =>
-                logger.trace(s"received value from endpoint: $value")
+                val vs = value.toString
+                logger.trace(
+                  s"received value from endpoint: ${if (vs.length <= 250) vs
+                    else vs.substring(0, 247) + "..."}"
+                )
                 Some(value)
             }
         }
@@ -174,16 +179,33 @@ abstract class EnrichmentAsyncFunction[
     val builder = CacheBuilder
       .newBuilder()
       .concurrencyLevel(
-        config.getInt(s"$configPrefix.cache.concurrency.level")
+        config
+          .getIntOpt(s"$configPrefix.cache.concurrency.level")
+          .getOrElse(4)
       )
-      .maximumSize(config.getLong(s"$configPrefix.cache.max.size"))
+      .maximumSize(
+        config
+          .getLongOpt(s"$configPrefix.cache.max.size")
+          .getOrElse(10000L)
+      )
       .expireAfterWrite(
-        config.getDuration(s"$configPrefix.cache.expire.after").toMillis,
+        config
+          .getDurationOpt(s"$configPrefix.cache.expire.after")
+          .getOrElse(Duration.ofHours(1))
+          .toMillis,
         TimeUnit.MILLISECONDS
       )
-    if (!config.getBoolean(s"$configPrefix.cache.use.strong.keys"))
+    if (
+      !config
+        .getBooleanOpt(s"$configPrefix.cache.use.strong.keys")
+        .getOrElse(true)
+    )
       builder.weakKeys()
-    if (config.getBoolean(s"$configPrefix.cache.record.stats"))
+    if (
+      config
+        .getBooleanOpt(s"$configPrefix.cache.record.stats")
+        .getOrElse(true)
+    )
       builder.recordStats()
     builder.build[K, V](cacheLoader)
   }

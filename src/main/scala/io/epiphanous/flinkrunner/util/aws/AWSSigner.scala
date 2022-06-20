@@ -62,9 +62,9 @@ class AWSSigner(
     schema <- request.uri.scheme.map(_.value)
     host <- request.uri.host.map(_.value)
     (service, uri) <-
-      if (schema.equals("s3")) {
+      if (schema.startsWith("s3")) {
         Some(
-          schema,
+          "s3",
           Some(
             Uri
               .unsafeFromString(s"https://$host.s3.amazonaws.com")

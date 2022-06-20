@@ -47,7 +47,7 @@ case class FileSourceConfig[ADT <: FlinkEvent](
   val format: StreamFormatName = StreamFormatName.withNameInsensitive(
     config.getStringOpt(pfx("format")).getOrElse("json")
   )
-  val destination: Path        = new Path(getResourceOrFile(path))
+  val origin: Path             = new Path(getResourceOrFile(path))
   val monitorDuration: Long    = properties
     .getProperty("monitor.continuously", "0")
     .toLong
@@ -101,7 +101,7 @@ case class FileSourceConfig[ADT <: FlinkEvent](
   override def getSource[E <: ADT: TypeInformation]
       : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] = {
     val fsb =
-      FileSource.forRecordStreamFormat(getStreamFormat, destination)
+      FileSource.forRecordStreamFormat(getStreamFormat, origin)
     Right(
       (if (monitorDuration > 0)
          fsb.monitorContinuously(Duration.ofSeconds(monitorDuration))
@@ -118,7 +118,7 @@ case class FileSourceConfig[ADT <: FlinkEvent](
         FileSource
           .forRecordStreamFormat[String](
             new TextLineInputFormat(),
-            destination
+            origin
           )
       if (monitorDuration > 0) {
         fsb.monitorContinuously(
