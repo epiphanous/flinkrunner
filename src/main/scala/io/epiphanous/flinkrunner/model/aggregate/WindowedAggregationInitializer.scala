@@ -5,7 +5,6 @@ import io.epiphanous.flinkrunner.operator.FlinkRunnerAggregateFunction
 import org.apache.flink.streaming.api.scala.function.ProcessWindowFunction
 import org.apache.flink.streaming.api.windowing.assigners.WindowAssigner
 import org.apache.flink.streaming.api.windowing.windows.Window
-import org.apache.flink.util.Collector
 import squants.{Dimension, Quantity, UnitOfMeasure}
 
 import java.time.{Duration, Instant}
