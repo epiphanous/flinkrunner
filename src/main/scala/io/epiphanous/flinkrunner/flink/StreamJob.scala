@@ -124,9 +124,8 @@ abstract class StreamJob[
     keyedSource.connect(broadcastSource)
   }
 
-  /** Create a data stream of windowed aggregates of type AGG. This output
-    * stream is usually mapped into an instance of the ADT to be written to
-    * a sink.
+  /** Create a data stream of windowed aggregates of type PWF_OUT. This
+    * output stream will be instances of the ADT to be written to a sink.
     * @param source
     *   a keyed stream of events of type E
     * @param initializer
@@ -142,9 +141,8 @@ abstract class StreamJob[
     * @tparam QUANTITY
     *   the type of quantity being aggregate
     * @tparam PWF_OUT
-    *   the type of output collected from the optional process window
-    *   function in the initializer; if not process window function is
-    *   defined in the initializer, this can be Nothing
+    *   the type of output collected from the process window function in
+    *   the initializer (should be a subclass of flinkrunner ADT)
     * @return
     */
   def windowedAggregation[
@@ -153,7 +151,7 @@ abstract class StreamJob[
       WINDOW <: Window: TypeInformation,
       AGG <: Aggregate: TypeInformation,
       QUANTITY <: Quantity[QUANTITY]: TypeInformation,
-      PWF_OUT: TypeInformation](
+      PWF_OUT <: ADT: TypeInformation](
       source: KeyedStream[E, KEY],
       initializer: WindowedAggregationInitializer[
         E,
@@ -163,22 +161,19 @@ abstract class StreamJob[
         QUANTITY,
         PWF_OUT,
         ADT
-      ]): Any = {
+      ]): DataStream[PWF_OUT] = {
 
     implicit val accumulatorTypeInfo
         : TypeInformation[AggregateAccumulator[AGG]] =
       createTypeInformation[AggregateAccumulator[AGG]]
 
-    val windowedStream: WindowedStream[E, KEY, WINDOW] = source
+    source
       .window(initializer.windowAssigner)
       .allowedLateness(Time.seconds(initializer.allowedLateness.toSeconds))
-    (
-      initializer.aggregateFunction,
-      initializer.processWindowFunction
-    ) match {
-      case (af, Some(pwf)) => windowedStream.aggregate(af, pwf)
-      case (af, None)      => windowedStream.aggregate(af)
-    }
+      .aggregate(
+        initializer.aggregateFunction,
+        initializer.processWindowFunction
+      )
   }
 
   /** Writes the transformed data stream to configured output sinks.

@@ -5,6 +5,7 @@ import io.epiphanous.flinkrunner.operator.FlinkRunnerAggregateFunction
 import org.apache.flink.streaming.api.scala.function.ProcessWindowFunction
 import org.apache.flink.streaming.api.windowing.assigners.WindowAssigner
 import org.apache.flink.streaming.api.windowing.windows.Window
+import org.apache.flink.util.Collector
 import squants.{Dimension, Quantity, UnitOfMeasure}
 
 import java.time.{Duration, Instant}
@@ -44,11 +45,11 @@ import scala.util.Try
   */
 case class WindowedAggregationInitializer[
     E <: ADT,
-    KEY,     // input key key type
+    KEY, // input key key type
     WINDOW <: Window,
     AGG <: Aggregate,
     A <: Quantity[A],
-    PWF_OUT, // output of process window function
+    OUT, // output of process window function
     ADT <: FlinkEvent](
     windowAssigner: WindowAssigner[E, WINDOW],
     allowedLateness: Duration,
@@ -58,9 +59,7 @@ case class WindowedAggregationInitializer[
     unit: UnitOfMeasure[A],
     params: Map[String, String] = Map.empty,
     unitMapper: UnitMapper = UnitMapper.defaultUnitMapper,
-    processWindowFunction: Option[
-      ProcessWindowFunction[AGG, PWF_OUT, KEY, WINDOW]
-    ] = None
+    processWindowFunction: ProcessWindowFunction[AGG, OUT, KEY, WINDOW]
 ) {
   val aggregateFunction = new FlinkRunnerAggregateFunction[E, A, AGG, ADT](
     extractValueAndTime,

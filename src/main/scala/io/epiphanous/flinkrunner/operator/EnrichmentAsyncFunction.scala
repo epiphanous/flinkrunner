@@ -27,7 +27,6 @@ import org.http4s.{
   Uri
 }
 
-import java.io.{PrintWriter, StringWriter}
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 import scala.concurrent.{
@@ -246,10 +245,9 @@ abstract class EnrichmentAsyncFunction[
   override def asyncInvoke(in: IN, collector: ResultFuture[OUT]): Unit =
     asyncInvokeF(in) foreach {
       case Failure(throwable) =>
-        val sw = new StringWriter()
-        throwable.printStackTrace(new PrintWriter(sw))
         logger.error(
-          s"asyncInvoke[$in] failed: ${throwable.getMessage}\n$sw"
+          s"asyncInvoke failed for [$in]",
+          throwable
         )
         collector.completeExceptionally(throwable)
       case Success(results)   => collector.complete(results)
