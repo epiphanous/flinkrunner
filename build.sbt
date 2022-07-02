@@ -31,7 +31,7 @@ resolvers += "Confluent Repository" at "https://packages.confluent.io/maven/"
 val V = new {
   val flink        = "1.15.0"
   val logback      = "1.2.11"
-  val scalaLogging = "3.9.4"
+  val scalaLogging = "3.9.5"
   val scalaTest    = "3.2.12"
   val scalaCheck   =
     "3.2.10.0" // 3.2.11.0 throws a conflict on scala-xml with scala-compiler
@@ -43,41 +43,41 @@ val V = new {
   val squants            = "1.8.3"
   val confluentAvroSerde = "7.1.1"
   val parquet            = "1.12.3"
-  val awsSdk             = "1.12.237"
+  val awsSdk             = "1.12.239"
   val calcite            = "1.30.0"
 }
 
 val flinkDeps =
   Seq(
     // scala
-    "org.apache.flink" %% "flink-scala"                    % V.flink % Provided,
+    "org.apache.flink" %% "flink-scala"                    % V.flink,
     "org.apache.flink" %% "flink-streaming-scala"          % V.flink,
     // rocksdb
     "org.apache.flink"  % "flink-statebackend-rocksdb"     % V.flink,
     // queryable state
-    "org.apache.flink"  % "flink-queryable-state-runtime"  % V.flink % Provided,
+    "org.apache.flink"  % "flink-queryable-state-runtime"  % V.flink,
     // complex event processing
-    "org.apache.flink"  % "flink-cep"                      % V.flink % Provided,
+    "org.apache.flink"  % "flink-cep"                      % V.flink,
     // connectors
-    "org.apache.flink"  % "flink-connector-base"           % V.flink % Provided, // ds hybrid source
-    "org.apache.flink"  % "flink-connector-files"          % V.flink % Provided, // ds text files
-    "org.apache.flink"  % "flink-parquet"                  % V.flink % Provided, // parquet bulk sink
-    "org.apache.flink"  % "flink-connector-kafka"          % V.flink % Provided,
-    "org.apache.flink"  % "flink-connector-kinesis"        % V.flink % Provided,
-    "org.apache.flink" %% "flink-connector-cassandra"      % V.flink % Provided,
-    "org.apache.flink"  % "flink-connector-elasticsearch7" % V.flink % Provided,
-    "org.apache.flink"  % "flink-connector-jdbc"           % V.flink % Provided,
-    "org.apache.flink"  % "flink-connector-rabbitmq"       % V.flink % Provided,
+    "org.apache.flink"  % "flink-connector-base"           % V.flink, // ds hybrid source
+    "org.apache.flink"  % "flink-connector-files"          % V.flink, // ds text files
+    "org.apache.flink"  % "flink-parquet"                  % V.flink, // parquet bulk sink
+    "org.apache.flink"  % "flink-connector-kafka"          % V.flink,
+    "org.apache.flink"  % "flink-connector-kinesis"        % V.flink,
+    "org.apache.flink" %% "flink-connector-cassandra"      % V.flink,
+    "org.apache.flink"  % "flink-connector-elasticsearch7" % V.flink,
+    "org.apache.flink"  % "flink-connector-jdbc"           % V.flink,
+    "org.apache.flink"  % "flink-connector-rabbitmq"       % V.flink,
     // avro support
-    "org.apache.flink"  % "flink-avro"                     % V.flink % Provided, // ds and table avro format
-    "org.apache.flink"  % "flink-avro-confluent-registry"  % V.flink % Provided, // ds and table avro registry format
+    "org.apache.flink"  % "flink-avro"                     % V.flink, // ds and table avro format
+    "org.apache.flink"  % "flink-avro-confluent-registry"  % V.flink, // ds and table avro registry format
     // table api support
     "org.apache.flink" %% "flink-table-api-scala-bridge"   % V.flink, // table api scala
-    "org.apache.flink"  % "flink-table-planner-loader"     % V.flink % Provided, // table api
-    "org.apache.flink"  % "flink-table-runtime"            % V.flink % Provided, // table runtime
-    "org.apache.flink"  % "flink-csv"                      % V.flink % Provided, // table api csv format
-    "org.apache.flink"  % "flink-json"                     % V.flink % Provided, // table api json format
-    "org.apache.flink"  % "flink-clients"                  % V.flink % Provided,
+    "org.apache.flink"  % "flink-table-planner-loader"     % V.flink, // table api
+    "org.apache.flink"  % "flink-table-runtime"            % V.flink, // table runtime
+    "org.apache.flink"  % "flink-csv"                      % V.flink, // table api csv format
+    "org.apache.flink"  % "flink-json"                     % V.flink, // table api json format
+    "org.apache.flink"  % "flink-clients"                  % V.flink,
     // test support
     "org.apache.flink"  % "flink-test-utils"               % V.flink % Test,
     "org.apache.flink"  % "flink-runtime-web"              % V.flink % Test
@@ -102,17 +102,17 @@ val circeDeps = Seq(
 ).map(d => "io.circe" %% s"circe-$d" % V.circe)
 
 val otherDeps = Seq(
-  "io.confluent"       % "kafka-avro-serializer" % V.confluentAvroSerde % Provided,
-  "org.apache.parquet" % "parquet-avro"          % V.parquet            % Provided,
-  "com.amazonaws"      % "aws-java-sdk-core"     % V.awsSdk             % Provided,
+  "io.confluent"       % "kafka-avro-serializer" % V.confluentAvroSerde,
+  "org.apache.parquet" % "parquet-avro"          % V.parquet,
+  "com.amazonaws"      % "aws-java-sdk-core"     % V.awsSdk,
   "org.apache.calcite" % "calcite-core"          % V.calcite,
   "com.beachape"      %% "enumeratum"            % V.enumeratum,
   "com.typesafe"       % "config"                % V.typesafeConfig,
   "com.google.guava"   % "guava"                 % V.guava,
   "org.typelevel"     %% "squants"               % V.squants,
   "org.scalatestplus" %% "scalacheck-1-15"       % V.scalaCheck,
-  "org.scalactic"     %% "scalactic"             % V.scalaTest          % Test,
-  "org.scalatest"     %% "scalatest"             % V.scalaTest          % Test
+  "org.scalactic"     %% "scalactic"             % V.scalaTest % Test,
+  "org.scalatest"     %% "scalatest"             % V.scalaTest % Test
 )
 
 /** Exclude any transitive deps using log4j

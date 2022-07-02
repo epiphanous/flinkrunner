@@ -35,7 +35,7 @@ import org.apache.flink.configuration.Configuration
   *
   * @param identifier
   *   a function that creates a unique string from the incoming event to
-  *   determine if it exists in the bloom filter (defaults to the events
+  *   determine if it exists in the bloom filter (defaults to the event's
   *   <code>$id</code> member)
   * @tparam E
   *   the event stream type
