@@ -55,28 +55,28 @@ val flinkDeps =
     // rocksdb
     "org.apache.flink"  % "flink-statebackend-rocksdb"     % V.flink,
     // queryable state
-    "org.apache.flink"  % "flink-queryable-state-runtime"  % V.flink,
+    "org.apache.flink"  % "flink-queryable-state-runtime"  % V.flink % Provided,
     // complex event processing
-    "org.apache.flink"  % "flink-cep"                      % V.flink,
+    "org.apache.flink"  % "flink-cep"                      % V.flink % Provided,
     // connectors
-    "org.apache.flink"  % "flink-connector-base"           % V.flink, // ds hybrid source
-    "org.apache.flink"  % "flink-connector-files"          % V.flink, // ds text files
-    "org.apache.flink"  % "flink-parquet"                  % V.flink, // parquet bulk sink
-    "org.apache.flink"  % "flink-connector-kafka"          % V.flink,
-    "org.apache.flink"  % "flink-connector-kinesis"        % V.flink,
-    "org.apache.flink" %% "flink-connector-cassandra"      % V.flink,
-    "org.apache.flink"  % "flink-connector-elasticsearch7" % V.flink,
-    "org.apache.flink"  % "flink-connector-jdbc"           % V.flink,
-    "org.apache.flink"  % "flink-connector-rabbitmq"       % V.flink,
+    "org.apache.flink"  % "flink-connector-base"           % V.flink % Provided, // ds hybrid source
+    "org.apache.flink"  % "flink-connector-files"          % V.flink % Provided, // ds text files
+    "org.apache.flink"  % "flink-parquet"                  % V.flink % Provided, // parquet bulk sink
+    "org.apache.flink"  % "flink-connector-kafka"          % V.flink % Provided,
+    "org.apache.flink"  % "flink-connector-kinesis"        % V.flink % Provided,
+    "org.apache.flink" %% "flink-connector-cassandra"      % V.flink % Provided,
+    "org.apache.flink"  % "flink-connector-elasticsearch7" % V.flink % Provided,
+    "org.apache.flink"  % "flink-connector-jdbc"           % V.flink % Provided,
+    "org.apache.flink"  % "flink-connector-rabbitmq"       % V.flink % Provided,
     // avro support
-    "org.apache.flink"  % "flink-avro"                     % V.flink, // ds and table avro format
-    "org.apache.flink"  % "flink-avro-confluent-registry"  % V.flink, // ds and table avro registry format
+    "org.apache.flink"  % "flink-avro"                     % V.flink % Provided, // ds and table avro format
+    "org.apache.flink"  % "flink-avro-confluent-registry"  % V.flink % Provided, // ds and table avro registry format
     // table api support
     "org.apache.flink" %% "flink-table-api-scala-bridge"   % V.flink, // table api scala
-    "org.apache.flink"  % "flink-table-planner-loader"     % V.flink, // table api
-    "org.apache.flink"  % "flink-table-runtime"            % V.flink, // table runtime
-    "org.apache.flink"  % "flink-csv"                      % V.flink, // table api csv format
-    "org.apache.flink"  % "flink-json"                     % V.flink, // table api json format
+    "org.apache.flink"  % "flink-table-planner-loader"     % V.flink % Provided, // table api
+    "org.apache.flink"  % "flink-table-runtime"            % V.flink % Provided, // table runtime
+    "org.apache.flink"  % "flink-csv"                      % V.flink % Provided, // table api csv format
+    "org.apache.flink"  % "flink-json"                     % V.flink % Provided, // table api json format
     "org.apache.flink"  % "flink-clients"                  % V.flink,
     // test support
     "org.apache.flink"  % "flink-test-utils"               % V.flink % Test,
@@ -102,17 +102,17 @@ val circeDeps = Seq(
 ).map(d => "io.circe" %% s"circe-$d" % V.circe)
 
 val otherDeps = Seq(
-  "io.confluent"       % "kafka-avro-serializer" % V.confluentAvroSerde,
-  "org.apache.parquet" % "parquet-avro"          % V.parquet,
-  "com.amazonaws"      % "aws-java-sdk-core"     % V.awsSdk,
+  "io.confluent"       % "kafka-avro-serializer" % V.confluentAvroSerde % Provided,
+  "org.apache.parquet" % "parquet-avro"          % V.parquet            % Provided,
+  "com.amazonaws"      % "aws-java-sdk-core"     % V.awsSdk             % Provided,
   "org.apache.calcite" % "calcite-core"          % V.calcite,
   "com.beachape"      %% "enumeratum"            % V.enumeratum,
   "com.typesafe"       % "config"                % V.typesafeConfig,
   "com.google.guava"   % "guava"                 % V.guava,
   "org.typelevel"     %% "squants"               % V.squants,
   "org.scalatestplus" %% "scalacheck-1-15"       % V.scalaCheck,
-  "org.scalactic"     %% "scalactic"             % V.scalaTest % Test,
-  "org.scalatest"     %% "scalatest"             % V.scalaTest % Test
+  "org.scalactic"     %% "scalactic"             % V.scalaTest          % Test,
+  "org.scalatest"     %% "scalatest"             % V.scalaTest          % Test
 )
 
 /** Exclude any transitive deps using log4j
