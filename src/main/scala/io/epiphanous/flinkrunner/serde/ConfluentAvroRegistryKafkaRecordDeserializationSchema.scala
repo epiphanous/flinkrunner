@@ -6,6 +6,7 @@ import io.confluent.kafka.serializers.KafkaAvroDeserializer
 import io.epiphanous.flinkrunner.model.source.KafkaSourceConfig
 import io.epiphanous.flinkrunner.model.{
   EmbeddedAvroRecord,
+  EmbeddedAvroRecordInfo,
   FlinkEvent,
   SchemaRegistryConfig
 }
@@ -15,6 +16,9 @@ import org.apache.flink.api.common.typeinfo.{TypeHint, TypeInformation}
 import org.apache.flink.connector.kafka.source.reader.deserializer.KafkaRecordDeserializationSchema
 import org.apache.flink.util.Collector
 import org.apache.kafka.clients.consumer.ConsumerRecord
+
+import java.nio.charset.StandardCharsets
+import scala.collection.JavaConverters._
 
 /** A deserialization schema that uses a confluent schema registry to
   * deserialize a kafka key/value pair into instances of a flink runner ADT
@@ -31,7 +35,7 @@ class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
 ](
     sourceConfig: KafkaSourceConfig[ADT],
     schemaRegistryClientOpt: Option[SchemaRegistryClient] = None
-)(implicit fromKV: (Option[String], A) => E)
+)(implicit fromKV: EmbeddedAvroRecordInfo[A] => E)
     extends KafkaRecordDeserializationSchema[E]
     with LazyLogging {
 
@@ -64,17 +68,24 @@ class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
   override def deserialize(
       record: ConsumerRecord[Array[Byte], Array[Byte]],
       out: Collector[E]): Unit = {
-    val topic = sourceConfig.topic
-    val key   =
+    val topic   = sourceConfig.topic
+    val headers = Option(record.headers())
+      .map(_.asScala.map { h =>
+        (h.key(), new String(h.value(), StandardCharsets.UTF_8))
+      }.toMap)
+      .getOrElse(Map.empty[String, String])
+    val key     =
       keyDeserializer.map(ds =>
         ds.deserialize(topic, record.key()).toString
       )
     valueDeserializer
       .deserialize(topic, record.value()) match {
       case a: GenericRecord        =>
-        val obj = fromKV(key, a.asInstanceOf[A])
+        val obj = fromKV(
+          EmbeddedAvroRecordInfo(a.asInstanceOf[A], key, headers)
+        )
         logger.trace(
-          s"deserializing ${a.getSchema.getFullName} record ${obj.$id} from $topic"
+          s"deserializing ${a.getSchema.getFullName} record ${obj.$id} from $topic with key=$key, headers=$headers"
         )
         out.collect(obj)
       case c if Option(c).nonEmpty =>

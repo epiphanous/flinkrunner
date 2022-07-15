@@ -105,7 +105,7 @@ case class KafkaSourceConfig[ADT <: FlinkEvent](
     */
   def getAvroDeserializationSchema[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
-      A <: GenericRecord](implicit fromKV: (Option[String], A) => E)
+      A <: GenericRecord](implicit fromKV: EmbeddedAvroRecordInfo[A] => E)
       : KafkaRecordDeserializationSchema[E] = {
     new ConfluentAvroRegistryKafkaRecordDeserializationSchema[E, A, ADT](
       this
@@ -127,7 +127,7 @@ case class KafkaSourceConfig[ADT <: FlinkEvent](
   override def getAvroSource[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](implicit
-      fromKV: (Option[String], A) => E)
+      fromKV: EmbeddedAvroRecordInfo[A] => E)
       : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] =
     Right(_getSource(getAvroDeserializationSchema[E, A]))
 

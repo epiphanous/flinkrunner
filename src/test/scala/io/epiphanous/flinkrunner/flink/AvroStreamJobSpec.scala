@@ -106,7 +106,7 @@ class AvroStreamJobSpec extends PropSpec {
 }
 
 class SingleAvroSourceJob(runner: FlinkRunner[MyAvroADT])(implicit
-    fromKV: (Option[String], ARecord) => AWrapper)
+    fromKV: EmbeddedAvroRecordInfo[ARecord] => AWrapper)
     extends AvroStreamJob[AWrapper, ARecord, MyAvroADT](runner) {
   override def transform: DataStream[AWrapper] =
     singleAvroSource[AWrapper, ARecord]("test-arecord-kafka").map { a =>

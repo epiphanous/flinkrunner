@@ -1,5 +1,9 @@
 package io.epiphanous.flinkrunner.model
 
+import shapeless.record
+
+import scala.language.implicitConversions
+
 sealed trait MyAvroADT extends FlinkEvent
 
 case class AWrapper(value: ARecord)
@@ -15,8 +19,9 @@ case class AWrapper(value: ARecord)
 
 object AWrapper extends EmbeddedAvroRecordFactory[AWrapper, ARecord] {
   override implicit def fromKV(
-      keyOpt: Option[String],
-      record: ARecord): AWrapper = AWrapper(record)
+      info: EmbeddedAvroRecordInfo[ARecord]): AWrapper = AWrapper(
+    info.record
+  )
 }
 
 case class BWrapper(value: BRecord)
@@ -31,6 +36,7 @@ case class BWrapper(value: BRecord)
 
 object BWrapper extends EmbeddedAvroRecordFactory[BWrapper, BRecord] {
   override implicit def fromKV(
-      keyOpt: Option[String],
-      record: BRecord): BWrapper = BWrapper(record)
+      info: EmbeddedAvroRecordInfo[BRecord]): BWrapper = BWrapper(
+    info.record
+  )
 }

@@ -189,7 +189,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](
       sourceConfig: SourceConfig[ADT])(implicit
-      fromKV: (Option[String], A) => E): DataStream[E] =
+      fromKV: EmbeddedAvroRecordInfo[A] => E): DataStream[E] =
     checkResultsOpt
       .map(c => c.getInputEvents[E](sourceConfig))
       .getOrElse(Seq.empty[E]) match {

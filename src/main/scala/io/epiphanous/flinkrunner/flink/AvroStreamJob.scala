@@ -1,7 +1,11 @@
 package io.epiphanous.flinkrunner.flink
 
 import io.epiphanous.flinkrunner.FlinkRunner
-import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, FlinkEvent}
+import io.epiphanous.flinkrunner.model.{
+  EmbeddedAvroRecord,
+  EmbeddedAvroRecordInfo,
+  FlinkEvent
+}
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.state.MapStateDescriptor
 import org.apache.flink.api.common.typeinfo.{TypeHint, TypeInformation}
@@ -34,7 +38,7 @@ abstract class AvroStreamJob[
       IN <: ADT with EmbeddedAvroRecord[INA]: TypeInformation,
       INA <: GenericRecord: TypeInformation](
       name: String = runner.getDefaultSourceName)(implicit
-      fromKV: (Option[String], INA) => IN): DataStream[IN] =
+      fromKV: EmbeddedAvroRecordInfo[INA] => IN): DataStream[IN] =
     runner.configToAvroSource[IN, INA](runner.getSourceConfig(name))
 
   def connectedAvroSource[
@@ -47,8 +51,8 @@ abstract class AvroStreamJob[
       source2Name: String,
       in1GetKeyFunc: IN1 => KEY,
       in2GetKeyFunc: IN2 => KEY)(implicit
-      fromKV1: (Option[String], IN1A) => IN1,
-      fromKV2: (Option[String], IN2A) => IN2)
+      fromKV1: EmbeddedAvroRecordInfo[IN1A] => IN1,
+      fromKV2: EmbeddedAvroRecordInfo[IN2A] => IN2)
       : ConnectedStreams[IN1, IN2] = {
     val source1 = singleAvroSource[IN1, IN1A](source1Name)
     val source2 = singleAvroSource[IN2, IN2A](source2Name)
@@ -65,8 +69,9 @@ abstract class AvroStreamJob[
       dataName: String,
       controlGetKeyFunc: CONTROL => KEY,
       dataGetKeyFunc: DATA => KEY)(implicit
-      fromKVControl: (Option[String], CONTROLA) => CONTROL,
-      fromKVData: (Option[String], DATAA) => DATA): DataStream[DATA] = {
+      fromKVControl: EmbeddedAvroRecordInfo[CONTROLA] => CONTROL,
+      fromKVData: EmbeddedAvroRecordInfo[DATAA] => DATA)
+      : DataStream[DATA] = {
     val controlLockoutDuration                                          =
       config.getDuration("control.lockout.duration").toMillis
     implicit val eitherTypeInfo: TypeInformation[Either[CONTROL, DATA]] =
@@ -118,8 +123,8 @@ abstract class AvroStreamJob[
       keyedSourceName: String,
       broadcastSourceName: String,
       keyedSourceGetKeyFunc: IN => KEY)(implicit
-      fromKVIN: (Option[String], INA) => IN,
-      fromKVBC: (Option[String], BCA) => BC)
+      fromKVIN: EmbeddedAvroRecordInfo[INA] => IN,
+      fromKVBC: EmbeddedAvroRecordInfo[BCA] => BC)
       : BroadcastConnectedStream[IN, BC] = {
     val keyedSource     =
       singleAvroSource[IN, INA](keyedSourceName)

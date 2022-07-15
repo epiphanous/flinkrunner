@@ -4,6 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.FlinkConnectorName._
 import io.epiphanous.flinkrunner.model.{
   EmbeddedAvroRecord,
+  EmbeddedAvroRecordInfo,
   FlinkConfig,
   FlinkConnectorName,
   FlinkEvent
@@ -110,7 +111,7 @@ trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
   def getAvroSource[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](implicit
-      fromKV: (Option[String], A) => E)
+      fromKV: EmbeddedAvroRecordInfo[A] => E)
       : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] =
     ??? // intentionally unimplemented
 
@@ -118,7 +119,7 @@ trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](
       env: StreamExecutionEnvironment)(implicit
-      fromKV: (Option[String], A) => E): DataStream[E] =
+      fromKV: EmbeddedAvroRecordInfo[A] => E): DataStream[E] =
     getAvroSource[E, A]
       .fold(
         f =>

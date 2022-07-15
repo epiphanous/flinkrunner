@@ -123,7 +123,8 @@ trait SerdeTestFixtures extends PropSpec {
 
   def getDeserializerFor[
       E <: MyAvroADT with EmbeddedAvroRecord[A],
-      A <: GenericRecord](implicit fromKV: (Option[String], A) => E) = {
+      A <: GenericRecord](implicit
+      fromKV: EmbeddedAvroRecordInfo[A] => E) = {
     val ds = new ConfluentAvroRegistryKafkaRecordDeserializationSchema[
       E,
       A,

@@ -10,6 +10,7 @@ import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.serialization.SerializationSchema
 import org.apache.flink.connector.kafka.sink.KafkaRecordSerializationSchema
 import org.apache.kafka.clients.producer.ProducerRecord
+import org.apache.kafka.common.header.internals.RecordHeaders
 
 import java.lang
 
@@ -60,20 +61,29 @@ case class ConfluentAvroRegistryKafkaRecordSerializationSchema[
       element: E,
       context: KafkaRecordSerializationSchema.KafkaSinkContext,
       timestamp: lang.Long): ProducerRecord[Array[Byte], Array[Byte]] = {
-    val (k, v) = element.toKV
-    val topic  = sinkConfig.expandTemplate(v)
+    val info    = element.toKV
+    val headers = new RecordHeaders()
+    Option(info.headers).foreach { m =>
+      m.foreach { case (hk, hv) =>
+        headers.add(hk, hv.getBytes())
+      }
+    }
+    val topic   = sinkConfig.expandTemplate(info.record)
+    val key     =
+      keySerializer.flatMap(ks =>
+        info.keyOpt.map(kk => ks.serialize(topic, kk))
+      )
     logger.trace(
-      s"serializing ${v.getSchema.getFullName} record ${element.$id} to $topic"
+      s"serializing ${info.record.getSchema.getFullName} record ${element.$id} to $topic with key=$key, headers=${info.headers}"
     )
-    val key    =
-      keySerializer.flatMap(ks => k.map(kk => ks.serialize(topic, kk)))
-    val value  = valueSerializer.serialize(topic, v)
+    val value   = valueSerializer.serialize(topic, info.record)
     new ProducerRecord(
       topic,
       null,
       element.$timestamp,
       key.orNull,
-      value
+      value,
+      headers
     )
   }
 
