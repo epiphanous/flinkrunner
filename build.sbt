@@ -29,7 +29,7 @@ resolvers += "Local Maven Repository" at "file://" + Path.userHome.absolutePath 
 resolvers += "Confluent Repository" at "https://packages.confluent.io/maven/"
 
 val V = new {
-  val flink        = "1.15.0"
+  val flink        = "1.15.1"
   val logback      = "1.2.11"
   val scalaLogging = "3.9.5"
   val scalaTest    = "3.2.12"
