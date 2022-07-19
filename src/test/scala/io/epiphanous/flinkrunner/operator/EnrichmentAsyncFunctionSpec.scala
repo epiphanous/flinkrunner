@@ -32,7 +32,9 @@ class EnrichmentAsyncFunctionSpec extends PropSpec {
       .get("http://httpbin.org/ip")
       .map { o =>
         logger.debug(s"cache call returned $o")
-        o.origin should fullyMatch regex """\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"""
+        o.origin
+          .split(",\\s+")
+          .head should fullyMatch regex """\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"""
         o
       }
     eaf.cache.getIfPresent("http://httpbin.org/ip") shouldEqual result
