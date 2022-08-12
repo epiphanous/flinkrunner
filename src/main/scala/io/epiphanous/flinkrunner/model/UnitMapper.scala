@@ -163,11 +163,12 @@ trait UnitMapper extends LazyLogging {
 
 }
 
-class DefaultUnitMapper extends UnitMapper {
-  override val getMoneyContext: MoneyContext =
-    MoneyContext(USD, Set.empty, Seq.empty)
+case class DefaultUnitMapper(
+    moneyContext: MoneyContext = MoneyContext(USD, Set.empty, Seq.empty))
+    extends UnitMapper {
+  override def getMoneyContext: MoneyContext = moneyContext
 }
 
 object UnitMapper {
-  val defaultUnitMapper = new DefaultUnitMapper()
+  val defaultUnitMapper: DefaultUnitMapper = DefaultUnitMapper()
 }
