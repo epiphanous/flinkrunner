@@ -102,7 +102,7 @@ class SBFDeduplicationFilter[E <: ADT: TypeInformation, ADT <: FlinkEvent](
       )
     }
 
-    // return our filter value, which means keep it wasn't in the bloom filter, or drop it otherwise
+    // return our filter value, which means keep it if it wasn't in the bloom filter, or drop it otherwise
     !alreadySeen
   }
 
