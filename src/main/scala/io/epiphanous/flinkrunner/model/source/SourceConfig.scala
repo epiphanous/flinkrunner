@@ -15,6 +15,7 @@ import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.eventtime.WatermarkStrategy
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.connector.source.{Source, SourceSplit}
+import org.apache.flink.connector.file.src.reader.StreamFormat
 import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.flink.streaming.api.scala._
 
@@ -111,7 +112,8 @@ trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
   def getAvroSource[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](implicit
-      fromKV: EmbeddedAvroRecordInfo[A] => E)
+      fromKV: EmbeddedAvroRecordInfo[A] => E,
+      avroParquetRecordFormat: StreamFormat[A])
       : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] =
     ??? // intentionally unimplemented
 
@@ -119,7 +121,8 @@ trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](
       env: StreamExecutionEnvironment)(implicit
-      fromKV: EmbeddedAvroRecordInfo[A] => E): DataStream[E] =
+      fromKV: EmbeddedAvroRecordInfo[A] => E,
+      avroParquetRecordFormat: StreamFormat[A]): DataStream[E] =
     getAvroSource[E, A]
       .fold(
         f =>

@@ -4,6 +4,8 @@ import io.epiphanous.flinkrunner.model.source.SourceConfig
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.{FlinkRunner, PropSpec}
 import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.connector.file.src.reader.StreamFormat
+import org.apache.flink.formats.parquet.avro.AvroParquetReaders
 import org.apache.flink.streaming.api.scala._
 
 import java.time.Instant
@@ -108,7 +110,9 @@ class AvroStreamJobSpec extends PropSpec {
 class SingleAvroSourceJob(runner: FlinkRunner[MyAvroADT])(implicit
     fromKV: EmbeddedAvroRecordInfo[ARecord] => AWrapper)
     extends AvroStreamJob[AWrapper, ARecord, MyAvroADT](runner) {
-  override def transform: DataStream[AWrapper] =
+  implicit val avroParquetRecordFormat: StreamFormat[ARecord] =
+    AvroParquetReaders.forSpecificRecord(classOf[ARecord])
+  override def transform: DataStream[AWrapper]                =
     singleAvroSource[AWrapper, ARecord]("test-arecord-kafka").map { a =>
       val (a0, a1, a2, a3) =
         (a.$record.a0, a.$record.a1, a.$record.a2, a.$record.a3)

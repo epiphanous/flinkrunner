@@ -11,6 +11,7 @@ import io.epiphanous.flinkrunner.util.StreamUtils.RichProps
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.connector.source.{Source, SourceSplit}
+import org.apache.flink.connector.file.src.reader.StreamFormat
 import org.apache.flink.connector.kafka.source.KafkaSource
 import org.apache.flink.connector.kafka.source.enumerator.initializer.{
   NoStoppingOffsetsInitializer,
@@ -127,7 +128,8 @@ case class KafkaSourceConfig[ADT <: FlinkEvent](
   override def getAvroSource[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](implicit
-      fromKV: EmbeddedAvroRecordInfo[A] => E)
+      fromKV: EmbeddedAvroRecordInfo[A] => E,
+      avroParquetRecordFormat: StreamFormat[A])
       : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] =
     Right(_getSource(getAvroDeserializationSchema[E, A]))
 

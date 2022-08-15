@@ -1,7 +1,5 @@
 package io.epiphanous.flinkrunner.model
 
-import shapeless.record
-
 import scala.language.implicitConversions
 
 sealed trait MyAvroADT extends FlinkEvent

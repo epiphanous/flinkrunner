@@ -7,6 +7,7 @@ import org.apache.avro.generic.GenericRecord
   * ConfluentAvroRegistryKafkaRecordSerializationSchema. A companion trait,
   * EmbeddedAvroRecordFactory, can be used to support deserializing avro
   * records into flink events.
+ *
   * @tparam A
   *   An avro record type
   */

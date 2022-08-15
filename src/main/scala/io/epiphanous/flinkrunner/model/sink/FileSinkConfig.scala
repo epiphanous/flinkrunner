@@ -3,30 +3,17 @@ package io.epiphanous.flinkrunner.model.sink
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.FlinkConnectorName.File
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.serde.{
-  DelimitedConfig,
-  DelimitedFileEncoder,
-  JsonFileEncoder
-}
+import io.epiphanous.flinkrunner.serde.{DelimitedConfig, DelimitedFileEncoder, JsonFileEncoder}
+import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.serialization.Encoder
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.connector.file.sink.FileSink
 import org.apache.flink.core.fs.Path
 import org.apache.flink.core.io.SimpleVersionedSerializer
-import org.apache.flink.formats.parquet.avro.AvroParquetWriters
 import org.apache.flink.streaming.api.datastream.DataStreamSink
-import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.{
-  BasePathBucketAssigner,
-  DateTimeBucketAssigner
-}
-import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.{
-  CheckpointRollingPolicy,
-  OnCheckpointRollingPolicy
-}
-import org.apache.flink.streaming.api.functions.sink.filesystem.{
-  BucketAssigner,
-  OutputFileConfig
-}
+import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.{BasePathBucketAssigner, DateTimeBucketAssigner}
+import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.{CheckpointRollingPolicy, OnCheckpointRollingPolicy}
+import org.apache.flink.streaming.api.functions.sink.filesystem.{BucketAssigner, OutputFileConfig}
 import org.apache.flink.streaming.api.scala.DataStream
 
 import java.nio.charset.StandardCharsets
@@ -45,34 +32,61 @@ case class FileSinkConfig[ADT <: FlinkEvent](
   )
   val isBulk: Boolean          = StreamFormatName.isBulk(format)
 
+  /** Create a row-encoded file sink and send the data stream to it.
+    * @param dataStream
+    *   the data stream of elements to send to the sink
+    * @tparam E
+    *   the type of elements in the outgoing data stream (member of the
+    *   ADT)
+    * @return
+    *   DataStreamSink[E]
+    */
   def getSink[E <: ADT: TypeInformation](
       dataStream: DataStream[E]): DataStreamSink[E] =
-    dataStream.sinkTo(if (isBulk) getBulkSink[E] else getRowSink[E])
+    dataStream.sinkTo(
+      FileSink
+        .forRowFormat(destination, getRowEncoder[E])
+        .withBucketAssigner(getBucketAssigner)
+        .withBucketCheckInterval(getBucketCheckInterval)
+        .withRollingPolicy(getCheckpointRollingPolicy)
+        .withOutputFileConfig(getOutputFileConfig)
+        .build()
+    )
 
-  def getBulkSink[E <: ADT: TypeInformation]: FileSink[E] = {
-    FileSink
-      .forBulkFormat(
-        destination,
-        AvroParquetWriters.forReflectRecord(
-          implicitly[TypeInformation[E]].getTypeClass
+  /** Create an bulk avro parquet file sink and send the data stream to it.
+    * @param dataStream
+    *   the data stream of elements to send to the sink
+    * @tparam E
+    *   the type of elements in the outgoing data stream (must be a member
+    *   of the ADT that also implements EmbeddedAvroRecord[A])
+    * @tparam A
+    *   The type of avro record embedded in elements of type E
+    * @return
+    *   DataStream[E]
+    */
+  def getAvroSink[
+      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+      A <: GenericRecord: TypeInformation](
+      dataStream: DataStream[E]): DataStreamSink[E] =
+    format match {
+      case StreamFormatName.Parquet =>
+        dataStream.sinkTo(
+          FileSink
+            .forBulkFormat(
+              destination,
+              new EmbeddedAvroParquetRecordFactory[E, A, ADT]()
+            )
+            .withBucketAssigner(getBucketAssigner)
+            .withBucketCheckInterval(getBucketCheckInterval)
+            .withRollingPolicy(getCheckpointRollingPolicy)
+            .withOutputFileConfig(getOutputFileConfig)
+            .build()
         )
-      )
-      .withBucketAssigner(getBucketAssigner)
-      .withBucketCheckInterval(getBucketCheckInterval)
-      .withRollingPolicy(getCheckpointRollingPolicy)
-      .withOutputFileConfig(getOutputFileConfig)
-      .build()
-  }
-
-  def getRowSink[E <: ADT: TypeInformation]: FileSink[E] = {
-    FileSink
-      .forRowFormat(destination, getRowEncoder[E])
-      .withBucketAssigner(getBucketAssigner)
-      .withBucketCheckInterval(getBucketCheckInterval)
-      .withRollingPolicy(getCheckpointRollingPolicy)
-      .withOutputFileConfig(getOutputFileConfig)
-      .build()
-  }
+      case _                        =>
+        throw new RuntimeException(
+          s"Invalid format for getAvroSink: $format"
+        )
+    }
 
   def getBucketCheckInterval: Long =
     properties.getProperty("bucket.check.interval.ms", "60000").toLong

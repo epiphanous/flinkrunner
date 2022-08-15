@@ -103,7 +103,6 @@ val circeDeps = Seq(
 
 val otherDeps = Seq(
   "io.confluent"       % "kafka-avro-serializer" % V.confluentAvroSerde % Provided,
-  "org.apache.parquet" % "parquet-avro"          % V.parquet            % Provided,
   "com.amazonaws"      % "aws-java-sdk-core"     % V.awsSdk             % Provided,
   "org.apache.calcite" % "calcite-core"          % V.calcite,
   "com.beachape"      %% "enumeratum"            % V.enumeratum,
@@ -113,7 +112,20 @@ val otherDeps = Seq(
   "org.scalatestplus" %% "scalacheck-1-15"       % V.scalaCheck,
   "org.scalactic"     %% "scalactic"             % V.scalaTest          % Test,
   "org.scalatest"     %% "scalatest"             % V.scalaTest          % Test
-)
+) ++
+  Seq("org.apache.parquet" % "parquet-avro" % V.parquet % Provided).map(
+    m =>
+      m.excludeAll(
+        ExclusionRule(
+          organization = "org.apache.hadoop",
+          name = "hadoop-client"
+        ),
+        ExclusionRule(
+          organization = "it.unimi.dsi",
+          name = "fastutil"
+        )
+      )
+  )
 
 /** Exclude any transitive deps using log4j
   * @param m

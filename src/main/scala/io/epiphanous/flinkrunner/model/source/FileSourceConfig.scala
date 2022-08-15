@@ -1,11 +1,6 @@
 package io.epiphanous.flinkrunner.model.source
 
-import io.epiphanous.flinkrunner.model.{
-  FlinkConfig,
-  FlinkConnectorName,
-  FlinkEvent,
-  StreamFormatName
-}
+import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.serde.{
   DelimitedConfig,
   DelimitedRowDecoder,
@@ -13,6 +8,7 @@ import io.epiphanous.flinkrunner.serde.{
   RowDecoder
 }
 import io.epiphanous.flinkrunner.util.FileUtils.getResourceOrFile
+import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.eventtime.WatermarkStrategy
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.connector.source.{Source, SourceSplit}
@@ -24,7 +20,6 @@ import org.apache.flink.connector.file.src.reader.{
 }
 import org.apache.flink.core.fs.Path
 import org.apache.flink.formats.csv.CsvReaderFormat
-import org.apache.flink.formats.parquet.avro.AvroParquetReaders
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.dataformat.csv.{
   CsvMapper,
   CsvSchema
@@ -59,10 +54,9 @@ case class FileSourceConfig[ADT <: FlinkEvent](
       case StreamFormatName.Psv       => getPsvStreamFormat
       case StreamFormatName.Delimited =>
         getDelimitedStreamFormat(DelimitedConfig.get(format, properties))
-      case StreamFormatName.Parquet   => getParquetStreamFormat
       case _                          =>
         throw new RuntimeException(
-          s"oops, ${format.entryName} not handled by getStreamFileSource"
+          s"oops, ${format.entryName} files not handled by getStreamFormat for FileSource"
         )
     }
 
@@ -86,11 +80,6 @@ case class FileSourceConfig[ADT <: FlinkEvent](
       .forSchema[E](mapper, schema, ti)
   }
 
-  def getParquetStreamFormat[E <: ADT: TypeInformation]: StreamFormat[E] =
-    AvroParquetReaders.forReflectRecord(
-      implicitly[TypeInformation[E]].getTypeClass
-    )
-
   def getRowDecoder[E <: ADT: TypeInformation]: RowDecoder[E] =
     format match {
       case StreamFormatName.Json => new JsonRowDecoder[E]
@@ -108,6 +97,7 @@ case class FileSourceConfig[ADT <: FlinkEvent](
        else fsb).build()
     )
   }
+
   override def getSourceStream[E <: ADT: TypeInformation](
       env: StreamExecutionEnvironment): DataStream[E] = {
     // all this grossness, because flink hasn't built a JsonStreamFormat?
@@ -145,4 +135,33 @@ case class FileSourceConfig[ADT <: FlinkEvent](
 
   }
 
+  /** Create a FileSource for avro parquet files.
+    * @param fromKV
+    *   a method, available in implicit scope, that creates an instance of
+    *   type E from an avro record of type A
+    * @tparam E
+    *   a type that is a member of the ADT and embeds an avro record of
+    *   type A
+    * @tparam A
+    *   an avro record (should be an instance of SpecificAvroRecord,
+    *   although the type here is looser)
+    * @return
+    */
+  override def getAvroSource[
+      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+      A <: GenericRecord: TypeInformation](implicit
+      fromKV: EmbeddedAvroRecordInfo[A] => E,
+      avroParquetRecordFormat: StreamFormat[A])
+      : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] = {
+    val fsb =
+      FileSource.forRecordStreamFormat(
+        new EmbeddedAvroParquetRecordFormat[E, A, ADT],
+        origin
+      )
+    Right(
+      (if (monitorDuration > 0)
+         fsb.monitorContinuously(Duration.ofSeconds(monitorDuration))
+       else fsb).build()
+    )
+  }
 }
