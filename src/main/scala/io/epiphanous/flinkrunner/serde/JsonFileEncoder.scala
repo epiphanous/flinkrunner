@@ -1,12 +1,14 @@
 package io.epiphanous.flinkrunner.serde
-import org.apache.flink.api.common.serialization.Encoder
-import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.{
+import com.fasterxml.jackson.databind.json.JsonMapper
+import com.fasterxml.jackson.databind.{
   MapperFeature,
   ObjectMapper,
   ObjectWriter,
   SerializationFeature
 }
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import org.apache.flink.api.common.serialization.Encoder
+import org.apache.flink.api.common.typeinfo.TypeInformation
 
 import java.io.OutputStream
 import java.nio.charset.StandardCharsets
@@ -19,18 +21,15 @@ import java.nio.charset.StandardCharsets
 class JsonFileEncoder[E: TypeInformation](
     pretty: Boolean = false,
     sortKeys: Boolean = false)
-    extends Encoder[E] {
-
-  val klass: Class[E] = implicitly[TypeInformation[E]].getTypeClass
-
-  @transient
-  lazy val mapper: ObjectMapper = new ObjectMapper()
-    .configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, sortKeys)
-    .configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, sortKeys)
-    .configure(SerializationFeature.INDENT_OUTPUT, pretty)
+    extends Encoder[E]
+    with JsonCodec {
 
   @transient
-  lazy val writer: ObjectWriter = mapper.writerFor(klass)
+  lazy val mapper: JsonMapper = getMapper(pretty, sortKeys)
+
+  @transient
+  lazy val writer: ObjectWriter =
+    mapper.writerFor(implicitly[TypeInformation[E]].getTypeClass)
 
   override def encode(element: E, stream: OutputStream): Unit =
     stream.write(

@@ -29,12 +29,13 @@ resolvers += "Local Maven Repository" at "file://" + Path.userHome.absolutePath 
 resolvers += "Confluent Repository" at "https://packages.confluent.io/maven/"
 
 val V = new {
-  val flink        = "1.15.1"
-  val logback      = "1.2.11"
-  val scalaLogging = "3.9.5"
-  val scalaTest    = "3.2.12"
-  val scalaCheck   =
-    "3.2.10.0" // 3.2.11.0 throws a conflict on scala-xml with scala-compiler
+  val flink              = "1.15.1"
+  val logback            = "1.2.11"
+  val scalaLogging       = "3.9.5"
+  val scalaTest          = "3.2.13"
+  val scalaTestPlusCheck = "3.2.13.0"
+  val scalaCheck         = "1.16.0"
+  val jacksonScala       = "2.13.3"
   val circe              = "0.14.2"
   val http4s             = "0.23.12"
   val enumeratum         = "1.7.0"
@@ -43,7 +44,7 @@ val V = new {
   val squants            = "1.8.3"
   val confluentAvroSerde = "7.1.1"
   val parquet            = "1.12.3"
-  val awsSdk             = "1.12.239"
+  val awsSdk             = "1.12.272"
   val calcite            = "1.30.0"
 }
 
@@ -102,16 +103,18 @@ val circeDeps = Seq(
 ).map(d => "io.circe" %% s"circe-$d" % V.circe)
 
 val otherDeps = Seq(
-  "io.confluent"       % "kafka-avro-serializer" % V.confluentAvroSerde % Provided,
-  "com.amazonaws"      % "aws-java-sdk-core"     % V.awsSdk             % Provided,
-  "org.apache.calcite" % "calcite-core"          % V.calcite,
-  "com.beachape"      %% "enumeratum"            % V.enumeratum,
-  "com.typesafe"       % "config"                % V.typesafeConfig,
-  "com.google.guava"   % "guava"                 % V.guava,
-  "org.typelevel"     %% "squants"               % V.squants,
-  "org.scalatestplus" %% "scalacheck-1-15"       % V.scalaCheck,
-  "org.scalactic"     %% "scalactic"             % V.scalaTest          % Test,
-  "org.scalatest"     %% "scalatest"             % V.scalaTest          % Test
+  "io.confluent"                  % "kafka-avro-serializer" % V.confluentAvroSerde % Provided,
+  "com.amazonaws"                 % "aws-java-sdk-core"     % V.awsSdk             % Provided,
+  "org.apache.calcite"            % "calcite-core"          % V.calcite,
+  "com.beachape"                 %% "enumeratum"            % V.enumeratum,
+  "com.typesafe"                  % "config"                % V.typesafeConfig,
+  "com.google.guava"              % "guava"                 % V.guava,
+  "org.typelevel"                %% "squants"               % V.squants,
+  "org.scalactic"                %% "scalactic"             % V.scalaTest,
+  "org.scalatest"                %% "scalatest"             % V.scalaTest          % Test,
+  "org.scalatestplus"            %% "scalacheck-1-16"       % V.scalaTestPlusCheck % Test,
+  "org.scalacheck"               %% "scalacheck"            % V.scalaCheck,
+  "com.fasterxml.jackson.module" %% "jackson-module-scala"  % V.jacksonScala
 ) ++
   Seq("org.apache.parquet" % "parquet-avro" % V.parquet % Provided).map(
     m =>

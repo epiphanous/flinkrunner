@@ -8,7 +8,7 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.util.Random
 
 trait BasePropGenerators {
-  def idGen(size: Int = 7): Gen[String] = {
+  def idGen(size: Int = 7): Gen[String]      = {
     for {
       id <- Gen.identifier.suchThat(s => s.length >= size)
     } yield id.take(size)
@@ -31,7 +31,7 @@ trait BasePropGenerators {
     val end   = fromInstant.plusMillis(forward.toMillis).toEpochMilli
     Gen.choose(start, end).map(Instant.ofEpochMilli)
   }
-  implicit lazy val instantArb: Arbitrary[Instant] = Arbitrary(
+  implicit lazy val instantArb: Arbitrary[Instant]         = Arbitrary(
     instantGen()
   )
 
@@ -43,7 +43,7 @@ trait BasePropGenerators {
       num <- Gen.choose(min, max)
       duration <- Gen.const(Duration.create(num, units))
     } yield duration
-  implicit lazy val durationArb: Arbitrary[FiniteDuration]  = Arbitrary(
+  implicit lazy val durationArb: Arbitrary[FiniteDuration] = Arbitrary(
     durationGen()
   )
 
