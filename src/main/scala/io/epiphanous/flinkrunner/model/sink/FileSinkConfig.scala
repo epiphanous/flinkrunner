@@ -3,7 +3,7 @@ package io.epiphanous.flinkrunner.model.sink
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.FlinkConnectorName.File
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.serde.{DelimitedConfig, DelimitedFileEncoder, JsonFileEncoder}
+import io.epiphanous.flinkrunner.serde._
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.serialization.Encoder
 import org.apache.flink.api.common.typeinfo.TypeInformation
@@ -11,9 +11,18 @@ import org.apache.flink.connector.file.sink.FileSink
 import org.apache.flink.core.fs.Path
 import org.apache.flink.core.io.SimpleVersionedSerializer
 import org.apache.flink.streaming.api.datastream.DataStreamSink
-import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.{BasePathBucketAssigner, DateTimeBucketAssigner}
-import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.{CheckpointRollingPolicy, OnCheckpointRollingPolicy}
-import org.apache.flink.streaming.api.functions.sink.filesystem.{BucketAssigner, OutputFileConfig}
+import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.{
+  BasePathBucketAssigner,
+  DateTimeBucketAssigner
+}
+import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.{
+  CheckpointRollingPolicy,
+  OnCheckpointRollingPolicy
+}
+import org.apache.flink.streaming.api.functions.sink.filesystem.{
+  BucketAssigner,
+  OutputFileConfig
+}
 import org.apache.flink.streaming.api.scala.DataStream
 
 import java.nio.charset.StandardCharsets
@@ -67,26 +76,36 @@ case class FileSinkConfig[ADT <: FlinkEvent](
   def getAvroSink[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](
-      dataStream: DataStream[E]): DataStreamSink[E] =
-    format match {
+      dataStream: DataStream[E]): DataStreamSink[E] = {
+    val sink = format match {
       case StreamFormatName.Parquet =>
-        dataStream.sinkTo(
-          FileSink
-            .forBulkFormat(
-              destination,
-              new EmbeddedAvroParquetRecordFactory[E, A, ADT]()
-            )
-            .withBucketAssigner(getBucketAssigner)
-            .withBucketCheckInterval(getBucketCheckInterval)
-            .withRollingPolicy(getCheckpointRollingPolicy)
-            .withOutputFileConfig(getOutputFileConfig)
-            .build()
-        )
+        FileSink
+          .forBulkFormat(
+            destination,
+            new EmbeddedAvroParquetRecordFactory[E, A, ADT]()
+          )
+          .withBucketAssigner(getBucketAssigner)
+          .withBucketCheckInterval(getBucketCheckInterval)
+          .withRollingPolicy(getCheckpointRollingPolicy)
+          .withOutputFileConfig(getOutputFileConfig)
+          .build()
+      case StreamFormatName.Json | StreamFormatName.Csv |
+          StreamFormatName.Tsv | StreamFormatName.Psv |
+          StreamFormatName.Delimited =>
+        FileSink
+          .forRowFormat(destination, getAvroRowEncoder[E, A])
+          .withBucketAssigner(getBucketAssigner)
+          .withBucketCheckInterval(getBucketCheckInterval)
+          .withRollingPolicy(getCheckpointRollingPolicy)
+          .withOutputFileConfig(getOutputFileConfig)
+          .build()
       case _                        =>
         throw new RuntimeException(
           s"Invalid format for getAvroSink: $format"
         )
     }
+    dataStream.sinkTo(sink)
+  }
 
   def getBucketCheckInterval: Long =
     properties.getProperty("bucket.check.interval.ms", "60000").toLong
@@ -148,6 +167,25 @@ case class FileSinkConfig[ADT <: FlinkEvent](
       )
     case _                        =>
       new DelimitedFileEncoder[E](DelimitedConfig.get(format, properties))
+  }
+
+  def getAvroRowEncoder[
+      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+      A <: GenericRecord: TypeInformation]: Encoder[E] = format match {
+    case StreamFormatName.Json    =>
+      val pretty: Boolean   =
+        properties.getProperty("json.pretty", "false").toBoolean
+      val sortKeys: Boolean =
+        properties.getProperty("json.sort.keys", "false").toBoolean
+      new EmbeddedAvroJsonFileEncoder[E, A, ADT](pretty, sortKeys)
+    case StreamFormatName.Parquet =>
+      throw new RuntimeException(
+        s"Parquet is a bulk format and invalid for getAvroRowEncoder on sink $name"
+      )
+    case _                        =>
+      new EmbeddedAvroDelimitedFileEncoder[E, A, ADT](
+        DelimitedConfig.get(format, properties)
+      )
   }
 
 }

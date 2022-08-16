@@ -8,13 +8,14 @@ import org.apache.flink.api.common.typeinfo.TypeInformation
 
 import java.nio.charset.StandardCharsets
 
-/** Serialize an event instance into a json-encoded byte array. This
-  * requires an implicit circe encoder instance for the type to be
-  * available.
+/** Serialize an event instance into a json-encoded byte array.
+  *
   * @param sinkConfig
   *   config for the sink we're serializing to
   * @tparam E
-  *   the event type
+  *   the event type member of the flink ADT
+  * @tparam ADT
+  *   The flink event algebraic data type
   */
 class JsonSerializationSchema[
     E <: ADT: TypeInformation,

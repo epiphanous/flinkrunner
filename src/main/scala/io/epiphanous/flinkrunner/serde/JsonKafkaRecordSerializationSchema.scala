@@ -16,6 +16,7 @@ class JsonKafkaRecordSerializationSchema[
     kafkaSinkConfig: KafkaSinkConfig[ADT])
     extends KafkaRecordSerializationSchema[E]
     with LazyLogging {
+
   val serializationSchema =
     new JsonSerializationSchema[E, ADT](kafkaSinkConfig)
 
