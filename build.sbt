@@ -35,7 +35,7 @@ val V = new {
   val scalaTest          = "3.2.13"
   val scalaTestPlusCheck = "3.2.13.0"
   val scalaCheck         = "1.16.0"
-  val jacksonScala       = "2.13.3"
+  val jackson            = "2.13.3"
   val circe              = "0.14.2"
   val http4s             = "0.23.12"
   val enumeratum         = "1.7.0"
@@ -103,18 +103,19 @@ val circeDeps = Seq(
 ).map(d => "io.circe" %% s"circe-$d" % V.circe)
 
 val otherDeps = Seq(
-  "io.confluent"                  % "kafka-avro-serializer" % V.confluentAvroSerde % Provided,
-  "com.amazonaws"                 % "aws-java-sdk-core"     % V.awsSdk             % Provided,
-  "org.apache.calcite"            % "calcite-core"          % V.calcite,
-  "com.beachape"                 %% "enumeratum"            % V.enumeratum,
-  "com.typesafe"                  % "config"                % V.typesafeConfig,
-  "com.google.guava"              % "guava"                 % V.guava,
-  "org.typelevel"                %% "squants"               % V.squants,
-  "org.scalactic"                %% "scalactic"             % V.scalaTest,
-  "org.scalatest"                %% "scalatest"             % V.scalaTest          % Test,
-  "org.scalatestplus"            %% "scalacheck-1-16"       % V.scalaTestPlusCheck % Test,
-  "org.scalacheck"               %% "scalacheck"            % V.scalaCheck,
-  "com.fasterxml.jackson.module" %% "jackson-module-scala"  % V.jacksonScala
+  "io.confluent"                     % "kafka-avro-serializer"  % V.confluentAvroSerde % Provided,
+  "com.amazonaws"                    % "aws-java-sdk-core"      % V.awsSdk             % Provided,
+  "org.apache.calcite"               % "calcite-core"           % V.calcite,
+  "com.beachape"                    %% "enumeratum"             % V.enumeratum,
+  "com.typesafe"                     % "config"                 % V.typesafeConfig,
+  "com.google.guava"                 % "guava"                  % V.guava,
+  "org.typelevel"                   %% "squants"                % V.squants,
+  "org.scalactic"                   %% "scalactic"              % V.scalaTest,
+  "org.scalatest"                   %% "scalatest"              % V.scalaTest          % Test,
+  "org.scalatestplus"               %% "scalacheck-1-16"        % V.scalaTestPlusCheck % Test,
+  "org.scalacheck"                  %% "scalacheck"             % V.scalaCheck,
+  "com.fasterxml.jackson.module"    %% "jackson-module-scala"   % V.jackson,
+  "com.fasterxml.jackson.dataformat" % "jackson-dataformat-csv" % V.jackson
 ) ++
   Seq("org.apache.parquet" % "parquet-avro" % V.parquet % Provided).map(
     m =>

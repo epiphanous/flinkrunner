@@ -42,7 +42,7 @@ class JsonSerializationSchema[
       .fold(
         error =>
           throw new RuntimeException(
-            s"failed to serialize event $event: ${error.getMessage}"
+            s"failed to serialize event to sink $name ${error.getMessage}\nEVENT:\n$event\n"
           ),
         _.getBytes(StandardCharsets.UTF_8)
       )

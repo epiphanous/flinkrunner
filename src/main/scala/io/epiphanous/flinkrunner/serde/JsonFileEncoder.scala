@@ -25,11 +25,11 @@ class JsonFileEncoder[E: TypeInformation](
     with JsonCodec {
 
   @transient
-  lazy val mapper: JsonMapper = getMapper(pretty, sortKeys)
-
-  @transient
-  lazy val writer: ObjectWriter =
-    mapper.writerFor(implicitly[TypeInformation[E]].getTypeClass)
+  lazy val writer: ObjectWriter = getWriter(
+    pretty,
+    sortKeys,
+    implicitly[TypeInformation[E]].getTypeClass
+  )
 
   override def encode(element: E, stream: OutputStream): Unit =
     stream.write(

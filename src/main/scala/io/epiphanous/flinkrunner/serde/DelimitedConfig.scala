@@ -1,7 +1,7 @@
 package io.epiphanous.flinkrunner.serde
 
+import com.fasterxml.jackson.dataformat.csv.CsvSchema
 import io.epiphanous.flinkrunner.model.StreamFormatName
-import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.dataformat.csv.CsvSchema
 
 import java.util.Properties
 
@@ -9,7 +9,8 @@ case class DelimitedConfig(
     columnSeparator: Char = ',',
     lineSeparator: String = "\n",
     quoteCharacter: Char = '"',
-    escapeChar: Char = '\\'
+    escapeChar: Char = '\\',
+    useHeader: Boolean = true
 ) {
   def intoSchema(schema: CsvSchema): CsvSchema = {
     schema
@@ -17,6 +18,7 @@ case class DelimitedConfig(
       .withLineSeparator(lineSeparator)
       .withQuoteChar(quoteCharacter)
       .withEscapeChar(escapeChar)
+      .withUseHeader(useHeader)
   }
 }
 

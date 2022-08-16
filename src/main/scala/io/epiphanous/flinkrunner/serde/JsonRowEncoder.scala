@@ -13,11 +13,12 @@ class JsonRowEncoder[E: TypeInformation](
     with JsonCodec {
 
   @transient
-  lazy val mapper: JsonMapper = getMapper(pretty, sortKeys)
-
-  @transient
   val writer: ObjectWriter =
-    mapper.writerFor(implicitly[TypeInformation[E]].getTypeClass)
+    getWriter(
+      pretty,
+      sortKeys,
+      implicitly[TypeInformation[E]].getTypeClass
+    )
 
   override def encode(element: E): Try[String] = {
     Try(
