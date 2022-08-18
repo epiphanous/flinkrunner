@@ -5,6 +5,7 @@ import io.epiphanous.flinkrunner.model.FlinkConnectorName.File
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.serde._
 import org.apache.avro.generic.GenericRecord
+import org.apache.avro.specific.SpecificRecordBase
 import org.apache.flink.api.common.serialization.Encoder
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.connector.file.sink.FileSink
@@ -26,6 +27,7 @@ import org.apache.flink.streaming.api.functions.sink.filesystem.{
 import org.apache.flink.streaming.api.scala.DataStream
 
 import java.nio.charset.StandardCharsets
+import collection.JavaConverters._
 
 case class FileSinkConfig[ADT <: FlinkEvent](
     name: String,
@@ -171,21 +173,35 @@ case class FileSinkConfig[ADT <: FlinkEvent](
 
   def getAvroRowEncoder[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
-      A <: GenericRecord: TypeInformation]: Encoder[E] = format match {
-    case StreamFormatName.Json    =>
-      val pretty: Boolean   =
-        properties.getProperty("json.pretty", "false").toBoolean
-      val sortKeys: Boolean =
-        properties.getProperty("json.sort.keys", "false").toBoolean
-      new EmbeddedAvroJsonFileEncoder[E, A, ADT](pretty, sortKeys)
-    case StreamFormatName.Parquet =>
-      throw new RuntimeException(
-        s"Parquet is a bulk format and invalid for getAvroRowEncoder on sink $name"
-      )
-    case _                        =>
-      new EmbeddedAvroDelimitedFileEncoder[E, A, ADT](
-        DelimitedConfig.get(format, properties)
-      )
+      A <: GenericRecord: TypeInformation]: Encoder[E] = {
+    val avroTypeClass = implicitly[TypeInformation[A]].getTypeClass
+    format match {
+      case StreamFormatName.Json    =>
+        new EmbeddedAvroJsonFileEncoder[E, A, ADT]()
+      case StreamFormatName.Parquet =>
+        throw new RuntimeException(
+          s"Parquet is a bulk format and invalid for getAvroRowEncoder on sink $name"
+        )
+      case _                        =>
+        val columns =
+          if (classOf[SpecificRecordBase].isAssignableFrom(avroTypeClass))
+            avroTypeClass
+              .getConstructor()
+              .newInstance()
+              .getSchema
+              .getFields
+              .asScala
+              .map(_.name())
+              .toList
+          else
+            properties
+              .getProperty("column.names", "")
+              .split("\\s+,\\s+")
+              .toList
+        new EmbeddedAvroDelimitedFileEncoder[E, A, ADT](
+          DelimitedConfig.get(format, properties, columns)
+        )
+    }
   }
 
 }

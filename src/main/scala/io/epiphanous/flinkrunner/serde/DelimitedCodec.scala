@@ -3,9 +3,10 @@ package io.epiphanous.flinkrunner.serde
 import com.fasterxml.jackson.databind.{
   MapperFeature,
   ObjectReader,
-  ObjectWriter
+  ObjectWriter,
+  SerializationFeature
 }
-import com.fasterxml.jackson.dataformat.csv.CsvMapper
+import com.fasterxml.jackson.dataformat.csv.{CsvGenerator, CsvMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 
 trait DelimitedCodec {
@@ -14,6 +15,7 @@ trait DelimitedCodec {
     .builder()
     .addModule(DefaultScalaModule)
     .configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, false)
+    .configure(CsvGenerator.Feature.ALWAYS_QUOTE_STRINGS, false)
     .build()
 
   def getWriter[E](

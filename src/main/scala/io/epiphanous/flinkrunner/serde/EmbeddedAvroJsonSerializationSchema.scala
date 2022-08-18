@@ -3,6 +3,7 @@ package io.epiphanous.flinkrunner.serde
 import io.epiphanous.flinkrunner.model.sink.SinkConfig
 import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, FlinkEvent}
 import org.apache.avro.generic.GenericRecord
+import org.apache.commons.io.output.ByteArrayOutputStream
 import org.apache.flink.api.common.typeinfo.TypeInformation
 
 import java.nio.charset.StandardCharsets
@@ -27,17 +28,11 @@ class EmbeddedAvroJsonSerializationSchema[
     ADT <: FlinkEvent: TypeInformation](sinkConfig: SinkConfig[ADT])
     extends JsonSerializationSchema[E, ADT](sinkConfig) {
 
-  val avroJsonRowEncoder = new JsonRowEncoder[A](pretty, sortKeys)
+  val avroJsonEncoder = new EmbeddedAvroJsonFileEncoder[E, A, ADT]
 
   override def serialize(event: E): Array[Byte] = {
-    avroJsonRowEncoder
-      .encode(event.$record)
-      .fold(
-        error =>
-          throw new RuntimeException(
-            s"failed to serialize event to sink $name ${error.getMessage}\nEVENT:\n${event.$record}\n"
-          ),
-        _.getBytes(StandardCharsets.UTF_8)
-      )
+    val baos = new ByteArrayOutputStream()
+    avroJsonEncoder.encode(event, baos)
+    baos.toByteArray
   }
 }
