@@ -3,8 +3,7 @@ package io.epiphanous.flinkrunner.serde
 import com.fasterxml.jackson.databind.{
   MapperFeature,
   ObjectReader,
-  ObjectWriter,
-  SerializationFeature
+  ObjectWriter
 }
 import com.fasterxml.jackson.dataformat.csv.{CsvGenerator, CsvMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule

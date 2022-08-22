@@ -1,7 +1,6 @@
 package io.epiphanous.flinkrunner.serde
 
 import com.fasterxml.jackson.databind.ObjectWriter
-import com.fasterxml.jackson.databind.json.JsonMapper
 import org.apache.flink.api.common.typeinfo.TypeInformation
 
 import scala.util.Try

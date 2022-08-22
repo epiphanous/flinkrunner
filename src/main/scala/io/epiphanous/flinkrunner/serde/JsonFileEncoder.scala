@@ -1,12 +1,5 @@
 package io.epiphanous.flinkrunner.serde
-import com.fasterxml.jackson.databind.json.JsonMapper
-import com.fasterxml.jackson.databind.{
-  MapperFeature,
-  ObjectMapper,
-  ObjectWriter,
-  SerializationFeature
-}
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import com.fasterxml.jackson.databind.ObjectWriter
 import org.apache.flink.api.common.serialization.Encoder
 import org.apache.flink.api.common.typeinfo.TypeInformation
 

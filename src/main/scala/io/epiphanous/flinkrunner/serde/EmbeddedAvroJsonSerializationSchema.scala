@@ -6,8 +6,6 @@ import org.apache.avro.generic.GenericRecord
 import org.apache.commons.io.output.ByteArrayOutputStream
 import org.apache.flink.api.common.typeinfo.TypeInformation
 
-import java.nio.charset.StandardCharsets
-
 /** A json serialization schema for event types that embed an avro record.
   * The serialized json does not contain the avro and is not formatted as
   * an avro record (meaning, this serialization framework loses the avro

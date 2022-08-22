@@ -5,10 +5,7 @@ import io.epiphanous.flinkrunner.model.FlinkEvent
 import io.epiphanous.flinkrunner.model.sink.JdbcSinkConfig
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.connector.jdbc.internal.executor.JdbcBatchStatementExecutor
-import org.apache.flink.connector.jdbc.internal.{
-  GenericJdbcSinkFunction,
-  JdbcOutputFormat
-}
+import org.apache.flink.connector.jdbc.internal.{GenericJdbcSinkFunction, JdbcOutputFormat}
 
 class CreateTableJdbcSinkFunction[E <: ADT, ADT <: FlinkEvent](
     sinkConfig: JdbcSinkConfig[ADT],
@@ -26,7 +23,7 @@ class CreateTableJdbcSinkFunction[E <: ADT, ADT <: FlinkEvent](
     val rtc = getRuntimeContext
     if (rtc.getIndexOfThisSubtask == 0 && rtc.getAttemptNumber == 1) {
       logger.info(
-        s"${rtc.getTaskNameWithSubtasks} maybe creating requested jdbc sink target table"
+        s"${rtc.getTaskNameWithSubtasks} invoking maybeCreateTable(${sinkConfig.dbType.entryName}/${sinkConfig.table}) for jdbc sink ${sinkConfig.name}"
       )
       sinkConfig.maybeCreateTable()
     }

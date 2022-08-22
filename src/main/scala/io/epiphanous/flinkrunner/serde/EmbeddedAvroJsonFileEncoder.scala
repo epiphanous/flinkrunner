@@ -4,14 +4,8 @@ import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, FlinkEvent}
 import org.apache.avro.generic.{GenericDatumWriter, GenericRecord}
 import org.apache.avro.io.EncoderFactory
-import org.apache.avro.specific.{
-  SpecificDatumWriter,
-  SpecificRecord,
-  SpecificRecordBase
-}
 import org.apache.flink.api.common.serialization.Encoder
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import shapeless.record
 
 import java.io.OutputStream
 import scala.util.Try

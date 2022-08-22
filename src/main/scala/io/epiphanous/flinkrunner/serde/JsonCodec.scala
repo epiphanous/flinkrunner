@@ -1,12 +1,13 @@
 package io.epiphanous.flinkrunner.serde
 
-import com.fasterxml.jackson.databind.{MapperFeature, ObjectReader, ObjectWriter, SerializationFeature}
 import com.fasterxml.jackson.databind.json.JsonMapper
+import com.fasterxml.jackson.databind.{
+  MapperFeature,
+  ObjectReader,
+  ObjectWriter,
+  SerializationFeature
+}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import org.apache.avro.generic.GenericRecord
-import org.apache.avro.io.EncoderFactory
-
-import java.io.ByteArrayOutputStream
 
 trait JsonCodec {
 

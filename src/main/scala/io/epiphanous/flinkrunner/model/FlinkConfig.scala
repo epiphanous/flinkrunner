@@ -1,6 +1,11 @@
 package io.epiphanous.flinkrunner.model
 
-import com.typesafe.config.{Config, ConfigFactory, ConfigObject}
+import com.typesafe.config.{
+  Config,
+  ConfigFactory,
+  ConfigObject,
+  ConfigOriginFactory
+}
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.util.ConfigToProps.RichConfigObject
 import io.epiphanous.flinkrunner.util.FileUtils.getResourceOrFile
@@ -75,15 +80,26 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
 
   def getObject(path: String): ConfigObject = {
     val jpath = _j(path)
-    if (_config.hasPath(jpath)) _config.getObject(jpath)
-    else _config.getObject(path)
+    if (_config.hasPath(jpath))
+      _config
+        .getObject(jpath)
+        .withOrigin(ConfigOriginFactory.newSimple(jpath))
+    else
+      _config
+        .getObject(path)
+        .withOrigin(ConfigOriginFactory.newSimple(path))
   }
 
   def getObjectOption(path: String): Option[ConfigObject] =
     Try(getObject(path)).toOption
 
   def getObjectList(path: String): List[ConfigObject] = _s(path) match {
-    case ("c", p) => _config.getObjectList(p).asScala.toList
+    case ("c", p) =>
+      _config
+        .getObjectList(p)
+        .asScala
+        .toList
+        .map(_.withOrigin(ConfigOriginFactory.newSimple(p)))
     case _        => List.empty[ConfigObject]
   }
 

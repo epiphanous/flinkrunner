@@ -29,23 +29,27 @@ resolvers += "Local Maven Repository" at "file://" + Path.userHome.absolutePath 
 resolvers += "Confluent Repository" at "https://packages.confluent.io/maven/"
 
 val V = new {
-  val flink              = "1.15.1"
-  val logback            = "1.2.11"
-  val scalaLogging       = "3.9.5"
-  val scalaTest          = "3.2.13"
-  val scalaTestPlusCheck = "3.2.13.0"
-  val scalaCheck         = "1.16.0"
-  val jackson            = "2.13.3"
-  val circe              = "0.14.2"
-  val http4s             = "0.23.12"
-  val enumeratum         = "1.7.0"
-  val typesafeConfig     = "1.4.2"
-  val guava              = "31.1-jre"
-  val squants            = "1.8.3"
-  val confluentAvroSerde = "7.1.1"
-  val parquet            = "1.12.3"
-  val awsSdk             = "1.12.272"
-  val calcite            = "1.30.0"
+  val flink               = "1.15.1"
+  val logback             = "1.2.11"
+  val scalaLogging        = "3.9.5"
+  val scalaTest           = "3.2.13"
+  val scalaTestPlus       = "3.2.13.0"
+  val scalaCheck          = "1.16.0"
+  val testContainersScala = "0.40.10"
+  val jackson             = "2.13.3"
+  val circe               = "0.14.2"
+  val http4s              = "0.23.12"
+  val enumeratum          = "1.7.0"
+  val typesafeConfig      = "1.4.2"
+  val guava               = "31.1-jre"
+  val squants             = "1.8.3"
+  val confluentAvroSerde  = "7.1.1"
+  val parquet             = "1.12.3"
+  val awsSdk              = "1.12.272"
+  val calcite             = "1.31.0"
+  val jdbcMysql           = "8.0.30"
+  val jdbcPg              = "42.4.2"
+  val jdbcMssql           = "11.2.0.jre11"
 }
 
 val flinkDeps =
@@ -103,19 +107,26 @@ val circeDeps = Seq(
 ).map(d => "io.circe" %% s"circe-$d" % V.circe)
 
 val otherDeps = Seq(
-  "io.confluent"                     % "kafka-avro-serializer"  % V.confluentAvroSerde % Provided,
-  "com.amazonaws"                    % "aws-java-sdk-core"      % V.awsSdk             % Provided,
-  "org.apache.calcite"               % "calcite-core"           % V.calcite,
-  "com.beachape"                    %% "enumeratum"             % V.enumeratum,
-  "com.typesafe"                     % "config"                 % V.typesafeConfig,
-  "com.google.guava"                 % "guava"                  % V.guava,
-  "org.typelevel"                   %% "squants"                % V.squants,
-  "org.scalactic"                   %% "scalactic"              % V.scalaTest,
-  "org.scalatest"                   %% "scalatest"              % V.scalaTest          % Test,
-  "org.scalatestplus"               %% "scalacheck-1-16"        % V.scalaTestPlusCheck % Test,
-  "org.scalacheck"                  %% "scalacheck"             % V.scalaCheck,
-  "com.fasterxml.jackson.module"    %% "jackson-module-scala"   % V.jackson,
-  "com.fasterxml.jackson.dataformat" % "jackson-dataformat-csv" % V.jackson
+  "io.confluent"                     % "kafka-avro-serializer"            % V.confluentAvroSerde  % Provided,
+  "com.amazonaws"                    % "aws-java-sdk-core"                % V.awsSdk              % Provided,
+  "org.apache.calcite"               % "calcite-core"                     % V.calcite,
+  "com.beachape"                    %% "enumeratum"                       % V.enumeratum,
+  "com.typesafe"                     % "config"                           % V.typesafeConfig,
+  "com.google.guava"                 % "guava"                            % V.guava,
+  "org.typelevel"                   %% "squants"                          % V.squants,
+  "org.scalactic"                   %% "scalactic"                        % V.scalaTest,
+  "org.scalatest"                   %% "scalatest"                        % V.scalaTest           % Test,
+  "org.scalatestplus"               %% "scalacheck-1-16"                  % V.scalaTestPlus       % Test,
+  "org.scalacheck"                  %% "scalacheck"                       % V.scalaCheck,
+  "com.fasterxml.jackson.module"    %% "jackson-module-scala"             % V.jackson,
+  "com.fasterxml.jackson.dataformat" % "jackson-dataformat-csv"           % V.jackson,
+  "com.dimafeng"                    %% "testcontainers-scala-scalatest"   % V.testContainersScala % Test,
+  "com.dimafeng"                    %% "testcontainers-scala-mysql"       % V.testContainersScala % Test,
+  "mysql"                            % "mysql-connector-java"             % V.jdbcMysql           % Provided,
+  "com.dimafeng"                    %% "testcontainers-scala-postgresql"  % V.testContainersScala % Test,
+  "org.postgresql"                   % "postgresql"                       % V.jdbcPg              % Provided,
+  "com.dimafeng"                    %% "testcontainers-scala-mssqlserver" % V.testContainersScala % Test,
+  "com.microsoft.sqlserver"          % "mssql-jdbc"                       % V.jdbcMssql           % Provided
 ) ++
   Seq("org.apache.parquet" % "parquet-avro" % V.parquet % Provided).map(
     m =>
@@ -204,6 +215,7 @@ scalacOptions ++= Seq(
 // stays inside the sbt console when we press "ctrl-c" while a Flink programme executes with "run" or "runMain"
 Compile / run / fork := true
 Global / cancelable  := true
+Test / fork          := true
 
 Compile / run := Defaults
   .runTask(

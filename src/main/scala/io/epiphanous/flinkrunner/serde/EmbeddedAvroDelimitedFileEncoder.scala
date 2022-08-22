@@ -68,5 +68,6 @@ class EmbeddedAvroDelimitedFileEncoder[
         .asJava
 
     sequenceWriter.write(data)
+    () // avoid discarded non-Unit value warning
   }
 }

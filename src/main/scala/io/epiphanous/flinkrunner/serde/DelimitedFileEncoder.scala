@@ -1,12 +1,5 @@
 package io.epiphanous.flinkrunner.serde
-import com.fasterxml.jackson.databind.{
-  MapperFeature,
-  ObjectMapper,
-  ObjectWriter
-}
-import com.fasterxml.jackson.dataformat.csv.{CsvMapper, CsvSchema}
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import org.apache.avro.generic.GenericRecord
+import com.fasterxml.jackson.databind.ObjectWriter
 import org.apache.flink.api.common.serialization.Encoder
 import org.apache.flink.api.common.typeinfo.TypeInformation
 
