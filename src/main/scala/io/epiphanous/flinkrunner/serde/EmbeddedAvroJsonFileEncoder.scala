@@ -39,8 +39,8 @@ class EmbeddedAvroJsonFileEncoder[
     val writer  = new GenericDatumWriter[A](schema)
     Try {
       writer.write(record, encoder)
-      encoder.writeString(System.lineSeparator())
       encoder.flush()
+      stream.write(System.lineSeparator().getBytes())
     }.fold(
       error =>
         logger.error(s"Failed to encode avro record $record", error),
