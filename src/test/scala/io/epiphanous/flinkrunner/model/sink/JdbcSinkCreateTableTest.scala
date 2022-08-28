@@ -1,24 +1,21 @@
 package io.epiphanous.flinkrunner.model.sink
 
-import com.dimafeng.testcontainers.lifecycle.and
-import com.dimafeng.testcontainers.scalatest.TestContainerForAll
 import com.dimafeng.testcontainers.{
   MSSQLServerContainer,
-  MultipleContainers,
   MySQLContainer,
   PostgreSQLContainer
 }
 import io.epiphanous.flinkrunner.UnitSpec
 import io.epiphanous.flinkrunner.model.{FlinkConfig, MyAvroADT}
 
-class JdbcSinkConfigTest extends UnitSpec {
+class JdbcSinkCreateTableTest extends UnitSpec {
 
   val mysqlContainer: MySQLContainer       = MySQLContainer()
   val pgContainer: PostgreSQLContainer     = PostgreSQLContainer()
   val mssqlContainer: MSSQLServerContainer = MSSQLServerContainer()
   mssqlContainer.container.acceptLicense()
 
-  def doTest(
+  def maybeCreateTableTest(
       database: String,
       schema: String,
       jdbcUrl: String,
@@ -57,7 +54,7 @@ class JdbcSinkConfigTest extends UnitSpec {
            |      ]
            |      indexes = [
            |        {
-           |          name = mock-index
+           |          name = mockix2
            |          columns = [mocky,fishy]
            |        }
            |      ]
@@ -72,7 +69,7 @@ class JdbcSinkConfigTest extends UnitSpec {
 
   it should "maybeCreateTable in mysql" in {
     mysqlContainer.start()
-    doTest(
+    maybeCreateTableTest(
       mysqlContainer.databaseName,
       "_default_",
       mysqlContainer.jdbcUrl,
@@ -84,7 +81,7 @@ class JdbcSinkConfigTest extends UnitSpec {
 
   it should "maybeCreateTable in postgres" in {
     pgContainer.start()
-    doTest(
+    maybeCreateTableTest(
       pgContainer.databaseName,
       "public",
       pgContainer.jdbcUrl,
@@ -94,9 +91,23 @@ class JdbcSinkConfigTest extends UnitSpec {
     pgContainer.stop()
   }
 
+  // ignoring this test now since it relies on manually setting up a local postgres container
+  ignore should "maybeCreateTable in postgres local" in {
+    maybeCreateTableTest(
+      "test",
+      "public",
+      "jdbc:postgresql://localhost:5432/test",
+      "test",
+      "test"
+    )
+  }
+
+  /** ignoring this test as the mssqlcontainer won't start for me
+    * -- nextdude 2022/08/22
+    */
   ignore should "maybeCreateTable in sql server" in {
     mssqlContainer.start()
-    doTest(
+    maybeCreateTableTest(
       mssqlContainer.databaseName,
       "dbo",
       mssqlContainer.jdbcUrl,
@@ -105,5 +116,4 @@ class JdbcSinkConfigTest extends UnitSpec {
     )
     mssqlContainer.stop()
   }
-
 }

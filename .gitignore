@@ -5,4 +5,4 @@ project/target
 .bsp
 *.log
 *.log_*
-log.file_IS_UNDEFINED
+log.file_IS_UNDEFINED*

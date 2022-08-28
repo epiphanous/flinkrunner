@@ -2,6 +2,7 @@ package io.epiphanous.flinkrunner.flink
 
 import io.epiphanous.flinkrunner.model.source.SourceConfig
 import io.epiphanous.flinkrunner.model._
+import io.epiphanous.flinkrunner.model.sink.SinkConfig
 import io.epiphanous.flinkrunner.{FlinkRunner, PropSpec}
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.connector.file.src.reader.StreamFormat
@@ -28,12 +29,11 @@ class AvroStreamJobSpec extends PropSpec {
       *   List[IN]
       */
     override def getInputEvents[IN <: MyAvroADT: TypeInformation](
-        sourceConfig: SourceConfig[MyAvroADT]): List[IN] = {
+        sourceConfig: SourceConfig[MyAvroADT]) =
       (sourceConfig.name match {
         case "test-arecord-kafka" => inA
         case "test-brecord-kafka" => inB
       }).asInstanceOf[List[IN]]
-    }
 
     /** Check the results of a mock run of a job.
       *
@@ -43,6 +43,7 @@ class AvroStreamJobSpec extends PropSpec {
       *   the ourput event type
       */
     override def checkOutputEvents[OUT <: MyAvroADT: TypeInformation](
+        sinkConfig: SinkConfig[MyAvroADT],
         out: List[OUT]): Unit = {
       implicitly[TypeInformation[OUT]].getTypeClass.getSimpleName match {
         case "AWrapper" => runTestA(inA, out.asInstanceOf[List[AWrapper]])

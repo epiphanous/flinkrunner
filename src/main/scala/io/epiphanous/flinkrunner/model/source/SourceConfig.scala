@@ -2,13 +2,7 @@ package io.epiphanous.flinkrunner.model.source
 
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.FlinkConnectorName._
-import io.epiphanous.flinkrunner.model.{
-  EmbeddedAvroRecord,
-  EmbeddedAvroRecordInfo,
-  FlinkConfig,
-  FlinkConnectorName,
-  FlinkEvent
-}
+import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.util.BoundedLatenessWatermarkStrategy
 import io.epiphanous.flinkrunner.util.StreamUtils._
 import org.apache.avro.generic.GenericRecord
@@ -151,6 +145,7 @@ object SourceConfig {
       case Kinesis   => KinesisSourceConfig(name, config, Kinesis)
       case RabbitMQ  => RabbitMQSourceConfig(name, config, RabbitMQ)
       case Socket    => SocketSourceConfig(name, config, Socket)
+      case MockSource      => MockSourceConfig(name, config, MockSource)
       case connector =>
         throw new RuntimeException(
           s"Don't know how to configure ${connector.entryName} source connector $name in job ${config.jobName}"

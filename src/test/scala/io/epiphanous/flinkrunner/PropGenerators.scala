@@ -41,4 +41,36 @@ trait PropGenerators extends BasePropGenerators {
     myAvroADTGen
   )
 
+  lazy val simpleAGen: Gen[SimpleA]                = for {
+    id <- idGen()
+    a0 <- nameGen("A")
+    a1 <- Gen.chooseNum(100, 199)
+    ts <- instantGen()
+  } yield SimpleA(id, a0, a1, ts)
+  implicit lazy val simpleAArb: Arbitrary[SimpleA] = Arbitrary(simpleAGen)
+
+  lazy val simpleBGen: Gen[SimpleB]                = for {
+    id <- idGen()
+    b0 <- nameGen("B")
+    b1 <- Gen.chooseNum(200d, 299d)
+    b2 <- Gen.option(Gen.chooseNum(200, 299))
+    ts <- instantGen()
+  } yield SimpleB(id, b0, b1, b2, ts)
+  implicit lazy val simpleBArb: Arbitrary[SimpleB] = Arbitrary(simpleBGen)
+
+  lazy val simpleCGen: Gen[SimpleC]                = for {
+    id <- idGen()
+    c1 <- nameGen("C")
+    c2 <- Gen.chooseNum(300d, 399d)
+    c3 <- Gen.chooseNum(300, 399)
+    ts <- instantGen()
+  } yield SimpleC(id, c1, c2, c3, ts)
+  implicit lazy val simpleCArb: Arbitrary[SimpleC] = Arbitrary(simpleCGen)
+
+  lazy val mySimpleADTGen: Gen[MySimpleADT]                =
+    Gen.oneOf(simpleAGen, simpleBGen, simpleCGen)
+  implicit lazy val mySimpleADTArb: Arbitrary[MySimpleADT] = Arbitrary(
+    mySimpleADTGen
+  )
+
 }

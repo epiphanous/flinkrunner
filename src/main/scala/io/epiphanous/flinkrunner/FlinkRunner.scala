@@ -122,7 +122,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     throw new RuntimeException("no sources are configured")
   )
 
-  def getDefaultSinkname: String = getSinkNames.headOption.getOrElse(
+  def getDefaultSinkName: String = getSinkNames.headOption.getOrElse(
     throw new RuntimeException("no sinks are configured")
   )
 
@@ -158,6 +158,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
         env.fromCollection(mockEvents).name(lbl).uid(lbl)
       case _                                 =>
         sourceConfig match {
+          case s: MockSourceConfig[ADT]     => s.getSourceStream[E](env)
           case s: FileSourceConfig[ADT]     => s.getSourceStream[E](env)
           case s: KafkaSourceConfig[ADT]    => s.getSourceStream[E](env)
           case s: KinesisSourceConfig[ADT]  => s.getSourceStream[E](env)
@@ -254,8 +255,15 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     configToAvroSink[E, A](stream, getSinkConfig(sinkName))
 
   def getSinkConfig(
-      sinkName: String = getDefaultSinkname): SinkConfig[ADT] =
+      sinkName: String = getDefaultSinkName): SinkConfig[ADT] =
     SinkConfig[ADT](sinkName, config)
+
+  /** Usually, we should write to the sink, unless we have a non-empty
+    * CheckResults configuration that determines otherwise.
+    * @return
+    *   true to write to the sink, false otherwise
+    */
+  def writeToSink: Boolean = checkResultsOpt.forall(_.writeToSink)
 
   def configToSink[E <: ADT: TypeInformation](
       stream: DataStream[E],

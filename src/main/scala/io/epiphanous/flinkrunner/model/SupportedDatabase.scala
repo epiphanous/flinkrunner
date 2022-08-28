@@ -1,14 +1,6 @@
 package io.epiphanous.flinkrunner.model
 import enumeratum.EnumEntry.{Hyphencase, Lowercase, Snakecase, Uppercase}
 import enumeratum._
-import org.apache.calcite.sql.SqlDialect
-import org.apache.calcite.sql.dialect.{
-  MssqlSqlDialect,
-  MysqlSqlDialect,
-  PostgresqlSqlDialect,
-  SnowflakeSqlDialect
-}
-import org.apache.calcite.sql.util.SqlBuilder
 
 import scala.collection.immutable
 
@@ -43,7 +35,7 @@ object SupportedDatabase extends Enum[SupportedDatabase] {
         throw new RuntimeException(s"Unsupported JDBC driver $driverName")
     }
 
-  def driverFor(db: SupportedDatabase) = {
+  def driverFor(db: SupportedDatabase): String = {
     db match {
       case Mysql      => MYSQL_DRIVER
       case Postgresql => POSTGRESQL_DRIVER
@@ -63,28 +55,5 @@ object SupportedDatabase extends Enum[SupportedDatabase] {
           s"invalid jdbc url or unsupported database: $url"
         )
     }
-  }
-
-  def dialect(db: SupportedDatabase): SqlDialect = db match {
-    case Postgresql => PostgresqlSqlDialect.DEFAULT
-    case Mysql      => MysqlSqlDialect.DEFAULT
-    case Snowflake  => SnowflakeSqlDialect.DEFAULT
-    case SqlServer  => MssqlSqlDialect.DEFAULT
-  }
-
-  def qualifiedName(
-      db: SupportedDatabase,
-      database: String,
-      schema: String,
-      name: String): String = {
-    val sqlBuilder = new SqlBuilder(dialect(db))
-    (db match {
-      case Postgresql =>
-        if (schema.equalsIgnoreCase("public")) sqlBuilder.identifier(name)
-        else sqlBuilder.identifier(schema, name)
-      case Mysql      => sqlBuilder.identifier(database, name)
-      case Snowflake  => sqlBuilder.identifier(database, schema, name)
-      case SqlServer  => sqlBuilder.identifier(database, schema, name)
-    }).getSqlAndClear
   }
 }

@@ -2,12 +2,7 @@ package io.epiphanous.flinkrunner.model.sink
 
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.FlinkConnectorName.Socket
-import io.epiphanous.flinkrunner.model.{
-  FlinkConfig,
-  FlinkConnectorName,
-  FlinkEvent,
-  StreamFormatName
-}
+import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkConnectorName, FlinkEvent, StreamFormatName}
 import io.epiphanous.flinkrunner.serde.RowEncoder
 import org.apache.flink.api.common.serialization.SerializationSchema
 import org.apache.flink.api.common.typeinfo.TypeInformation

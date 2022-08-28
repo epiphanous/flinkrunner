@@ -1,10 +1,6 @@
 package io.epiphanous.flinkrunner.model.source
 
-import io.epiphanous.flinkrunner.model.{
-  FlinkConfig,
-  FlinkConnectorName,
-  FlinkEvent
-}
+import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkConnectorName, FlinkEvent}
 import io.epiphanous.flinkrunner.serde.JsonKinesisDeserializationSchema
 import io.epiphanous.flinkrunner.util.ConfigToProps
 import org.apache.flink.api.common.typeinfo.TypeInformation

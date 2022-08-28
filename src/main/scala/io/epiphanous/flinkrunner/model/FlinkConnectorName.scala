@@ -28,10 +28,14 @@ object FlinkConnectorName extends Enum[FlinkConnectorName] {
 
   case object RabbitMQ extends FlinkConnectorName
 
+  case object MockSource extends FlinkConnectorName
+
+  case object MockSink extends FlinkConnectorName
+
   val sources: immutable.Seq[FlinkConnectorName] =
-    values diff IndexedSeq(CassandraSink, ElasticsearchSink)
+    values diff IndexedSeq(CassandraSink, ElasticsearchSink, MockSink)
   val sinks: immutable.Seq[FlinkConnectorName]   =
-    values diff IndexedSeq(Hybrid)
+    values diff IndexedSeq(Hybrid, MockSource)
 
   def fromSourceName(
       sourceName: String,
@@ -58,9 +62,13 @@ object FlinkConnectorName extends Enum[FlinkConnectorName] {
     val connector      = (connectorNameOpt match {
       case Some(connectorName) => withNameInsensitiveOption(connectorName)
       case None                =>
-        values.find(c =>
-          sourceOrSinkName.toLowerCase.contains(c.entryName.toLowerCase)
-        )
+        val lcName         = sourceOrSinkName.toLowerCase
+        val lcNameSuffixed = s"${lcName}_$sourceOrSink"
+        values.find { c =>
+          Seq(lcName, lcNameSuffixed).exists(
+            _.contains(c.entryName.toLowerCase)
+          )
+        }
     }) match {
       case Some(c) => c
       case None    =>

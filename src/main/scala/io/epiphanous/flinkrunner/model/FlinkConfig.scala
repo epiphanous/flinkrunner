@@ -196,6 +196,10 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
       else
         StreamExecutionEnvironment.getExecutionEnvironment
 
+    // maybe disable generic types (prevents kyro serialization fallback)
+    if (disableGenericTypes)
+      env.getConfig.disableGenericTypes()
+
     // set parallelism
     env.setParallelism(globalParallelism)
 
@@ -245,6 +249,8 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
     )
   )
 
+  lazy val disableGenericTypes: Boolean               =
+    getBooleanOpt("disable.generic.types").getOrElse(true)
   lazy val systemHelp: String                         = _config.getString("system.help")
   lazy val jobHelp: String                            = getString("help")
   lazy val jobDescription: String                     = getString("description")

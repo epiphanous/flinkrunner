@@ -15,7 +15,8 @@ import java.util.Properties
   * @param escapeChar
   *   the escape character (defaults to '\')
   * @param useHeader
-  *   true to emit a header line with column names (defaults to true)
+  *   true to emit a header line with column names (defaults to false);
+  *   this will always be set to false for reading delimited files
   * @param columns
   *   a list of string names for the columns
   */
@@ -24,7 +25,7 @@ case class DelimitedConfig(
     lineSeparator: String = "\n",
     quoteCharacter: Char = '"',
     escapeChar: Char = '\\',
-    useHeader: Boolean = true,
+    useHeader: Boolean = false,
     useQuotes: Boolean = false,
     columns: List[String] = List.empty
 ) {

@@ -6,8 +6,8 @@ import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.serialization.Encoder
 import org.apache.flink.api.common.typeinfo.TypeInformation
 
-import scala.collection.JavaConverters._
 import java.io.OutputStream
+import scala.collection.JavaConverters._
 
 /** A thin wrapper to emit an embedded avro record from events into an
   * output stream in a delimited format.

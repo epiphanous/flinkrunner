@@ -6,8 +6,7 @@ import io.epiphanous.flinkrunner.model.SupportedDatabase.Snowflake
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.model.sink.JdbcSinkConfig.DEFAULT_CONNECTION_TIMEOUT
 import io.epiphanous.flinkrunner.operator.CreateTableJdbcSinkFunction
-import org.apache.calcite.sql.SqlDialect
-import org.apache.calcite.sql.util.SqlBuilder
+import io.epiphanous.flinkrunner.util.SqlBuilder
 import org.apache.flink.api.common.functions.RuntimeContext
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat
@@ -22,7 +21,8 @@ import org.apache.flink.connector.jdbc.{
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
 
-import java.sql.{Connection, DriverManager}
+import java.sql.{Connection, DriverManager, Timestamp}
+import java.time.Instant
 import java.util.function.{Function => JavaFunction}
 import scala.collection.JavaConverters._
 import scala.collection.mutable
@@ -65,11 +65,9 @@ import scala.util.{Failure, Success, Try}
   *     - `columns`: required array defining the columns in the table, with
   *       properties:
   *       - `name`: name of the column (required)
-  *       - `type`: calcite standard data type of the column (required, and
-  *         must be in the enum @see
-  *         [[org.apache.calcite.sql.type.SqlTypeName]]). Note you may not
-  *         be able to use the database specific type name here (unless it
-  *         happens to overlap with the calcite name).
+  *       - `type`: jdbc standard data type of the column (required). Note
+  *         you may not be able to use the database specific type name here
+  *         (unless it happens to overlap with the jdbc name).
   *       - `precision`: total width of the column (optional, but probably
   *         required for character types at least)
   *       - `scale`: fractional digits of numeric columns (optional, mainly
@@ -100,11 +98,12 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
     extends SinkConfig[ADT]
     with LazyLogging {
 
-  val database: String          = config.getString(pfx("connection.database"))
-  val schema: String            = config.getString(pfx("connection.schema"))
-  val url: String               = config.getString(pfx("connection.url"))
-  val dbType: SupportedDatabase = SupportedDatabase.fromUrl(url)
-  val driverName: String        = SupportedDatabase.driverFor(dbType)
+  val database: String           = config.getString(pfx("connection.database"))
+  val schema: String             =
+    config.getStringOpt(pfx("connection.schema")).getOrElse("default")
+  val url: String                = config.getString(pfx("connection.url"))
+  val product: SupportedDatabase = SupportedDatabase.fromUrl(url)
+  val driverName: String         = SupportedDatabase.driverFor(product)
 
   val username: Option[String] =
     config.getStringOpt(pfx("connection.username"))
@@ -135,7 +134,9 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
       .getBooleanOpt(pfx("table.recreate.objects.if.same"))
       .getOrElse(false)
 
-  val table: String                = config.getString(pfx("table.name"))
+  val table: String   = config.getString(pfx("table.name"))
+  val pkIndex: String = s"pk_$table"
+
   val columns: Seq[JdbcSinkColumn] = config
     .getObjectList(pfx("table.columns"))
     .map(_.toConfig)
@@ -176,43 +177,46 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
     case _             => Seq.empty
   }
 
-  val sqlDialect: SqlDialect     = SupportedDatabase.dialect(dbType)
-  val sqlBuilder                 = new SqlBuilder(sqlDialect)
-  val qualifiedTableName: String = SupportedDatabase
-    .qualifiedName(dbType, database, schema, table)
+  val sqlBuilder: SqlBuilder = SqlBuilder(product)
 
   val dropTableSql: String = sqlBuilder
     .append("DROP TABLE ")
-    .append(qualifiedTableName)
+    .identifier(database, schema, table)
     .getSqlAndClear
+
+  val pkCols: Seq[JdbcSinkColumn] = columns
+    .filter(_.primaryKey.nonEmpty)
+    .sortBy(_.primaryKey.get)
+
+  val pkColsList: String = {
+    pkCols.zipWithIndex.foreach { case (col, i) =>
+      sqlBuilder.identifier(col.name)
+      if (i < pkCols.length - 1) sqlBuilder.append(", ")
+    }
+    sqlBuilder.getSqlAndClear
+  }
+
+  val nonPkCols: Seq[JdbcSinkColumn] =
+    columns.filterNot(c => pkCols.contains(c))
 
   val createTableSql: String = {
     sqlBuilder
       .append("CREATE TABLE ")
-      .append(qualifiedTableName)
+      .identifier(database, schema, table)
       .append(" (\n")
     columns.zipWithIndex.foreach { case (column, i) =>
       sqlBuilder
         .append("  ")
         .identifier(column.name)
         .append(" ")
-        .append(column.fullTypeString(sqlDialect))
+        .append(column.fullTypeString(product))
       if (i < columns.length - 1) sqlBuilder.append(",\n")
     }
-    val pkCols = columns
-      .filter(_.primaryKey.nonEmpty)
-      .sortBy(_.primaryKey.get)
-      .map(_.name)
     if (pkCols.nonEmpty) {
       sqlBuilder
         .append(",\n  CONSTRAINT ")
         .identifier(s"pk_$table")
-        .append(" PRIMARY KEY (")
-      pkCols.zipWithIndex.foreach { case (col, i) =>
-        sqlBuilder.identifier(col)
-        if (i < pkCols.length - 1) sqlBuilder.append(", ")
-      }
-      sqlBuilder.append(")")
+        .append(s" PRIMARY KEY ($pkColsList)")
     }
     sqlBuilder.append("\n)")
     sqlBuilder.getSqlAndClear
@@ -221,29 +225,67 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
   val createIndexesSql: Map[String, String] =
     indexes
       .map(index =>
-        index.name -> index.definition(qualifiedTableName, sqlDialect)
+        index.name -> index.definition(database, schema, table, product)
       )
       .toMap
 
+  def buildColumnList(
+      cols: Seq[JdbcSinkColumn] = columns,
+      assign: Option[String] = None): Unit = {
+    val n = cols.length - 1
+    cols.zipWithIndex.foreach { case (col, i) =>
+      sqlBuilder.identifier(col.name)
+      assign.foreach { eq =>
+        sqlBuilder.append(eq).identifier(col.name)
+        if (eq.endsWith("(")) sqlBuilder.append(")")
+      }
+      if (i < n) sqlBuilder.append(", ")
+    }
+  }
+
   val queryDml: String = {
     sqlBuilder
-      .append(s"INSERT INTO $qualifiedTableName (\n")
-    columns.zipWithIndex.foreach { case (col, i) =>
-      sqlBuilder.append("  ").identifier(col.name)
-      if (i < columns.length - 1) sqlBuilder.append(",\n")
-      else sqlBuilder.append("\n")
-    }
-    sqlBuilder.append(") VALUES (")
+      .append("INSERT INTO ")
+      .identifier(database, schema, table)
+      .append(" (")
+    buildColumnList()
+    sqlBuilder.append(")\nVALUES (")
     Range(0, columns.length).foreach { i =>
       sqlBuilder.append("?")
       if (i < columns.length - 1) sqlBuilder.append(", ")
     }
     sqlBuilder.append(")")
+    product match {
+      case SupportedDatabase.Postgresql =>
+        sqlBuilder
+          .append("\nON CONFLICT ON CONSTRAINT ")
+          .identifier(pkIndex)
+          .append(" DO UPDATE SET\n")
+        buildColumnList(nonPkCols, Some("=EXCLUDED."))
+
+      case SupportedDatabase.Mysql =>
+        sqlBuilder.append("\nON DUPLICATE KEY UPDATE\n")
+        buildColumnList(nonPkCols, Some("=VALUES("))
+
+      case SupportedDatabase.Snowflake =>
+      // do nothing: upsert not supported in a single prepared statement (use merge in stored proc?)
+
+      case SupportedDatabase.SqlServer =>
+      // do nothing: upsert not supported in a single prepared statement (use merge in stored proc?)
+    }
     sqlBuilder.getSqlAndClear
   }
   logger.debug(
-    s"$dbType generated insert statement for sink $name:\n====\n$queryDml\n====\n"
+    s"$product generated insert statement for sink $name:\n====\n$queryDml\n====\n"
   )
+
+  def getConnection: Try[Connection] = Try {
+    Class.forName(SupportedDatabase.driverFor(product))
+    (username, password) match {
+      case (Some(u), Some(p)) => DriverManager.getConnection(url, u, p)
+      case _                  => DriverManager.getConnection(url)
+    }
+  }
 
   /** Synchronizes the sink's table configuration with the database. Note
     * this happens in the first attempt of the first sink task. All DDL
@@ -256,38 +298,32 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
         s" and its index${if (indexes.size > 1) "es" else ""}"
       else ""
     val logMessage   =
-      s"synchronize $dbType $table$indexMessage for jdbc sink $name"
+      s"synchronize $product $table$indexMessage for jdbc sink $name"
 
     logger.info(s"attempting to $logMessage")
     val sep = "\n====\n"
     logger.debug(
-      s"$dbType generated table/index DML statements:${(Seq(dropTableSql, createTableSql) ++ createIndexesSql)
+      s"$product generated table/index DML statements:${(Seq(dropTableSql, createTableSql) ++ createIndexesSql)
           .mkString(sep, sep, sep)}"
     )
-    Try {
-      Class.forName(SupportedDatabase.driverFor(dbType))
-      (username, password) match {
-        case (Some(u), Some(p)) => DriverManager.getConnection(url, u, p)
-        case _                  => DriverManager.getConnection(url)
-      }
-    }.fold(
-      error =>
+    getConnection match {
+      case Failure(error) =>
         throw new RuntimeException(
-          s"failed to connect to $dbType database for jdbc sink $name",
+          s"failed to connect to $product database for jdbc sink $name",
           error
-        ),
-      conn =>
+        )
+      case Success(conn)  =>
         handleTableObjects(conn) match {
           case Success(_)     =>
             logger.info(s"[completed] $logMessage")
           case Failure(error) =>
             conn.close()
             throw new RuntimeException(
-              s"failed to $logMessage",
+              s"failed to $logMessage: ${error.getMessage}",
               error
             )
         }
-    )
+    }
   }
 
   /** This method tries to be smart about (re-)creating this sink's
@@ -348,19 +384,26 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
 
     val existingIndexesInfo = mutable.Map.empty[String, IndexInfo]
     while (existingIndexes.next()) {
-      val indexName       = existingIndexes.getString("INDEX_NAME")
-      val columnName      = existingIndexes.getString("COLUMN_NAME")
-      val ordinalPosition = existingIndexes.getInt("ORDINAL_POSITION")
-      val ascOrDesc       = Option(existingIndexes.getString("ASC_OR_DESC"))
-      val unique          = !existingIndexes.getBoolean("NON_UNIQUE")
-      val indexColumn     = IndexColumn(columnName, ordinalPosition, ascOrDesc)
-      existingIndexesInfo.update(
-        indexName.toLowerCase,
-        existingIndexesInfo
-          .get(indexName.toLowerCase)
-          .map(info => info.copy(columns = indexColumn :: info.columns))
-          .getOrElse(IndexInfo(indexName, unique, List(indexColumn)))
-      )
+      val indexName = existingIndexes.getString("INDEX_NAME")
+      if (!indexName.equalsIgnoreCase(pkIndex)) {
+        val columnName                          = existingIndexes.getString("COLUMN_NAME")
+        val ordinalPosition                     = existingIndexes.getInt("ORDINAL_POSITION")
+        val ascOrDesc: Option[IndexColumnOrder] =
+          Option(existingIndexes.getString("ASC_OR_DESC")).map {
+            case "D" => DESC
+            case _   => ASC
+          }
+        val unique                              = !existingIndexes.getBoolean("NON_UNIQUE")
+        val indexColumn                         =
+          IndexColumn(columnName, ordinalPosition, ascOrDesc)
+        existingIndexesInfo.update(
+          indexName.toLowerCase,
+          existingIndexesInfo
+            .get(indexName.toLowerCase)
+            .map(info => info.copy(columns = indexColumn :: info.columns))
+            .getOrElse(IndexInfo(indexName, unique, List(indexColumn)))
+        )
+      }
     }
 
     val existingIndexesToDrop =
@@ -387,10 +430,7 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
           stmt.execute(
             sqlBuilder
               .append("DROP INDEX ")
-              .append(
-                SupportedDatabase
-                  .qualifiedName(dbType, database, schema, info.name)
-              )
+              .identifier(database, schema, info.name)
               .getSqlAndClear
           )
         }
@@ -407,11 +447,17 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
       stmt.execute(createTableSql)
     }
 
-    if (dbType != Snowflake)
+    if (!dropTable && !createTable) {
+      logger.info(
+        s"leaving existing table [$table] definition in place for sink $name"
+      )
+    }
+
+    if (product != Snowflake)
       createIndexesSql.foreach { case (indexName, createIndexSql) =>
         if (existingIndexesToDrop.getOrElse(indexName.toLowerCase, true)) {
           logger.info(
-            s"creating index $indexName of table $table for sink $name"
+            s"creating index [$indexName] of table [$table] for sink $name"
           )
           stmt.execute(createIndexSql)
         }
@@ -459,7 +505,12 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
       columns.zipWithIndex.map(x => (x._1, x._2 + 1)).foreach {
         case (column, i) =>
           data.get(column.name) match {
-            case Some(v) => statement.setObject(i, v, column.jdbcType)
+            case Some(v) =>
+              val value = v match {
+                case ts: Instant => Timestamp.from(ts)
+                case _           => v
+              }
+              statement.setObject(i, value, column.dataType.jdbcType)
             case None    =>
               throw new RuntimeException(
                 s"value for field ${column.name} is not in $element"

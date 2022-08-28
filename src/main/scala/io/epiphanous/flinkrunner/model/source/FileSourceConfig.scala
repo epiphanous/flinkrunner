@@ -1,36 +1,23 @@
 package io.epiphanous.flinkrunner.model.source
 
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.serde.{
-  DelimitedConfig,
-  DelimitedRowDecoder,
-  JsonRowDecoder,
-  RowDecoder
-}
+import io.epiphanous.flinkrunner.serde.{DelimitedConfig, DelimitedRowDecoder, JsonRowDecoder, RowDecoder}
 import io.epiphanous.flinkrunner.util.FileUtils.getResourceOrFile
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.eventtime.WatermarkStrategy
+import org.apache.flink.api.common.functions.FlatMapFunction
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.connector.source.{Source, SourceSplit}
 import org.apache.flink.api.scala.createTypeInformation
 import org.apache.flink.connector.file.src.FileSource
-import org.apache.flink.connector.file.src.reader.{
-  StreamFormat,
-  TextLineInputFormat
-}
+import org.apache.flink.connector.file.src.reader.{StreamFormat, TextLineInputFormat}
 import org.apache.flink.core.fs.Path
-import org.apache.flink.formats.csv.CsvReaderFormat
-import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.dataformat.csv.{
-  CsvMapper,
-  CsvSchema
-}
 import org.apache.flink.streaming.api.functions.source.SourceFunction
-import org.apache.flink.streaming.api.scala.{
-  DataStream,
-  StreamExecutionEnvironment
-}
+import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
+import org.apache.flink.util.Collector
 
 import java.time.Duration
+import scala.util.{Failure, Success}
 
 case class FileSourceConfig[ADT <: FlinkEvent](
     name: String,
@@ -47,38 +34,41 @@ case class FileSourceConfig[ADT <: FlinkEvent](
     .getProperty("monitor.continuously", "0")
     .toLong
 
-  def getStreamFormat[E <: ADT: TypeInformation]: StreamFormat[E] =
-    format match {
-      case StreamFormatName.Csv       => getCsvStreamFormat
-      case StreamFormatName.Tsv       => getTsvStreamFormat
-      case StreamFormatName.Psv       => getPsvStreamFormat
-      case StreamFormatName.Delimited =>
-        getDelimitedStreamFormat(DelimitedConfig.get(format, properties))
-      case _                          =>
-        throw new RuntimeException(
-          s"oops, ${format.entryName} files not handled by getStreamFormat for FileSource"
-        )
-    }
+//  def getStreamFormat[E <: ADT: TypeInformation]: StreamFormat[E] =
+//    format match {
+//      case StreamFormatName.Csv       => getCsvStreamFormat
+//      case StreamFormatName.Tsv       => getTsvStreamFormat
+//      case StreamFormatName.Psv       => getPsvStreamFormat
+//      case StreamFormatName.Delimited =>
+//        getDelimitedStreamFormat(DelimitedConfig.get(format, properties))
+//      case _                          =>
+//        throw new RuntimeException(
+//          s"oops, ${format.entryName} files not handled by getStreamFormat for FileSource"
+//        )
+//    }
 
-  def getCsvStreamFormat[E <: ADT: TypeInformation]: StreamFormat[E] =
-    getDelimitedStreamFormat(DelimitedConfig.CSV)
-  def getTsvStreamFormat[E <: ADT: TypeInformation]: StreamFormat[E] =
-    getDelimitedStreamFormat(DelimitedConfig.TSV)
-  def getPsvStreamFormat[E <: ADT: TypeInformation]: StreamFormat[E] =
-    getDelimitedStreamFormat(DelimitedConfig.PSV)
-  def getDelimitedStreamFormat[E <: ADT: TypeInformation](
-      c: DelimitedConfig): StreamFormat[E] = {
-    val ti                = implicitly[TypeInformation[E]]
-    val mapper            = new CsvMapper()
-    val schema: CsvSchema = mapper
-      .schemaFor(ti.getTypeClass)
-      .withColumnSeparator(c.columnSeparator)
-      .withQuoteChar(c.quoteCharacter)
-      .withEscapeChar(c.escapeChar)
-      .withLineSeparator(c.lineSeparator)
-    CsvReaderFormat
-      .forSchema[E](mapper, schema, ti)
-  }
+//  def getCsvStreamFormat[E <: ADT: TypeInformation]: StreamFormat[E] =
+//    getDelimitedStreamFormat(DelimitedConfig.CSV)
+//  def getTsvStreamFormat[E <: ADT: TypeInformation]: StreamFormat[E] =
+//    getDelimitedStreamFormat(DelimitedConfig.TSV)
+//  def getPsvStreamFormat[E <: ADT: TypeInformation]: StreamFormat[E] =
+//    getDelimitedStreamFormat(DelimitedConfig.PSV)
+//  def getDelimitedStreamFormat[E <: ADT: TypeInformation](
+//      c: DelimitedConfig): StreamFormat[E] = {
+//    val ti     = implicitly[TypeInformation[E]]
+//    val mapper = new CsvMapper()
+//
+//    mapper.registerModule(DefaultScalaModule)
+//    val schema: CsvSchema = mapper
+//      .schemaFor(ti.getTypeClass)
+//      .withColumnSeparator(c.columnSeparator)
+//      .withQuoteChar(c.quoteCharacter)
+//      .withEscapeChar(c.escapeChar)
+//      .withLineSeparator(c.lineSeparator)
+//
+//    CsvReaderFormat
+//      .forSchema[E](mapper, schema, ti)
+//  }
 
   def getRowDecoder[E <: ADT: TypeInformation]: RowDecoder[E] =
     format match {
@@ -87,52 +77,60 @@ case class FileSourceConfig[ADT <: FlinkEvent](
         new DelimitedRowDecoder[E](DelimitedConfig.get(format, properties))
     }
 
-  override def getSource[E <: ADT: TypeInformation]
-      : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] = {
-    val fsb =
-      FileSource.forRecordStreamFormat(getStreamFormat, origin)
-    Right(
-      (if (monitorDuration > 0)
-         fsb.monitorContinuously(Duration.ofSeconds(monitorDuration))
-       else fsb).build()
-    )
-  }
+//  override def getSource[E <: ADT: TypeInformation]
+//      : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] = {
+//    val fsb =
+//      FileSource.forRecordStreamFormat(getStreamFormat, origin)
+//    Right(
+//      (if (monitorDuration > 0)
+//         fsb.monitorContinuously(Duration.ofSeconds(monitorDuration))
+//       else fsb).build()
+//    )
+//  }
 
   override def getSourceStream[E <: ADT: TypeInformation](
       env: StreamExecutionEnvironment): DataStream[E] = {
-    // all this grossness, because flink hasn't built a JsonStreamFormat?
-    if (format == StreamFormatName.Json) {
-      val rawName = s"raw:$label"
-      val decoder = getRowDecoder
-      val fsb     =
-        FileSource
-          .forRecordStreamFormat[String](
-            new TextLineInputFormat(),
-            origin
-          )
-      if (monitorDuration > 0) {
-        fsb.monitorContinuously(
-          Duration.ofSeconds(monitorDuration)
+    val rawName = s"raw:$label"
+    val decoder = getRowDecoder[E]
+    val fsb     =
+      FileSource
+        .forRecordStreamFormat[String](
+          new TextLineInputFormat(),
+          origin
         )
-      }
-      env
-        .fromSource(
-          fsb.build(),
-          WatermarkStrategy.noWatermarks(),
-          rawName
-        )
-        .uid(rawName)
-        .flatMap(line => decoder.decode(line).toOption)
-        .name(label)
-        .uid(label)
-        .assignTimestampsAndWatermarks(
-          getWatermarkStrategy[E]
-        )
-        .name(s"wm:$label")
-        .uid(s"wm:$label")
-    } else
-      super.getSourceStream(env)
-
+    if (monitorDuration > 0) {
+      fsb.monitorContinuously(
+        Duration.ofSeconds(monitorDuration)
+      )
+    }
+    env
+      .fromSource(
+        fsb.build(),
+        WatermarkStrategy.noWatermarks(),
+        rawName
+      )
+      .uid(rawName)
+      .flatMap[E](new FlatMapFunction[String, E] {
+        override def flatMap(line: String, out: Collector[E]): Unit = {
+          decoder.decode(line) match {
+            case Failure(error) =>
+              logger.warn(
+                s"failed to decode $line: ${error.getClass.getName}: ${error.getMessage}",
+                error
+              )
+            case Success(event) =>
+              logger.debug(s"decoded [$line] to [$event] successfully")
+              out.collect(event)
+          }
+        }
+      })
+      .name(label)
+      .uid(label)
+      .assignTimestampsAndWatermarks(
+        getWatermarkStrategy[E]
+      )
+      .name(s"wm:$label")
+      .uid(s"wm:$label")
   }
 
   /** Create a FileSource for avro parquet files.

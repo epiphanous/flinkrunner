@@ -21,9 +21,12 @@ class CreateTableJdbcSinkFunction[E <: ADT, ADT <: FlinkEvent](
     super.open(parameters)
     // only execute the create statement in one of our parallel tasks
     val rtc = getRuntimeContext
-    if (rtc.getIndexOfThisSubtask == 0 && rtc.getAttemptNumber == 1) {
+    logger.info(
+      s"jdbc sink opening: ${rtc.getTaskNameWithSubtasks} (subtask=${rtc.getIndexOfThisSubtask} attempt=${rtc.getAttemptNumber})"
+    )
+    if (rtc.getIndexOfThisSubtask == 0 && rtc.getAttemptNumber == 0) {
       logger.info(
-        s"${rtc.getTaskNameWithSubtasks} invoking maybeCreateTable(${sinkConfig.dbType.entryName}/${sinkConfig.table}) for jdbc sink ${sinkConfig.name}"
+        s"${rtc.getTaskNameWithSubtasks} invoking maybeCreateTable(${sinkConfig.product.entryName}/${sinkConfig.table}) for jdbc sink ${sinkConfig.name}"
       )
       sinkConfig.maybeCreateTable()
     }

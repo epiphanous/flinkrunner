@@ -1,10 +1,7 @@
 package io.epiphanous.flinkrunner.model.source
 
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.serde.{
-  ConfluentAvroRegistryKafkaRecordDeserializationSchema,
-  JsonKafkaRecordDeserializationSchema
-}
+import io.epiphanous.flinkrunner.serde.{ConfluentAvroRegistryKafkaRecordDeserializationSchema, JsonKafkaRecordDeserializationSchema}
 import io.epiphanous.flinkrunner.util.ConfigToProps
 import io.epiphanous.flinkrunner.util.ConfigToProps._
 import io.epiphanous.flinkrunner.util.StreamUtils.RichProps
@@ -13,10 +10,7 @@ import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.connector.source.{Source, SourceSplit}
 import org.apache.flink.connector.file.src.reader.StreamFormat
 import org.apache.flink.connector.kafka.source.KafkaSource
-import org.apache.flink.connector.kafka.source.enumerator.initializer.{
-  NoStoppingOffsetsInitializer,
-  OffsetsInitializer
-}
+import org.apache.flink.connector.kafka.source.enumerator.initializer.{NoStoppingOffsetsInitializer, OffsetsInitializer}
 import org.apache.flink.connector.kafka.source.reader.deserializer.KafkaRecordDeserializationSchema
 import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.kafka.clients.consumer.OffsetResetStrategy

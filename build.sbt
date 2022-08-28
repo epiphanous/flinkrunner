@@ -45,8 +45,7 @@ val V = new {
   val squants             = "1.8.3"
   val confluentAvroSerde  = "7.1.1"
   val parquet             = "1.12.3"
-  val awsSdk              = "1.12.272"
-  val calcite             = "1.31.0"
+  val awsSdk              = "1.12.286"
   val jdbcMysql           = "8.0.30"
   val jdbcPg              = "42.4.2"
   val jdbcMssql           = "11.2.0.jre11"
@@ -109,7 +108,6 @@ val circeDeps = Seq(
 val otherDeps = Seq(
   "io.confluent"                     % "kafka-avro-serializer"            % V.confluentAvroSerde  % Provided,
   "com.amazonaws"                    % "aws-java-sdk-core"                % V.awsSdk              % Provided,
-  "org.apache.calcite"               % "calcite-core"                     % V.calcite,
   "com.beachape"                    %% "enumeratum"                       % V.enumeratum,
   "com.typesafe"                     % "config"                           % V.typesafeConfig,
   "com.google.guava"                 % "guava"                            % V.guava,
@@ -120,6 +118,7 @@ val otherDeps = Seq(
   "org.scalacheck"                  %% "scalacheck"                       % V.scalaCheck,
   "com.fasterxml.jackson.module"    %% "jackson-module-scala"             % V.jackson,
   "com.fasterxml.jackson.dataformat" % "jackson-dataformat-csv"           % V.jackson,
+  "com.fasterxml.jackson.datatype"   % "jackson-datatype-jsr310"          % V.jackson,
   "com.dimafeng"                    %% "testcontainers-scala-scalatest"   % V.testContainersScala % Test,
   "com.dimafeng"                    %% "testcontainers-scala-mysql"       % V.testContainersScala % Test,
   "mysql"                            % "mysql-connector-java"             % V.jdbcMysql           % Provided,

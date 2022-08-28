@@ -12,4 +12,9 @@ object IndexColumnOrder {
       case "ASC" | "A"  => ASC
       case "DESC" | "D" => DESC
     }
+
+  implicit def orderToString(o: IndexColumnOrder): String = o match {
+    case ASC  => "ASC"
+    case DESC => "DESC"
+  }
 }

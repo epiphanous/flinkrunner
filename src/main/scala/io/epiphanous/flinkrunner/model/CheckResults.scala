@@ -1,5 +1,6 @@
 package io.epiphanous.flinkrunner.model
 
+import io.epiphanous.flinkrunner.model.sink.SinkConfig
 import io.epiphanous.flinkrunner.model.source.SourceConfig
 import org.apache.flink.api.common.typeinfo.TypeInformation
 
@@ -12,11 +13,21 @@ import org.apache.flink.api.common.typeinfo.TypeInformation
 trait CheckResults[ADT <: FlinkEvent] {
 
   /** a name for this check configuration */
-  def name: String = this.getClass.getSimpleName
+  def name: String
 
-  /** Return a list of test events to run through a mock job.
+  /** should we write to the sink? This defaults to false since most of the
+    * time this CheckResults object facilitates a check of the logic of
+    * your transform method. But if you need to test the sink writing
+    * itself, set this to true.
+    */
+  def writeToSink: Boolean = false
+
+  /** Return a list of test events for a given source configuration to run
+    * through a mock job.
     * @tparam IN
     *   the input type
+    * @param sourceConfig
+    *   the source configuration
     * @return
     *   List[IN]
     */
@@ -24,11 +35,15 @@ trait CheckResults[ADT <: FlinkEvent] {
       sourceConfig: SourceConfig[ADT]): List[IN]
 
   /** Check the results of a mock run of a job.
+    * @param sinkConfig
+    *   the sink configuration
     * @param out
-    *   the list of output events
+    *   a list of output events produced by the job
     * @tparam OUT
-    *   the ourput event type
+    *   the output event type
     */
-  def checkOutputEvents[OUT <: ADT: TypeInformation](out: List[OUT]): Unit
+  def checkOutputEvents[OUT <: ADT: TypeInformation](
+      sinkConfig: SinkConfig[ADT],
+      out: List[OUT]): Unit
 
 }

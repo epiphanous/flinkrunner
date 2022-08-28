@@ -2,17 +2,8 @@ package io.epiphanous.flinkrunner.flink
 
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.FlinkRunner
-import io.epiphanous.flinkrunner.model.aggregate.{
-  Aggregate,
-  AggregateAccumulator,
-  WindowedAggregationInitializer
-}
-import io.epiphanous.flinkrunner.model.{
-  EmbeddedAvroRecord,
-  EmbeddedAvroRecordInfo,
-  FlinkConfig,
-  FlinkEvent
-}
+import io.epiphanous.flinkrunner.model.aggregate.{Aggregate, AggregateAccumulator, WindowedAggregationInitializer}
+import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, EmbeddedAvroRecordInfo, FlinkConfig, FlinkEvent}
 import io.epiphanous.flinkrunner.util.StreamUtils.Pipe
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.state.MapStateDescriptor
@@ -511,14 +502,16 @@ abstract class StreamJob[
   def sink(out: DataStream[OUT]): Unit =
     runner.getSinkNames.foreach(name => runner.toSink[OUT](out, name))
 
-  /** The output stream will only be passed to BaseFlinkJob.sink if
-    * FlinkConfig.mockEdges is false (ie, you're not testing).
+  /** The output stream will only be passed to output sink(s) if the runner
+    * determines it's required. Some testing configurations can skip
+    * actually writing to the sink if they are only testing the
+    * transformation logic of a job.
     *
     * @param out
-    *   the output data stream to pass into BaseFlinkJob.sink)
+    *   the output data stream to pass to the sink method
     */
   def maybeSink(out: DataStream[OUT]): Unit =
-    if (!runner.mockEdges) sink(out)
+    if (runner.writeToSink) sink(out)
 
   /** Runs the job, meaning it constructs the flow and executes it.
     */
@@ -542,6 +535,7 @@ abstract class StreamJob[
         )
         val limit = config.getIntOpt("run.limit").getOrElse(100)
         checkResults.checkOutputEvents[OUT](
+          runner.getSinkConfig(),
           stream.executeAndCollect(config.jobName, limit)
         )
 

@@ -59,7 +59,7 @@ trait BasePropGenerators {
   def genOne[T](implicit arb: Arbitrary[T]): T = genPop[T](1).head
 
   def genPop[T](
-      mean: Int,
+      mean: Int = 10,
       sd: Double = 0
   )(implicit arb: Arbitrary[T]): List[T] =
     Stream
