@@ -2,12 +2,17 @@ package io.epiphanous.flinkrunner.serde
 
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, FlinkEvent}
+import org.apache.avro.Schema
 import org.apache.avro.generic.{GenericDatumWriter, GenericRecord}
-import org.apache.avro.io.EncoderFactory
+import org.apache.avro.io.{EncoderFactory, JsonEncoder}
+import org.apache.avro.specific.SpecificRecord
+import org.apache.commons.io.output.ByteArrayOutputStream
 import org.apache.flink.api.common.serialization.Encoder
 import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.checkerframework.checker.units.qual.s
 
 import java.io.OutputStream
+import java.nio.charset.StandardCharsets
 import scala.util.Try
 
 /** A thin wrapper to emit an embedded avro record from events into an
@@ -25,22 +30,58 @@ import scala.util.Try
 class EmbeddedAvroJsonFileEncoder[
     E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
     A <: GenericRecord: TypeInformation,
-    ADT <: FlinkEvent]
+    ADT <: FlinkEvent](schemaOpt: Option[Schema] = None)
     extends Encoder[E]
     with LazyLogging {
 
-  override def encode(element: E, stream: OutputStream): Unit =
-    encodeWithAvro(element, stream)
+  @transient
+  lazy val avroClass: Class[A] =
+    implicitly[TypeInformation[A]].getTypeClass
 
-  def encodeWithAvro(element: E, stream: OutputStream): Unit = {
-    val record  = element.$record
-    val schema  = record.getSchema
-    val encoder = EncoderFactory.get().jsonEncoder(schema, stream)
-    val writer  = new GenericDatumWriter[A](schema)
+  @transient
+  lazy val encoderWriterPairOpt
+      : Option[(JsonEncoder, GenericDatumWriter[GenericRecord])] = {
+    if (
+      schemaOpt.nonEmpty || classOf[SpecificRecord].isAssignableFrom(
+        avroClass
+      )
+    ) {
+      val schema = schemaOpt.getOrElse(
+        avroClass.getConstructor().newInstance().getSchema
+      )
+      Some(
+        EncoderFactory
+          .get()
+          .jsonEncoder(schema, new ByteArrayOutputStream()),
+        new GenericDatumWriter[GenericRecord](schema)
+      )
+    } else None
+  }
+
+  lazy val lineEndBytes: Array[Byte] =
+    System.lineSeparator().getBytes(StandardCharsets.UTF_8)
+
+  override def encode(element: E, stream: OutputStream): Unit = {
+    val record = element.$record
+
+    val (encoder, writer) =
+      encoderWriterPairOpt match {
+        case None =>
+          val schema = record.getSchema
+          (
+            EncoderFactory.get().jsonEncoder(schema, stream),
+            new GenericDatumWriter[GenericRecord](schema)
+          )
+        case Some(
+              (enc: JsonEncoder, wr: GenericDatumWriter[GenericRecord])
+            ) =>
+          (enc.configure(stream), wr)
+      }
+
     Try {
       writer.write(record, encoder)
-      encoder.writeString(System.lineSeparator())
       encoder.flush()
+      stream.write(lineEndBytes)
     }.fold(
       error =>
         logger.error(s"Failed to encode avro record $record", error),

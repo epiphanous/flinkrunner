@@ -121,6 +121,7 @@ val otherDeps = Seq(
 //  "com.github.pjfanning"            %% "jackson-scala-reflect-extensions" % V.jackson,
   "com.fasterxml.jackson.dataformat" % "jackson-dataformat-csv"           % V.jackson,
   "com.fasterxml.jackson.datatype"   % "jackson-datatype-jsr310"          % V.jackson,
+  "com.fasterxml.jackson.dataformat" % "jackson-dataformat-avro"          % V.jackson,
   "com.dimafeng"                    %% "testcontainers-scala-scalatest"   % V.testContainersScala % Test,
   "com.dimafeng"                    %% "testcontainers-scala-mysql"       % V.testContainersScala % Test,
   "mysql"                            % "mysql-connector-java"             % V.jdbcMysql           % Provided,

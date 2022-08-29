@@ -36,7 +36,11 @@ trait DelimitedCodec {
       delimitedConfig: DelimitedConfig,
       typeClass: Class[E]): ObjectWriter = {
     val mapper = getMapper
-    mapper.writer(delimitedConfig.intoSchema(mapper.schemaFor(typeClass)))
+    mapper.writer(
+      delimitedConfig
+        .intoSchema(mapper.schemaFor(typeClass))
+        .withUseHeader(false)
+    )
   }
 
   def getReader[E](

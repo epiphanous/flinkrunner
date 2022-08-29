@@ -3,7 +3,9 @@ import com.fasterxml.jackson.databind.ObjectWriter
 import org.apache.flink.api.common.serialization.Encoder
 import org.apache.flink.api.common.typeinfo.TypeInformation
 
+import collection.JavaConverters._
 import java.io.OutputStream
+import java.nio.charset.StandardCharsets
 
 /** Encoder for writing an element to a delimited text file output stream
   *
@@ -18,9 +20,37 @@ class DelimitedFileEncoder[E: TypeInformation](
     with DelimitedCodec {
 
   @transient
-  lazy val writer: ObjectWriter =
-    getWriter(delimitedConfig, implicitly[TypeInformation[E]].getTypeClass)
+  lazy val typeClass: Class[E] =
+    implicitly[TypeInformation[E]].getTypeClass
 
-  override def encode(element: E, stream: OutputStream): Unit =
+  @transient
+  lazy val header: Array[Byte] = getMapper
+    .schemaFor(typeClass)
+    .iterator()
+    .asScala
+    .map(c => c.getName)
+    .toList
+    .mkString(
+      "",
+      delimitedConfig.columnSeparator.toString,
+      delimitedConfig.lineSeparator
+    )
+    .getBytes(StandardCharsets.UTF_8)
+
+  @transient
+  lazy val writer: ObjectWriter =
+    getWriter(delimitedConfig, typeClass)
+
+  @transient
+  var out: OutputStream = _
+
+  override def encode(element: E, stream: OutputStream): Unit = {
+    if (delimitedConfig.useHeader) {
+      if (out != stream) {
+        out = stream
+        stream.write(header)
+      }
+    }
     stream.write(writer.writeValueAsBytes(element))
+  }
 }

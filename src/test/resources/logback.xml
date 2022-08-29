@@ -21,7 +21,7 @@
         </encoder>
     </appender>
 
-    <root level="ERROR">
+    <root level="DEBUG">
         <appender-ref ref="console"/>
         <appender-ref ref="rolling"/>
     </root>
@@ -32,7 +32,7 @@
     <logger name="org.apache.kafka" level="ERROR"/>
     <logger name="org.apache.hadoop" level="ERROR"/>
     <logger name="org.apache.zookeeper" level="ERROR"/>
-    <logger name="org.apache.flink" level="ERROR"/>
+    <logger name="org.apache.flink" level="DEBUG"/>
     <logger name="io.confluent.kafka" level="ERROR"/>
     <logger name="io.epiphanous" level="TRACE"/>
 
