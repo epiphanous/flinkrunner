@@ -78,6 +78,7 @@ class JdbcSinkJobTest extends FlinkRunnerSpec {
         |    show.plan = true
         |  }
         |}
+        |execution.runtime-mode = batch
         |""".stripMargin
 //    val checkResults: CheckResults[MySimpleADT] =
 //      new CheckResults[MySimpleADT] {

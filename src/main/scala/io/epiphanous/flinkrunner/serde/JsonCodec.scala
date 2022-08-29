@@ -1,7 +1,14 @@
 package io.epiphanous.flinkrunner.serde
 
 import com.fasterxml.jackson.databind.json.JsonMapper
-import com.fasterxml.jackson.databind.{MapperFeature, ObjectReader, ObjectWriter, SerializationFeature}
+import com.fasterxml.jackson.databind.{
+  DeserializationFeature,
+  MapperFeature,
+  ObjectReader,
+  ObjectWriter,
+  SerializationFeature
+}
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 
 trait JsonCodec {
@@ -12,9 +19,14 @@ trait JsonCodec {
     JsonMapper
       .builder()
       .addModule(DefaultScalaModule)
+      .addModule(new JavaTimeModule)
       .configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, sortKeys)
       .configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, sortKeys)
       .configure(SerializationFeature.INDENT_OUTPUT, pretty)
+      .configure(
+        DeserializationFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE,
+        false
+      )
       .build()
 
   def getWriter[E](
