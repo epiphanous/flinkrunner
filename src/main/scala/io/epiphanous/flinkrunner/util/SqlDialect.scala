@@ -16,21 +16,30 @@ case class SqlDialect(
     case SupportedDatabase.SqlServer  => 128
   }
 
+  def filterIdentifierComponents(components: Seq[String]): Seq[String] =
+    product match {
+      case SupportedDatabase.Mysql if components.size > 2 =>
+        components.take(1) ++ components.drop(2)
+      case _                                              => components
+    }
+
   def identifier(
       sb: mutable.StringBuilder,
       components: String*): mutable.StringBuilder = {
-    val cleanComponents = components.map(c =>
-      c.replaceAll("[^-A-Za-z_0-9]", "")
-        .strip()
-        .take(maxIdentifierLength)
-    )
-    if (cleanComponents.toSet != components.toSet)
+    val nonIgnoredComponents = filterIdentifierComponents(components)
+    val cleanComponents      = nonIgnoredComponents
+      .map(c =>
+        c.replaceAll("[^-A-Za-z_0-9]", "")
+          .strip()
+          .take(maxIdentifierLength)
+      )
+    if (cleanComponents.toSet != nonIgnoredComponents.toSet)
       throw new RuntimeException(
         s"identifiers may only contain character [-A-Za-z_0-9]: (${components.mkString(", ")})"
       )
 
     sb.append(
-      components
+      nonIgnoredComponents
         .map { comp =>
           identQuoting
             .quote(

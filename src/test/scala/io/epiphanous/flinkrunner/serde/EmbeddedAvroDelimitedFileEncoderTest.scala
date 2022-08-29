@@ -1,12 +1,7 @@
 package io.epiphanous.flinkrunner.serde
 
 import io.epiphanous.flinkrunner.PropSpec
-import io.epiphanous.flinkrunner.model.{
-  ARecord,
-  AWrapper,
-  MyAvroADT,
-  StreamFormatName
-}
+import io.epiphanous.flinkrunner.model.{ARecord, AWrapper, MyAvroADT, StreamFormatName}
 import org.apache.flink.api.scala.createTypeInformation
 
 import java.io.ByteArrayOutputStream

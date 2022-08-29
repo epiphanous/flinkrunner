@@ -2,8 +2,17 @@ package io.epiphanous.flinkrunner.flink
 
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.FlinkRunner
-import io.epiphanous.flinkrunner.model.aggregate.{Aggregate, AggregateAccumulator, WindowedAggregationInitializer}
-import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, EmbeddedAvroRecordInfo, FlinkConfig, FlinkEvent}
+import io.epiphanous.flinkrunner.model.aggregate.{
+  Aggregate,
+  AggregateAccumulator,
+  WindowedAggregationInitializer
+}
+import io.epiphanous.flinkrunner.model.{
+  EmbeddedAvroRecord,
+  EmbeddedAvroRecordInfo,
+  FlinkConfig,
+  FlinkEvent
+}
 import io.epiphanous.flinkrunner.util.StreamUtils.Pipe
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.state.MapStateDescriptor
@@ -533,10 +542,12 @@ abstract class StreamJob[
         logger.info(
           s"routing job ${config.jobName} results back through CheckResults<${checkResults.name}>"
         )
-        val limit = config.getIntOpt("run.limit").getOrElse(100)
         checkResults.checkOutputEvents[OUT](
           runner.getSinkConfig(),
-          stream.executeAndCollect(config.jobName, limit)
+          stream.executeAndCollect(
+            config.jobName,
+            checkResults.collectLimit
+          )
         )
 
       case _ =>

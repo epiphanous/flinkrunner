@@ -2,8 +2,6 @@ package io.epiphanous.flinkrunner.serde
 
 import io.epiphanous.flinkrunner.PropSpec
 import org.apache.commons.io.output.ByteArrayOutputStream
-import org.apache.flink.api.scala.createTypeInformation
-import org.scalacheck.{Arbitrary, Gen}
 
 import java.nio.charset.StandardCharsets
 import scala.collection.mutable.ListBuffer

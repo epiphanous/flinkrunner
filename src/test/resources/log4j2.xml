@@ -11,7 +11,7 @@
     </Appenders>
     <Loggers>
         <!-- Root logger referring to console appender -->
-        <Root level="DEBUG" additivity="false">
+        <Root level="ERROR" additivity="false">
             <AppenderRef ref="console" />
         </Root>
     </Loggers>

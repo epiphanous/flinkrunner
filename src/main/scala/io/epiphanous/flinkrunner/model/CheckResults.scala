@@ -22,6 +22,12 @@ trait CheckResults[ADT <: FlinkEvent] {
     */
   def writeToSink: Boolean = false
 
+  /** Maximum number of records to collect from the job
+    * @return
+    *   Int
+    */
+  def collectLimit: Int = 100
+
   /** Return a list of test events for a given source configuration to run
     * through a mock job.
     * @tparam IN

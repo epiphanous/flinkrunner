@@ -1,21 +1,13 @@
 package io.epiphanous.flinkrunner.model.sink
 
 import io.epiphanous.flinkrunner.flink.StreamJob
-import io.epiphanous.flinkrunner.model.source.SourceConfig
-import io.epiphanous.flinkrunner.model.{
-  CheckResults,
-  MySimpleADT,
-  SimpleA,
-  SimpleB
-}
+import io.epiphanous.flinkrunner.model.{MySimpleADT, SimpleB}
 import io.epiphanous.flinkrunner.{FlinkRunner, FlinkRunnerSpec}
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.scala.createTypeInformation
 import org.apache.flink.streaming.api.scala.DataStream
 
 import java.sql.DriverManager
-import javax.swing.UIManager.getString
-import scala.util.Try
 
 class JdbcSinkJobTest extends FlinkRunnerSpec {
 
@@ -28,7 +20,8 @@ class JdbcSinkJobTest extends FlinkRunnerSpec {
     val password     = "test"
   }
 
-  property("write job results to sink") {
+  // ignore since it's manual
+  ignore("write job results to sink") {
 //    pgContainer.start()
     val configStr =
       s"""
@@ -42,22 +35,27 @@ class JdbcSinkJobTest extends FlinkRunnerSpec {
         |      password  = "${pgContainer.password}"
         |    }
         |    table {
-        |      name = "sample_a"
+        |      name = "sample_b"
         |      columns = [
         |        {
         |          name = id
         |          type = VARCHAR
         |          precision = 36
         |          primary.key = 1
-        |        },
+        |        }
         |        {
-        |          name = a0
+        |          name = b0
         |          type = VARCHAR
         |          precision = 255
         |          nullable = false
-        |        },
+        |        }
         |        {
-        |          name = a1
+        |          name = b1
+        |          type = DOUBLE
+        |          nullable = false
+        |        }
+        |        {
+        |          name = b2
         |          type = INTEGER
         |        }
         |        {
@@ -71,7 +69,7 @@ class JdbcSinkJobTest extends FlinkRunnerSpec {
         |}
         |sources {
         |  test-file {
-        |    path = "resource://SampleA.csv"
+        |    path = "resource://SampleB.csv"
         |    format = csv
         |  }
         |}
@@ -121,7 +119,7 @@ class JdbcSinkJobTest extends FlinkRunnerSpec {
 //      }
 
     val factory = (runner: FlinkRunner[MySimpleADT]) =>
-      new IdentityJob[SimpleA](runner)
+      new IdentityJob[SimpleB](runner)
     testStreamJob(configStr, factory)
     val conn    = DriverManager.getConnection(
       pgContainer.jdbcUrl,
@@ -129,14 +127,15 @@ class JdbcSinkJobTest extends FlinkRunnerSpec {
       pgContainer.password
     )
     val stmt    = conn.createStatement()
-    val rs      = stmt.executeQuery("select * from sample_a")
+    val rs      = stmt.executeQuery("select * from sample_b")
     while (rs.next()) {
       println(
         rs.getRow + "|" + rs.getString("id").trim() + "|" + rs.getString(
-          "a0"
-        ) + "|" + rs.getInt("a1") + "|" + rs.getTimestamp(
-          "ts"
-        )
+          "b0"
+        ) + "|" + rs.getDouble("b1") + "|" + rs.getInt("b2") + "|" + rs
+          .getTimestamp(
+            "ts"
+          )
       )
     }
     stmt.close()

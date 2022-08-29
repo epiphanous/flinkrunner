@@ -117,6 +117,8 @@ val otherDeps = Seq(
   "org.scalatestplus"               %% "scalacheck-1-16"                  % V.scalaTestPlus       % Test,
   "org.scalacheck"                  %% "scalacheck"                       % V.scalaCheck,
   "com.fasterxml.jackson.module"    %% "jackson-module-scala"             % V.jackson,
+  // not sure this works with nested types on csv as well as jsonmapper...will wait to find out
+//  "com.github.pjfanning"            %% "jackson-scala-reflect-extensions" % V.jackson,
   "com.fasterxml.jackson.dataformat" % "jackson-dataformat-csv"           % V.jackson,
   "com.fasterxml.jackson.datatype"   % "jackson-datatype-jsr310"          % V.jackson,
   "com.dimafeng"                    %% "testcontainers-scala-scalatest"   % V.testContainersScala % Test,

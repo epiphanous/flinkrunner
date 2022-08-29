@@ -71,7 +71,7 @@ class JdbcSinkCreateTableTest extends UnitSpec {
     mysqlContainer.start()
     maybeCreateTableTest(
       mysqlContainer.databaseName,
-      "_default_",
+      "_ignore_",
       mysqlContainer.jdbcUrl,
       mysqlContainer.username,
       mysqlContainer.password

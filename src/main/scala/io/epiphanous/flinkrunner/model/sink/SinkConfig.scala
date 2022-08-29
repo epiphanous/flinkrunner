@@ -50,6 +50,7 @@ object SinkConfig {
       case ElasticsearchSink =>
         ElasticsearchSinkConfig(name, config, ElasticsearchSink)
       case RabbitMQ          => RabbitMQSinkConfig(name, config, RabbitMQ)
+      case MockSink          => MockSinkConfig(name, config, MockSink)
       case connector         =>
         throw new RuntimeException(
           s"Don't know how to configure ${connector.entryName} sink connector $name (job ${config.jobName}"

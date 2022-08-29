@@ -1,8 +1,8 @@
 package io.epiphanous.flinkrunner.serde
 
 import io.epiphanous.flinkrunner.model.BasePropGenerators
-import org.scalacheck.{Arbitrary, Gen}
 import org.apache.flink.api.scala.createTypeInformation
+import org.scalacheck.{Arbitrary, Gen}
 
 trait JsonEncoderTestUtils extends BasePropGenerators {
   case class JsonEncoderTest(a: Int, b: String) {

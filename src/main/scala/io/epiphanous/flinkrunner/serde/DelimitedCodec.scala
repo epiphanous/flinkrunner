@@ -1,7 +1,7 @@
 package io.epiphanous.flinkrunner.serde
 
 import com.fasterxml.jackson.databind.{MapperFeature, ObjectReader, ObjectWriter}
-import com.fasterxml.jackson.dataformat.csv.{CsvGenerator, CsvMapper}
+import com.fasterxml.jackson.dataformat.csv.{CsvGenerator, CsvMapper, CsvParser}
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 
@@ -13,6 +13,10 @@ trait DelimitedCodec {
     .addModule(new JavaTimeModule)
     .configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, false)
     .configure(CsvGenerator.Feature.ALWAYS_QUOTE_STRINGS, false)
+    .configure(CsvParser.Feature.TRIM_SPACES, true)
+    .configure(CsvParser.Feature.SKIP_EMPTY_LINES, true)
+    .configure(CsvParser.Feature.ALLOW_COMMENTS, true)
+    .configure(CsvParser.Feature.EMPTY_STRING_AS_NULL, true)
     .build()
 
   def getWriter[E](

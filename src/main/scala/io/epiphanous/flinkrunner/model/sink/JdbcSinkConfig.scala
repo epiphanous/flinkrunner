@@ -100,7 +100,7 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
 
   val database: String           = config.getString(pfx("connection.database"))
   val schema: String             =
-    config.getStringOpt(pfx("connection.schema")).getOrElse("default")
+    config.getStringOpt(pfx("connection.schema")).getOrElse("_ignore_")
   val url: String                = config.getString(pfx("connection.url"))
   val product: SupportedDatabase = SupportedDatabase.fromUrl(url)
   val driverName: String         = SupportedDatabase.driverFor(product)
@@ -507,8 +507,11 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
           data.get(column.name) match {
             case Some(v) =>
               val value = v match {
-                case ts: Instant => Timestamp.from(ts)
-                case _           => v
+                case ts: Instant       => Timestamp.from(ts)
+                case Some(ts: Instant) => Timestamp.from(ts)
+                case Some(x)           => x
+                case None              => null
+                case _                 => v
               }
               statement.setObject(i, value, column.dataType.jdbcType)
             case None    =>

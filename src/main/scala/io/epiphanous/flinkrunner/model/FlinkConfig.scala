@@ -1,11 +1,6 @@
 package io.epiphanous.flinkrunner.model
 
-import com.typesafe.config.{
-  Config,
-  ConfigFactory,
-  ConfigObject,
-  ConfigOriginFactory
-}
+import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigOriginFactory}
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.util.ConfigToProps.RichConfigObject
 import io.epiphanous.flinkrunner.util.FileUtils.getResourceOrFile
