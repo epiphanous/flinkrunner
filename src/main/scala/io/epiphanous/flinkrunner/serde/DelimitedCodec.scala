@@ -1,16 +1,7 @@
 package io.epiphanous.flinkrunner.serde
 
-import com.fasterxml.jackson.databind.{
-  DeserializationFeature,
-  MapperFeature,
-  ObjectReader,
-  ObjectWriter
-}
-import com.fasterxml.jackson.dataformat.csv.{
-  CsvGenerator,
-  CsvMapper,
-  CsvParser
-}
+import com.fasterxml.jackson.databind.{DeserializationFeature, MapperFeature, ObjectReader, ObjectWriter}
+import com.fasterxml.jackson.dataformat.csv.{CsvGenerator, CsvMapper, CsvParser}
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 

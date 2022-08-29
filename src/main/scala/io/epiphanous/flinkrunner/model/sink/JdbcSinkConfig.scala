@@ -13,11 +13,7 @@ import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat
 import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat.StatementExecutorFactory
 import org.apache.flink.connector.jdbc.internal.connection.SimpleJdbcConnectionProvider
 import org.apache.flink.connector.jdbc.internal.executor.JdbcBatchStatementExecutor
-import org.apache.flink.connector.jdbc.{
-  JdbcConnectionOptions,
-  JdbcExecutionOptions,
-  JdbcStatementBuilder
-}
+import org.apache.flink.connector.jdbc.{JdbcConnectionOptions, JdbcExecutionOptions, JdbcStatementBuilder}
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
 

@@ -9,7 +9,6 @@ import org.apache.avro.specific.SpecificRecord
 import org.apache.commons.io.output.ByteArrayOutputStream
 import org.apache.flink.api.common.serialization.Encoder
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.checkerframework.checker.units.qual.s
 
 import java.io.OutputStream
 import java.nio.charset.StandardCharsets
