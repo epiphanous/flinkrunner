@@ -189,7 +189,8 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
   lazy val isStage: Boolean    = environment.startsWith("stag")
   lazy val isProd: Boolean     = environment.startsWith("prod")
 
-  def configureStreamExecutionEnvironment: StreamExecutionEnvironment = {
+  private[flinkrunner] def configureStreamExecutionEnvironment
+      : StreamExecutionEnvironment = {
     val env =
       if (isDev)
         StreamExecutionEnvironment.createLocalEnvironment(1)
@@ -283,8 +284,8 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
   lazy val executionRuntimeMode: RuntimeExecutionMode =
     getStringOpt("execution.runtime-mode").map(_.toUpperCase) match {
       case Some("BATCH")     => RuntimeExecutionMode.BATCH
-      case Some("AUTOMATIC") => RuntimeExecutionMode.AUTOMATIC
-      case _                 => RuntimeExecutionMode.STREAMING
+      case Some("STREAMING") => RuntimeExecutionMode.STREAMING
+      case _                 => RuntimeExecutionMode.AUTOMATIC
     }
 
 }

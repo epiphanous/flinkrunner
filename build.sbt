@@ -45,9 +45,9 @@ val V = new {
   val squants             = "1.8.3"
   val confluentAvroSerde  = "7.1.1"
   val parquet             = "1.12.3"
-  val awsSdk              = "1.12.286"
+  val awsSdk              = "1.12.290"
   val jdbcMysql           = "8.0.30"
-  val jdbcPg              = "42.4.2"
+  val jdbcPg              = "42.5.0"
   val jdbcMssql           = "11.2.0.jre11"
 }
 
