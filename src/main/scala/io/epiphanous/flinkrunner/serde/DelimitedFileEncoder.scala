@@ -4,8 +4,6 @@ import org.apache.flink.api.common.serialization.Encoder
 import org.apache.flink.api.common.typeinfo.TypeInformation
 
 import java.io.OutputStream
-import java.nio.charset.StandardCharsets
-import scala.collection.JavaConverters._
 
 /** Encoder for writing an element to a delimited text file output stream
   *
