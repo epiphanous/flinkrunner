@@ -1,15 +1,17 @@
 package io.epiphanous.flinkrunner.algorithm.cardinality
 
-import com.google.common.hash.Funnel
 import com.google.common.hash.Hashing.murmur3_128
+import com.google.common.hash.{Funnel, HashFunction}
+
+import scala.collection.immutable
 
 /**
-  * Implements hyperloglog cardinality estimate based on paper by
-  * P. Flajolet, È. Fusy, O. Gandouet, F. Meiunier.
-  * HyperLogLog: the analysis of a near-optimal
-  * cardinality estimation algorithm. Proceedings of Discrete Mathematics and Theoretical Computer Science.
-  * Pages 127-146. 2007.
-  */
+ * Implements hyperloglog cardinality estimate based on paper by P.
+ * Flajolet, È. Fusy, O. Gandouet, F. Meiunier. HyperLogLog: the analysis
+ * of a near-optimal cardinality estimation algorithm. Proceedings of
+ * Discrete Mathematics and Theoretical Computer Science. Pages 127-146.
+ * 2007.
+ */
 case class HyperLogLog[T](funnel: Funnel[T], b: Int) {
 
   require(b >= 4 && b <= 16, "b must be an integer in [4,16]")
@@ -17,42 +19,45 @@ case class HyperLogLog[T](funnel: Funnel[T], b: Int) {
   import HyperLogLog._
 
   /** number of registers <code>m = 2**b</code> */
-  val m = 1 << b
+  val m: Int = 1 << b
 
   /** relativeError of cardinality estimates */
-  val relativeError = 1.04 / math.sqrt(m.toDouble)
+  val relativeError: Double = 1.04 / math.sqrt(m.toDouble)
 
   /** correction constant <code>alpha(m) * m**2</code> */
-  val am2 = ALPHA_M * m * m
+  val am2: Double = ALPHA_M * m * m
 
   /** upper bound of small range */
-  val smallRange = 5 / 2 * m
+  val smallRange: Int = 5 / 2 * m
 
   /** upper bound of intermediate range */
-  val intermediateRange = math.floor(TWO32 / 30).toInt
+  val intermediateRange: Int = math.floor(TWO32 / 30).toInt
 
   /** registers */
-  val M = Array.fill[Int](m)(0)
+  val M: Array[Int] = Array.fill[Int](m)(0)
 
   /** murmur3 128 guava hashing function generator */
-  val hasher = murmur3_128()
+  val hasher: HashFunction = murmur3_128()
 
   /** current cardinality estimate */
   var cardinality = 0L
 
   /** True if no data has been added to the registers */
-  def isEmpty = cardinality == 0
+  def isEmpty: Boolean = cardinality == 0
 
   /** True if data has been added to the registers */
-  def nonEmpty = cardinality > 0
+  def nonEmpty: Boolean = cardinality > 0
 
   /**
-    * Incorporates an item into the registers, updates the cardinality estimate and returns it.
-    *
-    * @param item the item to add
-    * @return Long
-    */
-  def add(item: T) = {
+   * Incorporates an item into the registers, updates the cardinality
+   * estimate and returns it.
+   *
+   * @param item
+   *   the item to add
+   * @return
+   *   Long
+   */
+  def add(item: T): Long = {
     val x = hash(item)
     val j = 1 + (x & (m - 1))
     val w = x >> b
@@ -61,12 +66,13 @@ case class HyperLogLog[T](funnel: Funnel[T], b: Int) {
   }
 
   /**
-    * Compute the current distinct cardinality estimate.
-    *
-    * @return Long
-    */
+   * Compute the current distinct cardinality estimate.
+   *
+   * @return
+   *   Long
+   */
   private def estimateCardinality: Long = {
-    val E = am2 / M.map(i => 1 / math.pow(2d, i.toDouble)).sum
+    val E     = am2 / M.map(i => 1 / math.pow(2d, i.toDouble)).sum
     // small range correction
     val Estar = if (E <= smallRange) {
       val V = M.count(_ == 0)
@@ -83,37 +89,45 @@ case class HyperLogLog[T](funnel: Funnel[T], b: Int) {
   }
 
   /**
-    * Merge another HyperLogLog[T] instance into this instance. Note the other instance must have the same b
-    * parameter as this instance.
-    *
-    * @param another the other HyperLogLog[T] instance
-    */
-  def merge(another: HyperLogLog[T]) = {
+   * Merge another HyperLogLog[T] instance into this instance. Note the
+   * other instance must have the same b parameter as this instance.
+   *
+   * @param another
+   *   the other HyperLogLog[T] instance
+   */
+  def merge(another: HyperLogLog[T]): HyperLogLog[T] = {
     if (another.nonEmpty) {
       require(another.m == m, s"Can only merge HLL with same b=$b")
-      another.M.zipWithIndex.foreach { case (other, i) => if (M(i) < other) M(i) = other }
+      another.M.zipWithIndex.foreach { case (other, i) =>
+        if (M(i) < other) M(i) = other
+      }
       estimateCardinality
     }
     this
   }
 
   /**
-    * Computes positive integer hash of item
-    *
-    * @param item item to hash
-    * @return Int
-    */
+   * Computes positive integer hash of item
+   *
+   * @param item
+   *   item to hash
+   * @return
+   *   Int
+   */
   private def hash(item: T): Int = {
     val h = hasher.hashObject(item, funnel).asInt()
     if (h < 0) ~h else h
   }
 
   /**
-    * Computes most significant set bit of an integer, where returned bit in [0,32].
-    *
-    * @param i the non-negative Int to examine
-    * @return Int
-    */
+   * Computes most significant set bit of an integer, where returned bit in
+   * [0,32].
+   *
+   * @param i
+   *   the non-negative Int to examine
+   * @return
+   *   Int
+   */
   private def rho(i: Int): Int = {
     require(i >= 0, "i must be non-negative integer")
     (32 - HyperLogLog.MASKS.lastIndexWhere(_ <= i)) % 33
@@ -121,8 +135,7 @@ case class HyperLogLog[T](funnel: Funnel[T], b: Int) {
 }
 
 object HyperLogLog {
-  val MASKS = Range(1, 32).map(i => 1 << (i - 1))
-  val ALPHA_M = 1 / (2 * math.log(2))
-  val TWO32 = math.pow(2, 32)
-
+  val MASKS: immutable.Seq[Int] = Range(1, 32).map(i => 1 << (i - 1))
+  val ALPHA_M: Double           = 1 / (2 * math.log(2))
+  val TWO32: Double             = math.pow(2, 32)
 }

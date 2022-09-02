@@ -10,12 +10,13 @@ class BloomFilterAggregateFunction(
     numCells: Long,
     bitsPerCell: Int = 3,
     falsePositiveRate: Double = 0.001)
-    extends RichAggregateFunction[
-      CharSequence,
-      StableBloomFilter[CharSequence],
-      StableBloomFilter[CharSequence]] {
+    extends RichAggregateFunction[String, StableBloomFilter[
+      CharSequence
+    ], StableBloomFilter[
+      CharSequence
+    ]] {
 
-  override def createAccumulator() =
+  override def createAccumulator(): StableBloomFilter[CharSequence] =
     StableBloomFilter
       .builder(Funnels.stringFunnel(StandardCharsets.UTF_8))
       .withNumCells(numCells)
@@ -24,17 +25,20 @@ class BloomFilterAggregateFunction(
       .build()
 
   override def add(
-      value: CharSequence,
-      accumulator: StableBloomFilter[CharSequence]) = {
+      value: String,
+      accumulator: StableBloomFilter[CharSequence])
+      : StableBloomFilter[CharSequence] = {
     accumulator.add(value)
     accumulator
   }
 
-  override def getResult(accumulator: StableBloomFilter[CharSequence]) =
+  override def getResult(accumulator: StableBloomFilter[CharSequence])
+      : StableBloomFilter[CharSequence] =
     accumulator
 
   override def merge(
       a: StableBloomFilter[CharSequence],
-      b: StableBloomFilter[CharSequence]) =
+      b: StableBloomFilter[CharSequence])
+      : StableBloomFilter[CharSequence] =
     a.merge(b)
 }

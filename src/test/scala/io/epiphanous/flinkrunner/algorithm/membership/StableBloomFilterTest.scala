@@ -1,19 +1,18 @@
 package io.epiphanous.flinkrunner.algorithm.membership
 
 import com.google.common.hash.Funnels
-import io.epiphanous.flinkrunner.BaseSpec
-import org.scalatest.flatspec.AnyFlatSpec
+import io.epiphanous.flinkrunner.UnitSpec
 
 import java.nio.charset.StandardCharsets
 
-class StableBloomFilterTest extends AnyFlatSpec with BaseSpec {
+class StableBloomFilterTest extends UnitSpec {
 
   val bfBuilder: StableBloomFilterBuilder[CharSequence] =
     StableBloomFilterBuilder(
       Funnels.stringFunnel(StandardCharsets.UTF_8)
     )
 
-  def bstr(x: Long) = {
+  def bstr(x: Long): String = {
     val s  = x.toBinaryString
     val s1 = "0" * (63 - s.length) + s
     s1.grouped(3).mkString("|")
@@ -38,15 +37,16 @@ class StableBloomFilterTest extends AnyFlatSpec with BaseSpec {
     c shouldBe true
   }
 
-  ignore should "offset" in {
+  it should "offset" in {
     val bf = bfBuilder.build()
-    Range(0, 100).foreach(i => println((i, bf.offset(i))))
+//    Range(0, 100).foreach(i => println((i, bf.offset(i.toLong))))
+    bf.offset(21L) shouldEqual (1, 0)
+    bf.offset(41L) shouldEqual (1, 60)
   }
 
-  /**
-   * found this test on
-   * https://www.waitingforcode.com/big-data-algorithms/stable-bloom-filter/read
-   */
+  /** found this test on
+    * https://www.waitingforcode.com/big-data-algorithms/stable-bloom-filter/read
+    */
   it should "not find false positives with low false positives rate" in {
     val bf = bfBuilder
       .withBitsPerCell(8)
@@ -75,10 +75,9 @@ class StableBloomFilterTest extends AnyFlatSpec with BaseSpec {
     bf.P shouldEqual 9433
   }
 
-  /**
-   * found this test on
-   * https://www.waitingforcode.com/big-data-algorithms/stable-bloom-filter/read
-   */
+  /** found this test on
+    * https://www.waitingforcode.com/big-data-algorithms/stable-bloom-filter/read
+    */
   it should "perform worse with smaller filter" in {
     val bf = bfBuilder
       .withBitsPerCell(3)

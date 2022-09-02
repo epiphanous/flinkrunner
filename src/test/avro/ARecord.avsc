@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "ARecord",
+  "namespace": "io.epiphanous.flinkrunner.model",
+  "fields": [
+    { "name": "a0", "type": "string" },
+    { "name": "a1", "type": "int" },
+    { "name": "a2", "type": "double" },
+    { "name": "a3", "type": {"type": "long", "logicalType": "timestamp-millis" }}
+  ]
+}

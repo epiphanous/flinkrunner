@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "BRecord",
+  "namespace": "io.epiphanous.flinkrunner.model",
+  "fields": [
+    { "name": "b0", "type": "string" },
+    { "name": "b1", "type": ["null", "int"] },
+    { "name": "b2", "type": ["null", "double"] },
+    { "name": "b3", "type": {"type": "long", "logicalType": "timestamp-millis" }}
+  ]
+}

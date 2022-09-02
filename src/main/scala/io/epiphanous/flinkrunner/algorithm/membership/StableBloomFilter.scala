@@ -1,7 +1,7 @@
 package io.epiphanous.flinkrunner.algorithm.membership
 
-import com.google.common.hash.{Funnel, HashFunction}
 import com.google.common.hash.Hashing.murmur3_128
+import com.google.common.hash.{Funnel, HashFunction}
 
 import java.nio.ByteBuffer
 import scala.util.Random
@@ -41,7 +41,7 @@ case class StableBloomFilter[T](
   )
 
   /** number of cells per unit storage */
-  val storedCells: Int = Math.floor(STORAGE_BITS / d).toInt
+  val storedCells: Int = STORAGE_BITS / d
 
   /** number of bits used per unit storage */
   val storedBits: Int = storedCells * d
@@ -134,7 +134,7 @@ case class StableBloomFilter[T](
    *   the cell to get (in <code>[0, m)</code>)
    * @return
    */
-  def get(i: Long) = {
+  def get(i: Long): Long = {
     val (x, j) = offset(i)
     getBitsValue(x, j)
   }
@@ -174,7 +174,7 @@ case class StableBloomFilter[T](
    * @return
    *   Int
    */
-  def getBitsValue(x: Int, j: Int) =
+  def getBitsValue(x: Int, j: Int): Long =
     (storage(x) & (Max.toLong << j)) >>> j
 
   /**
@@ -223,14 +223,15 @@ case class StableBloomFilter[T](
 }
 
 object StableBloomFilter {
-  val STORAGE_BITS = java.lang.Long.SIZE - 1
-  val LN2          = Math.log(2)
-  val LN2_SQUARED  = LN2 * LN2
+  val STORAGE_BITS: Int   = java.lang.Long.SIZE - 1
+  val LN2: Double         = Math.log(2)
+  val LN2_SQUARED: Double = LN2 * LN2
 
   /**
    * Return a builder for constructing an instance of StableBloomFilter[T]
    */
-  def builder[T](funnel: Funnel[T]) = StableBloomFilterBuilder[T](funnel)
+  def builder[T](funnel: Funnel[T]): StableBloomFilterBuilder[T] =
+    StableBloomFilterBuilder[T](funnel)
 
   /**
    * Return the optimal number of cells to decrement each time a new item
@@ -248,7 +249,7 @@ object StableBloomFilter {
    * @return
    *   P optimal number of cells to decrement
    */
-  def optimalP(m: Long, K: Int, d: Int, FPS: Double) = {
+  def optimalP(m: Long, K: Int, d: Int, FPS: Double): Int = {
 
     val Max = (1L << d) - 1
 

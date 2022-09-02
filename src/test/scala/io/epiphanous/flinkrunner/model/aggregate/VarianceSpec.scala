@@ -1,13 +1,14 @@
 package io.epiphanous.flinkrunner.model.aggregate
 
-import io.epiphanous.flinkrunner.BasePropSpec
+import io.epiphanous.flinkrunner.PropSpec
 import io.epiphanous.flinkrunner.model.UnitMapper
 import squants.Kilograms
 import squants.mass.Mass
 
 import java.time.Instant
+import scala.util.Success
 
-class VarianceSpec extends BasePropSpec {
+class VarianceSpec extends PropSpec {
 
   property("updateQuantity property") {
     val v = Variance(Mass.name, Kilograms.symbol)
@@ -19,7 +20,7 @@ class VarianceSpec extends BasePropSpec {
       v3 <- v2.update(Kilograms(30), t, u)
       v4 <- v3.update(Kilograms(40), t, u)
     } yield v4.value
-    q.value shouldBe (166 + 2d / 3)
+    q.success shouldBe Success(166 + 2d / 3)
   }
 
 }

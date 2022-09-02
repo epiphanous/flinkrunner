@@ -6,6 +6,7 @@ import org.scalatest.matchers.should.Matchers
 import squants.time.{Seconds, Time}
 
 import java.time.Instant
+import scala.util.Success
 
 class PercentageTest extends AnyFlatSpec with Matchers with LazyLogging {
   behavior of "PercentageTest"
@@ -14,7 +15,7 @@ class PercentageTest extends AnyFlatSpec with Matchers with LazyLogging {
 
   it should "update" in {
     val q = p.update(86400 / 2, "s", Instant.now())
-    q.map(_.value) shouldBe Some(50)
+    q.map(_.value) shouldBe Success(50)
   }
 
   it should "dimension" in {

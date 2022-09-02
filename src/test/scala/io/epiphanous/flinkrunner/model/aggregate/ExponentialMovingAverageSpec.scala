@@ -1,13 +1,14 @@
 package io.epiphanous.flinkrunner.model.aggregate
 
-import io.epiphanous.flinkrunner.BasePropSpec
+import io.epiphanous.flinkrunner.PropSpec
 import io.epiphanous.flinkrunner.model.UnitMapper
 import squants.Kilograms
 import squants.mass.Mass
 
 import java.time.Instant
+import scala.util.Success
 
-class ExponentialMovingAverageSpec extends BasePropSpec {
+class ExponentialMovingAverageSpec extends PropSpec {
   property("updateQuantity property") {
     val a = ExponentialMovingAverage(Mass.name, Kilograms.symbol)
     val t = Instant.now()
@@ -17,6 +18,6 @@ class ExponentialMovingAverageSpec extends BasePropSpec {
       a2 <- a1.update(Kilograms(20), t, u)
       a3 <- a2.update(Kilograms(30), t, u)
     } yield a3.value
-    q.value shouldBe (26.1)
+    q.success shouldBe Success(26.1)
   }
 }
