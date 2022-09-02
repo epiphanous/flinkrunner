@@ -30,10 +30,18 @@ class EmbeddedAvroDelimitedFileEncoder[
     with DelimitedCodec {
 
   @transient
+  lazy val typeClass: Class[A] =
+    implicitly[TypeInformation[A]].getTypeClass
+
+  @transient
+  lazy val header: Array[Byte] =
+    getHeader(delimitedConfig, typeClass, Seq("schema", "specificData"))
+
+  @transient
   lazy val writer: ObjectWriter =
     getWriter[A](
       delimitedConfig,
-      implicitly[TypeInformation[A]].getTypeClass
+      typeClass
     )
 
   @transient
@@ -51,6 +59,9 @@ class EmbeddedAvroDelimitedFileEncoder[
         sequenceWriter = null
       }
       lastStream = stream
+      if (delimitedConfig.useHeader) {
+        stream.write(header)
+      }
     }
     if (Option(sequenceWriter).isEmpty) {
       sequenceWriter = writer.writeValues(stream)

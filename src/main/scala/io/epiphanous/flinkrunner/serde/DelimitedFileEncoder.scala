@@ -24,18 +24,7 @@ class DelimitedFileEncoder[E: TypeInformation](
     implicitly[TypeInformation[E]].getTypeClass
 
   @transient
-  lazy val header: Array[Byte] = getMapper
-    .schemaFor(typeClass)
-    .iterator()
-    .asScala
-    .map(c => c.getName)
-    .toList
-    .mkString(
-      "",
-      delimitedConfig.columnSeparator.toString,
-      delimitedConfig.lineSeparator
-    )
-    .getBytes(StandardCharsets.UTF_8)
+  lazy val header: Array[Byte] = getHeader(delimitedConfig, typeClass)
 
   @transient
   lazy val writer: ObjectWriter =

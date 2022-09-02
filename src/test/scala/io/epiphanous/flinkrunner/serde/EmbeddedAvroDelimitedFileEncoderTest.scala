@@ -1,13 +1,18 @@
 package io.epiphanous.flinkrunner.serde
 
 import io.epiphanous.flinkrunner.PropSpec
-import io.epiphanous.flinkrunner.model.{ARecord, AWrapper, MyAvroADT, StreamFormatName}
+import io.epiphanous.flinkrunner.model.{
+  ARecord,
+  AWrapper,
+  MyAvroADT,
+  StreamFormatName
+}
 import org.apache.flink.api.scala.createTypeInformation
 
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 import java.util.Properties
-import scala.collection.JavaConverters._
+import collection.JavaConverters._
 
 class EmbeddedAvroDelimitedFileEncoderTest extends PropSpec {
 
@@ -33,7 +38,6 @@ class EmbeddedAvroDelimitedFileEncoderTest extends PropSpec {
     val result = out2String(baos).split(delimitedConfig.lineSeparator)
     result.length shouldBe 11
     result.head shouldEqual "a0|a1|a2|a3"
-//    println(out2String(baos))
   }
 
   property("encode different output stream property") {
@@ -48,10 +52,9 @@ class EmbeddedAvroDelimitedFileEncoderTest extends PropSpec {
       encoder.encode(a, baos2)
     }
     val result2 = out2String(baos2).split(delimitedConfig.lineSeparator)
+    result1.length shouldEqual 11
     result1.length shouldEqual result2.length
     result1.head shouldEqual result2.head
-//    println(result1)
-//    println(result2)
   }
 
 }

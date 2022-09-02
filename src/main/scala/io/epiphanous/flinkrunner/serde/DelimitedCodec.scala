@@ -1,9 +1,20 @@
 package io.epiphanous.flinkrunner.serde
 
-import com.fasterxml.jackson.databind.{DeserializationFeature, MapperFeature, ObjectReader, ObjectWriter}
-import com.fasterxml.jackson.dataformat.csv.{CsvGenerator, CsvMapper, CsvParser}
+import com.fasterxml.jackson.databind.{
+  DeserializationFeature,
+  MapperFeature,
+  ObjectReader,
+  ObjectWriter
+}
+import com.fasterxml.jackson.dataformat.csv.{
+  CsvGenerator,
+  CsvMapper,
+  CsvParser
+}
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import collection.JavaConverters._
+import java.nio.charset.StandardCharsets
 
 trait DelimitedCodec {
 
@@ -33,6 +44,23 @@ trait DelimitedCodec {
         .withUseHeader(false)
     )
   }
+
+  def getHeader[E](
+      delimitedConfig: DelimitedConfig,
+      typeClass: Class[E],
+      filterOut: Seq[String] = Seq.empty): Array[Byte] = getMapper
+    .schemaFor(typeClass)
+    .iterator()
+    .asScala
+    .map(c => c.getName)
+    .toList
+    .diff(filterOut)
+    .mkString(
+      "",
+      delimitedConfig.columnSeparator.toString,
+      delimitedConfig.lineSeparator
+    )
+    .getBytes(StandardCharsets.UTF_8)
 
   def getReader[E](
       delimitedConfig: DelimitedConfig,

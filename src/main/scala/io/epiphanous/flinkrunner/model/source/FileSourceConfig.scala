@@ -65,6 +65,16 @@ case class FileSourceConfig[ADT <: FlinkEvent](
     )
   }
 
+  /** Creates a source stream for text files (delimited or json). It does
+    * this by first using a simple TextLineInputFormat() and then applies a
+    * jackson decoder to each line of text to produce the event stream.
+    * @param env
+    *   stream execution environment
+    * @tparam E
+    *   type of stream event
+    * @return
+    *   DataStream[E]
+    */
   override def getSourceStream[E <: ADT: TypeInformation](
       env: StreamExecutionEnvironment): DataStream[E] = {
     val rawName = s"raw:$label"
