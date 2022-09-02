@@ -285,7 +285,12 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
     getStringOpt("execution.runtime-mode").map(_.toUpperCase) match {
       case Some("BATCH")     => RuntimeExecutionMode.BATCH
       case Some("STREAMING") => RuntimeExecutionMode.STREAMING
-      case _                 => RuntimeExecutionMode.AUTOMATIC
+      case None              => RuntimeExecutionMode.STREAMING
+      case Some(other)       =>
+        logger.error(
+          s"Unknown execution.runtime-mode '$other'. Defaulting to STREAMING."
+        )
+        RuntimeExecutionMode.STREAMING
     }
 
 }
