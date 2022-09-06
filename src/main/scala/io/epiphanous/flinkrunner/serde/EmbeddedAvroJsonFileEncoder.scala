@@ -1,5 +1,6 @@
 package io.epiphanous.flinkrunner.serde
 
+import com.fasterxml.jackson.core.{JsonFactory, JsonGenerator}
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, FlinkEvent}
 import org.apache.avro.Schema
@@ -70,13 +71,25 @@ class EmbeddedAvroJsonFileEncoder[
         case None =>
           val schema = record.getSchema
           (
-            EncoderFactory.get().jsonEncoder(schema, stream),
+            // EncoderFactory.get().jsonEncoder(schema, stream),
+            new JsonEncoder(
+              schema,
+              new JsonFactory()
+                .createGenerator(stream)
+                .disable(JsonGenerator.Feature.AUTO_CLOSE_TARGET)
+                .disable(JsonGenerator.Feature.AUTO_CLOSE_JSON_CONTENT)
+            ),
             new GenericDatumWriter[GenericRecord](schema)
           )
         case Some(
               (enc: JsonEncoder, wr: GenericDatumWriter[GenericRecord])
             ) =>
-          (enc.configure(stream), wr)
+          (
+            enc.configure(
+              stream
+            ), // <- can't turn off auto_close_target here it seems
+            wr
+          )
       }
 
     Try {
