@@ -38,59 +38,15 @@ class EmbeddedAvroJsonFileEncoder[
   lazy val avroClass: Class[A] =
     implicitly[TypeInformation[A]].getTypeClass
 
-  @transient
-  lazy val encoderWriterPairOpt
-      : Option[(JsonEncoder, GenericDatumWriter[GenericRecord])] = None
-// TODO: resurrect this block once we figure out how to reconfigure encoder output streams
-//  {
-//    if (
-//      schemaOpt.nonEmpty || classOf[SpecificRecord].isAssignableFrom(
-//        avroClass
-//      )
-//    ) {
-//      val schema = schemaOpt.getOrElse(
-//        avroClass.getConstructor().newInstance().getSchema
-//      )
-//      Some(
-//        EncoderFactory
-//          .get()
-//          .jsonEncoder(schema, new ByteArrayOutputStream()),
-//        new GenericDatumWriter[GenericRecord](schema)
-//      )
-//    } else None
-//  }
-
   lazy val lineEndBytes: Array[Byte] =
     System.lineSeparator().getBytes(StandardCharsets.UTF_8)
 
   override def encode(element: E, stream: OutputStream): Unit = {
-    val record = element.$record
-
-    val (encoder, writer) =
-      encoderWriterPairOpt match {
-        case None =>
-          val schema = record.getSchema
-          (
-            // EncoderFactory.get().jsonEncoder(schema, stream),
-            new JsonEncoder(
-              schema,
-              new JsonFactory()
-                .createGenerator(stream)
-                .disable(JsonGenerator.Feature.AUTO_CLOSE_TARGET)
-                .disable(JsonGenerator.Feature.AUTO_CLOSE_JSON_CONTENT)
-            ),
-            new GenericDatumWriter[GenericRecord](schema)
-          )
-        case Some(
-              (enc: JsonEncoder, wr: GenericDatumWriter[GenericRecord])
-            ) =>
-          (
-            enc.configure(
-              stream
-            ), // <- can't turn off auto_close_target here it seems
-            wr
-          )
-      }
+    val record  = element.$record
+    val schema  = record.getSchema
+    // is this inefficient?
+    val encoder = EncoderFactory.get().jsonEncoder(schema, stream)
+    val writer  = new GenericDatumWriter[GenericRecord](schema)
 
     Try {
       writer.write(record, encoder)
