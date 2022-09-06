@@ -39,23 +39,25 @@ class EmbeddedAvroJsonFileEncoder[
 
   @transient
   lazy val encoderWriterPairOpt
-      : Option[(JsonEncoder, GenericDatumWriter[GenericRecord])] = {
-    if (
-      schemaOpt.nonEmpty || classOf[SpecificRecord].isAssignableFrom(
-        avroClass
-      )
-    ) {
-      val schema = schemaOpt.getOrElse(
-        avroClass.getConstructor().newInstance().getSchema
-      )
-      Some(
-        EncoderFactory
-          .get()
-          .jsonEncoder(schema, new ByteArrayOutputStream()),
-        new GenericDatumWriter[GenericRecord](schema)
-      )
-    } else None
-  }
+      : Option[(JsonEncoder, GenericDatumWriter[GenericRecord])] = None
+// TODO: resurrect this block once we figure out how to reconfigure encoder output streams
+//  {
+//    if (
+//      schemaOpt.nonEmpty || classOf[SpecificRecord].isAssignableFrom(
+//        avroClass
+//      )
+//    ) {
+//      val schema = schemaOpt.getOrElse(
+//        avroClass.getConstructor().newInstance().getSchema
+//      )
+//      Some(
+//        EncoderFactory
+//          .get()
+//          .jsonEncoder(schema, new ByteArrayOutputStream()),
+//        new GenericDatumWriter[GenericRecord](schema)
+//      )
+//    } else None
+//  }
 
   lazy val lineEndBytes: Array[Byte] =
     System.lineSeparator().getBytes(StandardCharsets.UTF_8)
