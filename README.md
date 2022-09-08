@@ -32,7 +32,7 @@
 
 <div align="center">
   <sub>Built by
-  <a href="https://twitter.com/epiphanous">nextdude@epiphanous.io</a> and
+  <a href="https://twitter.com/epiphanous">nextdude</a> and
   <a href="https://github.com/epiphanous/flinkrunner/graphs/contributors">
     contributors
   </a></sub>
@@ -307,6 +307,10 @@ flink run myRunner.jar MyJob1
 
 ## Flink Jobs
 
+`Flinkrunner` provides a `StreamJob` base class from which you can build and run your
+flink jobs. If your output event types require avro support, you should instead use the
+`AvroStreamJob` base class to build and run your flink job.
+
 ### StreamJob
 
 ```
@@ -314,6 +318,106 @@ class StreamJob[
   OUT <: ADT, 
   ADT <: FlinkEvent](runner:FlinkRunner[ADT])
 ```
+
+A `StreamJob` must specify the output stream event type in its definition. That output
+stream event type must be a subclass of your `Flinkrunner` algebraic data type (ADT). Your
+job class will be passed an instance of your `Flinkrunner` type, from which you can access
+
+* `runner.config`: `Flinkrunner` configuration (instance of `FlinkConfig`).
+* `runner.env`: Flink's stream execution environment (instance of
+  `StreamExecutionEnvironment`), for interfacing with the DataStream API.
+* `runner.tableEnv`: Flink's stream table environment (instance of
+  `StreamTableEnvironment`), for interfacing with the Table API.
+* `runner.mockEdges`: A boolean indicating if your runner instance will mock interaction
+  with sources and sinks and redirect transformed output to your
+  specified `CheckResults.checkOutputEvents` method.
+
+Your `StreamJob` must provide a `transform` method that defines and transforms your
+sources into an output event stream. `StreamJob` provides several factory methods to
+create source streams from your configuration:
+
+* `singleSource[IN <: ADT](name:String)`: produces a single input source stream,
+  configured under the provided name, of type `DataStream[IN]`, where `IN` is an event
+  type within your runner's `ADT`. The configured `name` parameter defaults to the first
+  configured source for convenience.
+
+* `connectedSource[IN1 <: ADT, IN2 <: ADT, KEY](name1:String, name2:String, key1:IN1=>KEY, key2:IN2=>KEY): ConnectedStreams[IN1,IN2]`:
+  connects the two streams, configured under the provided names, producing a single stream
+  of type `ConnectedStreams[IN1,IN2]`. A connected stream is effectively a union of the
+  two types of stream. An event on the connected stream is either of type `IN1` or `IN2`.
+  The key functions are used for any `keyBy` operations done on the connected stream. It
+  is important to realize a connected stream is NOT a join between the two streams, and
+  the keys are not used to perform a join. The use case for a connected stream is where
+  the data on one stream dynamically impacts how you want to process the other stream.
+
+* `filterByControlSource[CONTROL <: ADT, DATA <: ADT, KEY](controlName:String, dataName:String, key1:CONTROL=>KEY, key2:DATA=>KEY): DataStream[DATA]`:
+  is a special instance of connected sources, where the first source is a control stream
+  and the second source is a data stream. The control events indicate when the data event
+  stream should be considered active, meaning any data events seen should be emitted. When
+  the control type's `$active`
+  method returns true, the data stream will be considered active, and any data events seen
+  on the connected stream will be emitted to the output. Conversely, when the control
+  type's `$active` method returns
+  `false`, the data stream will be considered inactive, and any data events seen on the
+  connected stream will not be emitted to the output.
+
+* `broadcastConnectedSource[
+  IN <: ADT: TypeInformation, BC <: ADT: TypeInformation, KEY: TypeInformation](
+  keyedSourceName: String, broadcastSourceName: String, keyedSourceGetKeyFunc: IN => KEY)
+  : BroadcastConnectedStream[IN, BC]`: another special connected source that implements
+  Flink's [Broadcast State Pattern](https://nightlies.apache.
+  org/flink/flink-docs-master/docs/dev/datastream/fault-tolerance/broadcast_state/).
+  This `StreamJob` method keys and connects a regular data stream, with a so-called
+  broadcast data stream. A broadcast stream sends copies of all of its elements to all
+  downstream tasks. So in this case, we key the source data function and effectively send
+  a connected stream of the data and broadcast elements to each keyed task. A common use
+  case broadcasts a stream of rule changes that impact how the data stream should be
+  processed. The `BroadcastConnectedStream[IN,BC]` should be processed with a special type
+  of `CoProcessFunction` called a `KeyedBroadcastProcessFunction[KEY, IN, BC, OUT]`, which
+  produces your transformed output data stream of type `DataStream[OUT]`.
+
+`StreamJob` also provides avro versions of all these source factory methods. If your
+sources are Confluent schema-registry aware avro encoded Kafka streams, you should use the
+avro aware versions of these factory methods. For instance, the `singleAvroSource()`
+method can be used to produce such an input datatream. The signatures of these methods are
+more complicated and rely on you to use Flinkrunner's `EmbeddedAvroRecord` and
+`EmbeddedAvroRecordFactory` traits when implementing your event types.
+
+```
+singleAvroSource[
+      IN <: ADT with EmbeddedAvroRecord[INA],
+      INA <: GenericRecord](
+      name: String)(implicit
+      fromKV: EmbeddedAvroRecordInfo[INA] => IN,
+      avroParquetRecordFormat: StreamFormat[INA]): DataStream[IN]
+```
+
+Besides source factory methods, `StreamJob` also provides a method to easily perform
+[windowed aggregations](https://nightlies.apache.
+org/flink/flink-docs-master/docs/dev/table/sql/queries/window-agg/).
+
+```
+def windowedAggregation[
+      E <: ADT: TypeInformation,
+      KEY: TypeInformation,
+      WINDOW <: Window: TypeInformation,
+      AGG <: Aggregate: TypeInformation,
+      QUANTITY <: Quantity[QUANTITY]: TypeInformation,
+      PWF_OUT <: ADT: TypeInformation](
+      source: KeyedStream[E, KEY],
+      initializer: WindowedAggregationInitializer[
+        E,
+        KEY,
+        WINDOW,
+        AGG,
+        QUANTITY,
+        PWF_OUT,
+        ADT
+      ]): DataStream[PWF_OUT]
+```
+
+Finally, `StreamJob` also provides a `run()` method that builds and executes the flink job
+graph defined by your `transform` method.
 
 ### AvroStreamJob
 
@@ -323,6 +427,9 @@ class AvroStreamJob[
   A<:GenericRecord, 
   ADT <: FlinkEvent](runner:FlinkRunner[ADT])
 ```
+
+An `AvroStreamJob` is a specialized `StreamJob` class to support outputting to an avro 
+encoded sink (kafka or parquet-avro files). 
 
 #### EmbeddedAvroRecord
 
@@ -365,7 +472,6 @@ case class EmbeddedAvroRecordInfo[A <: GenericRecord](
 #### EmbeddedAvroParquetRecordFactory
 
 An avro parquet writer factory for types that wrap an avro record.
-
 
 #### EmbeddedAvroParquetRecordFormat
 
