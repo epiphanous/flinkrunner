@@ -8,15 +8,13 @@ import org.apache.flink.api.common.typeinfo.TypeInformation
 
 import java.io.OutputStream
 import java.nio.charset.StandardCharsets
-import java.util
-import scala.collection.JavaConverters._
-import scala.util.Try
 
-/** A thin wrapper to emit an embedded avro record from events into an
-  * output stream in a json (lines) format.
+/** A JSON lines encoder for events with embedded avro records.
   *
   * @param pretty
-  *   true if you want to indent the json code (default = false)
+  *   true if you want to indent the json output (default = false)
+  * @param sortKeys
+  *   true if you want to sort keys in the json output (default = false)
   * @tparam E
   *   the ADT event type that embeds an avro record of type A
   * @tparam A
@@ -29,29 +27,17 @@ class EmbeddedAvroJsonFileEncoder[
     A <: GenericRecord: TypeInformation,
     ADT <: FlinkEvent](pretty: Boolean = false, sortKeys: Boolean = false)
     extends Encoder[E]
-    with JsonCodec
     with LazyLogging {
 
-  lazy val lineEndBytes: Array[Byte] =
-    System.lineSeparator().getBytes(StandardCharsets.UTF_8)
-
-  def asMap(record: A): util.Map[String, AnyRef] =
-    record.getSchema.getFields.asScala.toList
-      .map { f =>
-        val name = f.name()
-        name -> record.get(name)
-      }
-      .toMap
-      .asJava
+  @transient
+  lazy val rowEncoder = new JsonRowEncoder[A](pretty, sortKeys)
 
   override def encode(element: E, stream: OutputStream): Unit =
-    Try(getMapper().writeValueAsBytes(asMap(element.$record)))
+    rowEncoder
+      .encode(element.$record)
       .fold(
-        t => logger.error(s"failed to encode json $element", t),
-        bytes => {
-          stream.write(bytes)
-          stream.write(lineEndBytes)
-        }
+        t => logger.error(s"failed to json encode $element", t),
+        s => stream.write(s.getBytes(StandardCharsets.UTF_8))
       )
 
 }

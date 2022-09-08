@@ -2,15 +2,18 @@ package io.epiphanous.flinkrunner.serde
 
 import com.fasterxml.jackson.databind._
 import com.fasterxml.jackson.databind.json.JsonMapper
+import com.fasterxml.jackson.databind.module.SimpleModule
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import org.apache.avro.generic.GenericRecord
 
 trait JsonCodec {
 
-  def getMapper(
+  def getMapper[E](
+      typeClass: Class[E],
       pretty: Boolean = false,
-      sortKeys: Boolean = false): JsonMapper =
-    JsonMapper
+      sortKeys: Boolean = false): JsonMapper = {
+    val mapper = JsonMapper
       .builder()
       .addModule(DefaultScalaModule)
       .addModule(new JavaTimeModule)
@@ -21,15 +24,20 @@ trait JsonCodec {
         DeserializationFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE,
         false
       )
-      .build()
+    (if (classOf[GenericRecord].isAssignableFrom(typeClass)) {
+       val avroModule = new SimpleModule()
+       avroModule.addSerializer(new AvroJsonSerializer)
+       mapper.addModule(avroModule)
+     } else mapper).build()
+  }
 
   def getWriter[E](
       pretty: Boolean = false,
       sortKeys: Boolean = false,
       typeClass: Class[E]): ObjectWriter =
-    getMapper(pretty, sortKeys).writerFor(typeClass)
+    getMapper(typeClass, pretty, sortKeys).writerFor(typeClass)
 
   def getReader[E](typeClass: Class[E]): ObjectReader =
-    getMapper().readerFor(typeClass)
+    getMapper(typeClass).readerFor(typeClass)
 
 }

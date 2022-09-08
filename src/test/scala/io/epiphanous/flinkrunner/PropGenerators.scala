@@ -7,7 +7,7 @@ trait PropGenerators extends BasePropGenerators {
 
   lazy val aRecordGen: Gen[ARecord]                = for {
     a0 <- idGen()
-    a1 <- Gen.chooseNum(0, 1000)
+    a1 <- Gen.chooseNum(1, 1000)
     a2 <- Gen.chooseNum(1d, 100d)
     a3 <- instantGen()
   } yield ARecord(a0, a1, a2, a3)
@@ -15,11 +15,20 @@ trait PropGenerators extends BasePropGenerators {
 
   lazy val bRecordGen: Gen[BRecord]                = for {
     b0 <- idGen()
-    b1 <- Gen.option(Gen.chooseNum(0, 1000))
+    b1 <- Gen.option(Gen.chooseNum(1, 1000))
     b2 <- Gen.option(Gen.chooseNum(1d, 100d))
     b3 <- instantGen()
   } yield BRecord(b0, b1, b2, b3)
   implicit lazy val bRecordArb: Arbitrary[BRecord] = Arbitrary(bRecordGen)
+
+  lazy val cRecordGen: Gen[CRecord]                = for {
+    id <- idGen()
+    cOptInt <- Gen.option(Gen.chooseNum(1, 1000))
+    cOptDouble <- Gen.option(Gen.chooseNum(1d, 100d))
+    bRecord <- Gen.option(bRecordGen)
+    ts <- instantGen()
+  } yield CRecord(id, cOptInt, cOptDouble, bRecord, ts)
+  implicit lazy val cRecordArb: Arbitrary[CRecord] = Arbitrary(cRecordGen)
 
   lazy val aWrapperGen: Gen[AWrapper]                = for {
     a <- aRecordGen
@@ -35,8 +44,15 @@ trait PropGenerators extends BasePropGenerators {
     bWrapperGen
   )
 
+  lazy val cWrapperGen: Gen[CWrapper]                = for {
+    c <- cRecordGen
+  } yield CWrapper(c)
+  implicit lazy val cWrapperArb: Arbitrary[CWrapper] = Arbitrary(
+    cWrapperGen
+  )
+
   lazy val myAvroADTGen: Gen[MyAvroADT]                =
-    Gen.oneOf(aWrapperGen, bWrapperGen)
+    Gen.oneOf(aWrapperGen, bWrapperGen, cWrapperGen)
   implicit lazy val myAvroADTArb: Arbitrary[MyAvroADT] = Arbitrary(
     myAvroADTGen
   )
