@@ -16,16 +16,16 @@ class EmbeddedAvroJsonFileEncoderTest extends PropSpec {
   def doTest[
       E <: MyAvroADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](
-      pretty: Boolean = false,
-      sortKeys: Boolean = false)(implicit arb: Arbitrary[E]) = {
+      jsonConfig: JsonConfig = JsonConfig())(implicit
+      arb: Arbitrary[E]) = {
     val pop      = genPop[E]()
     val encoder  =
-      new EmbeddedAvroJsonFileEncoder[E, A, MyAvroADT](pretty, sortKeys)
+      new EmbeddedAvroJsonFileEncoder[E, A, MyAvroADT](jsonConfig)
     val baos     = new ByteArrayOutputStream()
     val lines    = ArrayBuffer.empty[String]
     pop.foreach { w =>
       encoder.encode(w, baos)
-      lines += w.toJson(pretty, sortKeys)
+      lines += w.toJson(jsonConfig)
     }
     lines += ""
     val actual   = new String(baos.toByteArray, StandardCharsets.UTF_8)

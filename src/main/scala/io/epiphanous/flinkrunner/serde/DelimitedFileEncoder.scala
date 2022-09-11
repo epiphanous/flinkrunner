@@ -1,5 +1,5 @@
 package io.epiphanous.flinkrunner.serde
-import com.fasterxml.jackson.databind.ObjectWriter
+import com.nimbusds.jose.util.StandardCharset
 import org.apache.flink.api.common.serialization.Encoder
 import org.apache.flink.api.common.typeinfo.TypeInformation
 
@@ -14,30 +14,29 @@ import java.io.OutputStream
   */
 class DelimitedFileEncoder[E: TypeInformation](
     delimitedConfig: DelimitedConfig = DelimitedConfig.CSV)
-    extends Encoder[E]
-    with DelimitedCodec {
+    extends Encoder[E] {
 
   @transient
-  lazy val typeClass: Class[E] =
-    implicitly[TypeInformation[E]].getTypeClass
-
-  @transient
-  lazy val header: Array[Byte] = getHeader(delimitedConfig, typeClass)
-
-  @transient
-  lazy val writer: ObjectWriter =
-    getWriter(delimitedConfig, typeClass)
+  lazy val encoder: DelimitedRowEncoder[E] =
+    new DelimitedRowEncoder[E](delimitedConfig)
 
   @transient
   var out: OutputStream = _
 
   override def encode(element: E, stream: OutputStream): Unit = {
-    if (delimitedConfig.useHeader) {
-      if (out != stream) {
-        out = stream
-        stream.write(header)
-      }
+    if (out != stream) {
+      out = stream
+      encoder.codec.maybeWriteHeader(stream)
     }
-    stream.write(writer.writeValueAsBytes(element))
+    encoder
+      .encode(element)
+      .fold(
+        err =>
+          throw new RuntimeException(
+            s"failed to delimited-encode $element",
+            err
+          ),
+        line => stream.write(line.getBytes(StandardCharset.UTF_8))
+      )
   }
 }

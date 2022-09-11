@@ -17,9 +17,8 @@ class JsonFileEncoderTest extends PropSpec with JsonEncoderTestUtils {
       lines += test.serialize
     }
     val actual   = new String(baos.toByteArray, StandardCharsets.UTF_8)
-    val expected = lines.mkString("", "\n", "\n")
-//    logger.debug("actual:\n" + actual)
-//    logger.debug("expected:\n" + expected)
+    val expected =
+      lines.mkString("", System.lineSeparator(), System.lineSeparator())
     actual shouldEqual expected
   }
 }

@@ -7,14 +7,11 @@ import org.apache.flink.api.common.serialization.Encoder
 import org.apache.flink.api.common.typeinfo.TypeInformation
 
 import java.io.OutputStream
-import java.nio.charset.StandardCharsets
 
 /** A JSON lines encoder for events with embedded avro records.
   *
-  * @param pretty
-  *   true if you want to indent the json output (default = false)
-  * @param sortKeys
-  *   true if you want to sort keys in the json output (default = false)
+  * @param jsonConfig
+  *   json encoder config
   * @tparam E
   *   the ADT event type that embeds an avro record of type A
   * @tparam A
@@ -25,19 +22,14 @@ import java.nio.charset.StandardCharsets
 class EmbeddedAvroJsonFileEncoder[
     E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
     A <: GenericRecord: TypeInformation,
-    ADT <: FlinkEvent](pretty: Boolean = false, sortKeys: Boolean = false)
+    ADT <: FlinkEvent](jsonConfig: JsonConfig = JsonConfig())
     extends Encoder[E]
     with LazyLogging {
 
   @transient
-  lazy val rowEncoder = new JsonRowEncoder[A](pretty, sortKeys)
+  lazy val encoder = new JsonFileEncoder[A](jsonConfig)
 
   override def encode(element: E, stream: OutputStream): Unit =
-    rowEncoder
-      .encode(element.$record)
-      .fold(
-        t => logger.error(s"failed to json encode $element", t),
-        s => stream.write(s.getBytes(StandardCharsets.UTF_8))
-      )
+    encoder.encode(element.$record, stream)
 
 }

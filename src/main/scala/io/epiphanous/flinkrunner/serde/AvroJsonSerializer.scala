@@ -23,6 +23,7 @@ class AvroJsonSerializer
       record: GenericRecord,
       gen: JsonGenerator,
       provider: SerializerProvider): Unit = {
+//    logger.debug(s"serializing avro record: $record")
     gen.writeStartObject()
     record.getSchema.getFields.asScala.foreach { f =>
       _serializeAvroValue(
@@ -72,7 +73,7 @@ class AvroJsonSerializer
           schema.getTypes.asScala.filterNot(s => s.getType == NULL)
         if (nonNullTypes.size > 1) {
           throw new RuntimeException(
-            s"field $name of type union has more than one non-null types: $nonNullTypes"
+            s"field $name of type union has more than one non-null type: $nonNullTypes"
           )
         }
         _serializeAvroValue(

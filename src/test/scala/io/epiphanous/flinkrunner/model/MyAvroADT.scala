@@ -1,6 +1,6 @@
 package io.epiphanous.flinkrunner.model
 
-import io.epiphanous.flinkrunner.serde.DelimitedConfig
+import io.epiphanous.flinkrunner.serde.{DelimitedConfig, JsonConfig}
 import org.apache.avro.generic.GenericRecord
 
 import scala.collection.JavaConverters._
@@ -8,8 +8,7 @@ import scala.language.implicitConversions
 
 sealed trait MyAvroADT extends FlinkEvent {
   def toJson(
-      pretty: Boolean = false,
-      sortKeys: Boolean = false,
+      jsonConfig: JsonConfig = JsonConfig(),
       record: Option[GenericRecord] = None): String
 }
 
@@ -20,37 +19,37 @@ trait TestSerializers[A <: GenericRecord] {
     s""""${s.replaceAll("\"", "\\\n")}""""
 
   def toJson(
-      pretty: Boolean = false,
-      sortKeys: Boolean = false,
+      jsonConfig: JsonConfig = JsonConfig(),
       record: Option[GenericRecord] = None): String = {
     val rec     = record.getOrElse($record)
     val fields  = rec.getSchema.getFields.asScala.toList
       .map(_.name())
-    val sfields = if (sortKeys) fields.sorted else fields
+    val sfields = if (jsonConfig.sortKeys) fields.sorted else fields
     sfields
       .map { name =>
         val value = rec.get(name) match {
-          case None | null             => "null"
-          case Some(s: String)         => _serializeString(s)
-          case Some(r: GenericRecord)  => toJson(pretty, sortKeys, Some(r))
-          case Some(v)                 => v.toString
-          case seq: Seq[String]        =>
-            seq.map(_serializeString).mkString("[", ",", "]")
-          case seq: Seq[GenericRecord] =>
+          case None | null            => "null"
+          case Some(s: String)        => _serializeString(s)
+          case Some(r: GenericRecord) => toJson(jsonConfig, Some(r))
+          case Some(v)                => v.toString
+          case seq: Seq[_]            =>
             seq
-              .map(r => toJson(pretty, sortKeys, Some(r)))
+              .map {
+                case s: String        => _serializeString(s)
+                case r: GenericRecord => toJson(jsonConfig, Some(r))
+                case s                => s.toString
+              }
               .mkString("[", ",", "]")
-          case seq: Seq[_]             => seq.map(_.toString).mkString("[", ",", "]")
-          case s: String               => _serializeString(s)
-          case r: GenericRecord        => toJson(pretty, sortKeys, Some(r))
-          case v                       => v.toString
+          case s: String              => _serializeString(s)
+          case r: GenericRecord       => toJson(jsonConfig, Some(r))
+          case v                      => v.toString
         }
-        s""""$name":${if (pretty) " " else ""}$value"""
+        s""""$name":${if (jsonConfig.pretty) " " else ""}$value"""
       }
       .mkString(
-        if (pretty) "{\n  " else "{",
-        if (pretty) ",\n  " else ",",
-        if (pretty) "\n}" else "}"
+        if (jsonConfig.pretty) "{\n  " else "{",
+        if (jsonConfig.pretty) ",\n  " else ",",
+        if (jsonConfig.pretty) "\n}" else "}"
       )
   }
 

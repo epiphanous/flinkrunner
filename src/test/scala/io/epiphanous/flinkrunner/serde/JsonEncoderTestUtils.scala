@@ -20,9 +20,9 @@ trait JsonEncoderTestUtils extends BasePropGenerators {
 
   /** TODO: improve support for testing pretty/sortkeys
     */
-  def getFileEncoder(pretty: Boolean = false, sortKeys: Boolean = false) =
-    new JsonFileEncoder[JsonEncoderTest](pretty, sortKeys)
+  def getFileEncoder(jsonConfig: JsonConfig = JsonConfig()) =
+    new JsonFileEncoder[JsonEncoderTest](jsonConfig)
 
-  def getRowEncoder(pretty: Boolean = false, sortKeys: Boolean = false) =
-    new JsonRowEncoder[JsonEncoderTest](pretty, sortKeys)
+  def getRowEncoder(jsonConfig: JsonConfig = JsonConfig()) =
+    new JsonRowEncoder[JsonEncoderTest](jsonConfig)
 }

@@ -21,8 +21,10 @@ object RowEncoder {
     format match {
       case Json =>
         new JsonRowEncoder(
-          properties.getProperty("pretty", "false").toBoolean,
-          properties.getProperty("sort.keys", "false").toBoolean
+          JsonConfig(
+            properties.getProperty("pretty", "false").toBoolean,
+            properties.getProperty("sort.keys", "false").toBoolean
+          )
         )
       case _    =>
         new DelimitedRowEncoder(DelimitedConfig.get(format, properties))

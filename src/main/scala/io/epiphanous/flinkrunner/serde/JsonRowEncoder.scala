@@ -1,28 +1,21 @@
 package io.epiphanous.flinkrunner.serde
 
-import com.fasterxml.jackson.databind.ObjectWriter
 import org.apache.flink.api.common.typeinfo.TypeInformation
 
 import scala.util.Try
 
 class JsonRowEncoder[E: TypeInformation](
-    pretty: Boolean = false,
-    sortKeys: Boolean = false)
-    extends RowEncoder[E]
-    with JsonCodec {
+    jsonConfig: JsonConfig = JsonConfig())
+    extends RowEncoder[E] {
 
   @transient
-  val writer: ObjectWriter =
-    getWriter(
-      pretty,
-      sortKeys,
-      implicitly[TypeInformation[E]].getTypeClass
-    )
+  lazy val codec: Codec[E] =
+    Codec(implicitly[TypeInformation[E]].getTypeClass, jsonConfig)
 
   override def encode(element: E): Try[String] = {
     Try(
-      writer.writeValueAsString(element) + System
-        .lineSeparator()
+      codec.jsonWriter.writeValueAsString(element) + jsonConfig.endOfLine
+        .getOrElse("")
     )
   }
 }
