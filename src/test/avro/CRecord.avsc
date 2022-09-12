@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "CRecord",
+  "namespace": "io.epiphanous.flinkrunner.model",
+  "fields": [
+    { "name": "id", "type": "string" },
+    { "name": "cOptInt", "type": ["null", "int"] },
+    { "name": "cOptDouble", "type": ["null", "double"] },
+    { "name": "bRecord", "type": ["null", "io.epiphanous.flinkrunner.model.BRecord"] },
+    { "name": "ts", "type": {"type": "long", "logicalType": "timestamp-millis" }}
+  ]
+}

@@ -1,19 +1,16 @@
 package io.epiphanous.flinkrunner.serde
 
-import com.fasterxml.jackson.databind.ObjectReader
 import org.apache.flink.api.common.typeinfo.TypeInformation
 
 import scala.util.Try
 
-class JsonRowDecoder[E: TypeInformation]
-    extends RowDecoder[E]
-    with JsonCodec {
+class JsonRowDecoder[E: TypeInformation] extends RowDecoder[E] {
 
   @transient
-  lazy val reader: ObjectReader = getReader(
+  lazy val codec: Codec[E] = Codec(
     implicitly[TypeInformation[E]].getTypeClass
   )
 
   override def decode(line: String): Try[E] =
-    Try(reader.readValue(line))
+    Try(codec.jsonReader.readValue(line))
 }

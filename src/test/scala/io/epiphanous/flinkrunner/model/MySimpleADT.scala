@@ -1,7 +1,5 @@
 package io.epiphanous.flinkrunner.model
 
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize
-
 import java.time.Instant
 
 sealed trait MySimpleADT extends FlinkEvent
@@ -38,7 +36,6 @@ case class SimpleB(
     id: String,
     b0: String,
     b1: Double,
-    @JsonDeserialize(contentAs = classOf[java.lang.Integer])
     b2: Option[Int],
     ts: Instant)
     extends MySimpleADT {

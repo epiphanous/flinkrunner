@@ -1,6 +1,5 @@
 package io.epiphanous.flinkrunner.serde
 
-import com.fasterxml.jackson.databind.ObjectWriter
 import org.apache.flink.api.common.typeinfo.TypeInformation
 
 import scala.util.Try
@@ -13,13 +12,14 @@ import scala.util.Try
   */
 class DelimitedRowEncoder[E: TypeInformation](
     delimitedConfig: DelimitedConfig = DelimitedConfig.CSV)
-    extends RowEncoder[E]
-    with DelimitedCodec {
+    extends RowEncoder[E] {
 
   @transient
-  lazy val writer: ObjectWriter =
-    getWriter(delimitedConfig, implicitly[TypeInformation[E]].getTypeClass)
+  lazy val codec: Codec[E] = Codec(
+    implicitly[TypeInformation[E]].getTypeClass,
+    delimitedConfig = delimitedConfig
+  )
 
   override def encode(element: E): Try[String] =
-    Try(writer.writeValueAsString(element))
+    Try(codec.csvWriter.writeValueAsString(element))
 }

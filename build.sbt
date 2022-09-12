@@ -29,14 +29,14 @@ resolvers += "Local Maven Repository" at "file://" + Path.userHome.absolutePath 
 resolvers += "Confluent Repository" at "https://packages.confluent.io/maven/"
 
 val V = new {
-  val flink               = "1.15.1"
+  val flink               = "1.15.2"
   val logback             = "1.2.11"
   val scalaLogging        = "3.9.5"
   val scalaTest           = "3.2.13"
   val scalaTestPlus       = "3.2.13.0"
   val scalaCheck          = "1.16.0"
   val testContainersScala = "0.40.10"
-  val jackson             = "2.13.3"
+  val jackson             = "2.13.4"
   val circe               = "0.14.2"
   val http4s              = "0.23.12"
   val enumeratum          = "1.7.0"
@@ -45,7 +45,7 @@ val V = new {
   val squants             = "1.8.3"
   val confluentAvroSerde  = "7.1.1"
   val parquet             = "1.12.3"
-  val awsSdk              = "1.12.290"
+  val awsSdk              = "1.12.296"
   val jdbcMysql           = "8.0.30"
   val jdbcPg              = "42.5.0"
   val jdbcMssql           = "11.2.0.jre11"
@@ -121,7 +121,6 @@ val otherDeps = Seq(
 //  "com.github.pjfanning"            %% "jackson-scala-reflect-extensions" % V.jackson,
   "com.fasterxml.jackson.dataformat" % "jackson-dataformat-csv"           % V.jackson,
   "com.fasterxml.jackson.datatype"   % "jackson-datatype-jsr310"          % V.jackson,
-  "com.fasterxml.jackson.dataformat" % "jackson-dataformat-avro"          % V.jackson,
   "com.dimafeng"                    %% "testcontainers-scala-scalatest"   % V.testContainersScala % Test,
   "com.dimafeng"                    %% "testcontainers-scala-mysql"       % V.testContainersScala % Test,
   "mysql"                            % "mysql-connector-java"             % V.jdbcMysql           % Provided,

@@ -1,6 +1,5 @@
 package io.epiphanous.flinkrunner.serde
 
-import com.fasterxml.jackson.dataformat.csv.CsvSchema
 import io.epiphanous.flinkrunner.model.StreamFormatName
 
 import java.util.Properties
@@ -28,43 +27,12 @@ case class DelimitedConfig(
     useHeader: Boolean = false,
     useQuotes: Boolean = false,
     columns: List[String] = List.empty
-) {
-
-  /** Creates a new CsvSchema object based on the DelimitedConfig settings.
-    *
-    * Note: If DelimitedConfig has a non-empty column list, any existing
-    * columns in the start schema will be replaced.
-    *
-    * @param start
-    *   a starting schema that we apply our settings into
-    * @return
-    *   updated CsvSchema
-    */
-  def intoSchema(start: CsvSchema): CsvSchema = {
-    val csvSchema = {
-      val s = start
-        .withColumnSeparator(columnSeparator)
-        .withLineSeparator(lineSeparator)
-        .withEscapeChar(escapeChar)
-        .withUseHeader(useHeader)
-      if (useQuotes) s.withQuoteChar(quoteCharacter)
-      else s.withoutQuoteChar()
-    }
-    if (columns.isEmpty) csvSchema
-    else {
-      columns
-        .foldLeft(csvSchema.withoutColumns().rebuild())((b, f) =>
-          b.addColumn(f)
-        )
-        .build()
-    }
-  }
-}
+)
 
 object DelimitedConfig {
-  val CSV = DelimitedConfig()
-  val TSV = DelimitedConfig('\t')
-  val PSV = DelimitedConfig('|')
+  val CSV: DelimitedConfig = DelimitedConfig()
+  val TSV: DelimitedConfig = DelimitedConfig('\t')
+  val PSV: DelimitedConfig = DelimitedConfig('|')
 
   /** Produces a DelimitedConfig based on the request StreamFormatName,
     * properties and columns passed in.

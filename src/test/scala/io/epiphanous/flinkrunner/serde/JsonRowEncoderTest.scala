@@ -11,7 +11,7 @@ class JsonRowEncoderTest extends PropSpec with JsonEncoderTestUtils {
         .encode(test)
         .fold(
           t => fail(t.getMessage),
-          _ shouldEqual (test.serialize + "\n")
+          _ shouldEqual (test.serialize + System.lineSeparator())
         )
     }
   }

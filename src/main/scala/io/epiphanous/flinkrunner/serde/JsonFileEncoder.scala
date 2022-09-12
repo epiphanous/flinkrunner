@@ -1,5 +1,5 @@
 package io.epiphanous.flinkrunner.serde
-import com.fasterxml.jackson.databind.ObjectWriter
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.flink.api.common.serialization.Encoder
 import org.apache.flink.api.common.typeinfo.TypeInformation
 
@@ -8,25 +8,25 @@ import java.nio.charset.StandardCharsets
 
 /** Encoder for writing an element to a json text file output stream
   *
+  * @param jsonConfig
+  *   a Json encoder config
   * @tparam E
   *   the type to encode into the file
   */
 class JsonFileEncoder[E: TypeInformation](
-    pretty: Boolean = false,
-    sortKeys: Boolean = false)
+    jsonConfig: JsonConfig = JsonConfig())
     extends Encoder[E]
-    with JsonCodec {
+    with LazyLogging {
 
   @transient
-  lazy val writer: ObjectWriter = getWriter(
-    pretty,
-    sortKeys,
-    implicitly[TypeInformation[E]].getTypeClass
-  )
+  lazy val rowEncoder = new JsonRowEncoder[E](jsonConfig)
 
-  override def encode(element: E, stream: OutputStream): Unit =
-    stream.write(
-      (writer.writeValueAsString(element) + System.lineSeparator())
-        .getBytes(StandardCharsets.UTF_8)
-    )
+  override def encode(element: E, stream: OutputStream): Unit = {
+    rowEncoder
+      .encode(element)
+      .fold(
+        t => logger.error(s"failed to json-encode $element", t),
+        s => stream.write(s.getBytes(StandardCharsets.UTF_8))
+      )
+  }
 }
