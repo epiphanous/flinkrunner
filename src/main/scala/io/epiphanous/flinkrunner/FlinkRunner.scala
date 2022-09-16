@@ -7,7 +7,6 @@ import io.epiphanous.flinkrunner.model.sink._
 import io.epiphanous.flinkrunner.model.source._
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.connector.file.src.reader.StreamFormat
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.table.api.bridge.scala.StreamTableEnvironment
@@ -27,9 +26,6 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
 
   /** the configured StreamTableEnvironment (for table jobs) */
   val tableEnv: StreamTableEnvironment = StreamTableEnvironment.create(env)
-
-  /** True if [[checkResultsOpt]] is not empty */
-  val mockEdges: Boolean = checkResultsOpt.nonEmpty
 
   config.showConfig match {
     case ShowConfigOption.None      => ()
@@ -151,8 +147,8 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
   def configToSource[E <: ADT: TypeInformation](
       sourceConfig: SourceConfig[ADT]): DataStream[E] = {
     checkResultsOpt
-      .map(c => c.getInputEvents[E](sourceConfig))
-      .getOrElse(Seq.empty[E]) match {
+      .map(c => c.getInputEvents[E](sourceConfig.name))
+      .getOrElse(List.empty[E]) match {
       case mockEvents if mockEvents.nonEmpty =>
         val lbl = s"mock:${sourceConfig.label}"
         env.fromCollection(mockEvents).name(lbl).uid(lbl)
@@ -191,10 +187,9 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](
       sourceConfig: SourceConfig[ADT])(implicit
-      fromKV: EmbeddedAvroRecordInfo[A] => E,
-      avroParquetRecordFormat: StreamFormat[A]): DataStream[E] =
+      fromKV: EmbeddedAvroRecordInfo[A] => E): DataStream[E] =
     checkResultsOpt
-      .map(c => c.getInputEvents[E](sourceConfig))
+      .map(c => c.getInputEvents[E](sourceConfig.name))
       .getOrElse(Seq.empty[E]) match {
       case mockEvents if mockEvents.nonEmpty =>
         val lbl = s"mock:${sourceConfig.label}"

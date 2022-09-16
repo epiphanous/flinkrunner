@@ -40,12 +40,23 @@ case class FileSourceConfig[ADT <: FlinkEvent](
   val format: StreamFormatName = StreamFormatName.withNameInsensitive(
     config.getStringOpt(pfx("format")).getOrElse("json")
   )
-  val origin: Path             = new Path(getResourceOrFile(path))
-  val monitorDuration: Long    = properties
+  val isAvroFormat: Boolean    =
+    !Seq(StreamFormatName.Parquet, StreamFormatName.Avro)
+      .contains(format)
+  val badFormatAvroMessage     =
+    s"Invalid format ${format.entryName} for avro file source $name. Use ${StreamFormatName.Avro} for plain avro files or ${StreamFormatName.Parquet} for avro parquet files."
+  val badFormatNonAvroMessage  =
+    s"Invalid format ${format.entryName} for non-avro file source $name."
+
+  val origin: Path          = new Path(getResourceOrFile(path))
+  val monitorDuration: Long = properties
     .getProperty("monitor.continuously", "0")
     .toLong
 
   def getStreamFormat[E <: ADT: TypeInformation]: StreamFormat[E] = ???
+
+  def getAvroStreamFormat[A <: GenericRecord]: StreamFormat[A] =
+    ???
 
   def getRowDecoder[E <: ADT: TypeInformation]: RowDecoder[E] =
     format match {
@@ -56,6 +67,10 @@ case class FileSourceConfig[ADT <: FlinkEvent](
 
   override def getSource[E <: ADT: TypeInformation]
       : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] = {
+    require(
+      !isAvroFormat,
+      badFormatNonAvroMessage
+    )
     val fsb =
       FileSource.forRecordStreamFormat(getStreamFormat, origin)
     Right(
@@ -77,6 +92,10 @@ case class FileSourceConfig[ADT <: FlinkEvent](
     */
   override def getSourceStream[E <: ADT: TypeInformation](
       env: StreamExecutionEnvironment): DataStream[E] = {
+    require(
+      !isAvroFormat,
+      badFormatNonAvroMessage
+    )
     val rawName = s"raw:$label"
     val decoder = getRowDecoder[E]
     val fsb     =
@@ -135,12 +154,17 @@ case class FileSourceConfig[ADT <: FlinkEvent](
   override def getAvroSource[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](implicit
-      fromKV: EmbeddedAvroRecordInfo[A] => E,
-      avroParquetRecordFormat: StreamFormat[A])
+      fromKV: EmbeddedAvroRecordInfo[A] => E)
       : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] = {
+    require(
+      format == StreamFormatName.Parquet,
+      badFormatAvroMessage
+    )
     val fsb =
       FileSource.forRecordStreamFormat(
-        new EmbeddedAvroParquetRecordFormat[E, A, ADT],
+        new EmbeddedAvroParquetRecordFormat[E, A, ADT](
+          getAvroStreamFormat
+        ),
         origin
       )
     Right(
@@ -148,5 +172,20 @@ case class FileSourceConfig[ADT <: FlinkEvent](
          fsb.monitorContinuously(Duration.ofSeconds(monitorDuration))
        else fsb).build()
     )
+  }
+
+  override def getAvroSourceStream[
+      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+      A <: GenericRecord: TypeInformation](
+      env: StreamExecutionEnvironment)(implicit
+      fromKV: EmbeddedAvroRecordInfo[A] => E): DataStream[E] = {
+    format match {
+      case StreamFormatName.Parquet => super.getAvroSourceStream[E, A](env)
+      case StreamFormatName.Avro    =>
+        val inputFormat = new EmbeddedAvroInputFormat[E, A, ADT](path)
+        env.createInput(inputFormat)
+      case _                        =>
+        throw new RuntimeException(badFormatAvroMessage)
+    }
   }
 }

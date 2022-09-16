@@ -7,15 +7,14 @@ object FileUtils {
 
   val RESOURCE_PATTERN: Regex = "resource:///?(.*)".r
 
-  /**
-   * Returns the actual path to a resource file named filename or
-   * filename.gz.
-   *
-   * @param filename
-   *   the name of file
-   * @return
-   *   String
-   */
+  /** Returns the actual path to a resource file named filename or
+    * filename.gz.
+    *
+    * @param filename
+    *   the name of file
+    * @return
+    *   String
+    */
   @throws[FileNotFoundException]
   def getResource(filename: String): String = {
     val loader   = getClass.getClassLoader

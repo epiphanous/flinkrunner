@@ -4,7 +4,12 @@ import com.typesafe.scalalogging.LazyLogging
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
 import io.confluent.kafka.serializers.KafkaAvroDeserializer
 import io.epiphanous.flinkrunner.model.source.KafkaSourceConfig
-import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, EmbeddedAvroRecordInfo, FlinkEvent, SchemaRegistryConfig}
+import io.epiphanous.flinkrunner.model.{
+  EmbeddedAvroRecord,
+  EmbeddedAvroRecordInfo,
+  FlinkEvent,
+  SchemaRegistryConfig
+}
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.serialization.DeserializationSchema
 import org.apache.flink.api.common.typeinfo.{TypeHint, TypeInformation}

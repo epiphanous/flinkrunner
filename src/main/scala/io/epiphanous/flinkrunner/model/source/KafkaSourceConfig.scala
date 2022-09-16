@@ -1,16 +1,21 @@
 package io.epiphanous.flinkrunner.model.source
 
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.serde.{ConfluentAvroRegistryKafkaRecordDeserializationSchema, JsonKafkaRecordDeserializationSchema}
+import io.epiphanous.flinkrunner.serde.{
+  ConfluentAvroRegistryKafkaRecordDeserializationSchema,
+  JsonKafkaRecordDeserializationSchema
+}
 import io.epiphanous.flinkrunner.util.ConfigToProps
 import io.epiphanous.flinkrunner.util.ConfigToProps._
 import io.epiphanous.flinkrunner.util.StreamUtils.RichProps
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.connector.source.{Source, SourceSplit}
-import org.apache.flink.connector.file.src.reader.StreamFormat
 import org.apache.flink.connector.kafka.source.KafkaSource
-import org.apache.flink.connector.kafka.source.enumerator.initializer.{NoStoppingOffsetsInitializer, OffsetsInitializer}
+import org.apache.flink.connector.kafka.source.enumerator.initializer.{
+  NoStoppingOffsetsInitializer,
+  OffsetsInitializer
+}
 import org.apache.flink.connector.kafka.source.reader.deserializer.KafkaRecordDeserializationSchema
 import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.kafka.clients.consumer.OffsetResetStrategy
@@ -31,7 +36,10 @@ case class KafkaSourceConfig[ADT <: FlinkEvent](
   )
   val topic: String                       = config.getString(pfx("topic"))
   val isKeyed: Boolean                    =
-    config.getBooleanOpt(pfx("isKeyed")).getOrElse(true)
+    Seq("is.keyed", "keyed", "isKeyed")
+      .flatMap(c => config.getBooleanOpt(pfx(c)))
+      .headOption
+      .getOrElse(false)
   val bootstrapServers: String            =
     properties.getProperty("bootstrap.servers")
   val bounded: Boolean                    =
@@ -122,8 +130,7 @@ case class KafkaSourceConfig[ADT <: FlinkEvent](
   override def getAvroSource[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](implicit
-      fromKV: EmbeddedAvroRecordInfo[A] => E,
-      avroParquetRecordFormat: StreamFormat[A])
+      fromKV: EmbeddedAvroRecordInfo[A] => E)
       : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] =
     Right(_getSource(getAvroDeserializationSchema[E, A]))
 

@@ -8,15 +8,15 @@ import org.apache.flink.core.fs.FSDataInputStream
 
 /** A StreamFormat to read parquet avro files containing a type that embeds
   * an avro record.
+  * @param avroParquetRecordFormat
+  *   An avro parquet record format to read avro records from a parquet
+  *   file. This can be provided by having your E type's companion object
+  *   extend the EmbeddedAvroRecordFactory trait and implement it's
+  *   avroParquetRecordFormatOpt member.
   * @param fromKV
   *   An implicitly provided method for creating an instance of type E from
   *   an avro record of type A. This is provided by having your E type's
   *   companion object extend the EmbeddedAvroRecordFactory trait.
-  * @param avroParquetRecordFormat
-  *   An implicitly provided avro parquet record format to read avro
-  *   records from a parquet file. This can be provided by having your E
-  *   type's companion object extend the EmbeddedAvroRecordFactory trait
-  *   and implement it's avroParquetRecordFormat member.
   * @tparam E
   *   a type that is an ADT and embeds an avro record of type A
   * @tparam A
@@ -27,9 +27,8 @@ import org.apache.flink.core.fs.FSDataInputStream
 class EmbeddedAvroParquetRecordFormat[
     E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
     A <: GenericRecord,
-    ADT <: FlinkEvent](implicit
-    fromKV: EmbeddedAvroRecordInfo[A] => E,
-    val avroParquetRecordFormat: StreamFormat[A])
+    ADT <: FlinkEvent](avroParquetRecordFormat: StreamFormat[A])(implicit
+    fromKV: EmbeddedAvroRecordInfo[A] => E)
     extends StreamFormat[E] {
 
   override def createReader(

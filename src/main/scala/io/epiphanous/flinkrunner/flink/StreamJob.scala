@@ -17,7 +17,6 @@ import io.epiphanous.flinkrunner.util.StreamUtils.Pipe
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.state.MapStateDescriptor
 import org.apache.flink.api.common.typeinfo.{TypeHint, TypeInformation}
-import org.apache.flink.connector.file.src.reader.StreamFormat
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.streaming.api.windowing.time.Time
 import org.apache.flink.streaming.api.windowing.windows.Window
@@ -230,8 +229,7 @@ abstract class StreamJob[
       IN <: ADT with EmbeddedAvroRecord[INA]: TypeInformation,
       INA <: GenericRecord: TypeInformation](
       name: String = runner.getDefaultSourceName)(implicit
-      fromKV: EmbeddedAvroRecordInfo[INA] => IN,
-      avroParquetRecordFormat: StreamFormat[INA]): DataStream[IN] =
+      fromKV: EmbeddedAvroRecordInfo[INA] => IN): DataStream[IN] =
     runner.configToAvroSource[IN, INA](runner.getSourceConfig(name))
 
   /** Create a connected data stream joining two avro source streams by a
@@ -278,10 +276,8 @@ abstract class StreamJob[
       in1GetKeyFunc: IN1 => KEY,
       in2GetKeyFunc: IN2 => KEY)(implicit
       fromKV1: EmbeddedAvroRecordInfo[IN1A] => IN1,
-      fromKV2: EmbeddedAvroRecordInfo[IN2A] => IN2,
-      avroParquetRecordFormat1: StreamFormat[IN1A],
-      avroParquetRecordFormat2: StreamFormat[IN2A])
-      : ConnectedStreams[IN1, IN2] = {
+      fromKV2: EmbeddedAvroRecordInfo[IN2A] => IN2
+  ): ConnectedStreams[IN1, IN2] = {
     val source1 = singleAvroSource[IN1, IN1A](source1Name)
     val source2 = singleAvroSource[IN2, IN2A](source2Name)
     source1.connect(source2).keyBy[KEY](in1GetKeyFunc, in2GetKeyFunc)
@@ -337,10 +333,8 @@ abstract class StreamJob[
       controlGetKeyFunc: CONTROL => KEY,
       dataGetKeyFunc: DATA => KEY)(implicit
       fromKVControl: EmbeddedAvroRecordInfo[CONTROLA] => CONTROL,
-      fromKVData: EmbeddedAvroRecordInfo[DATAA] => DATA,
-      avroParquetRecordFormatControl: StreamFormat[CONTROLA],
-      avroParquetRecordFormatData: StreamFormat[DATAA])
-      : DataStream[DATA] = {
+      fromKVData: EmbeddedAvroRecordInfo[DATAA] => DATA
+  ): DataStream[DATA] = {
     val controlLockoutDuration                                          =
       config.getDuration("control.lockout.duration").toMillis
     implicit val eitherTypeInfo: TypeInformation[Either[CONTROL, DATA]] =
@@ -433,9 +427,7 @@ abstract class StreamJob[
       broadcastSourceName: String,
       keyedSourceGetKeyFunc: IN => KEY)(implicit
       fromKVIN: EmbeddedAvroRecordInfo[INA] => IN,
-      fromKVBC: EmbeddedAvroRecordInfo[BCA] => BC,
-      avroParquetRecordFormatIn: StreamFormat[INA],
-      avroParquetRecordFormatBc: StreamFormat[BCA])
+      fromKVBC: EmbeddedAvroRecordInfo[BCA] => BC)
       : BroadcastConnectedStream[IN, BC] = {
     val keyedSource     =
       singleAvroSource[IN, INA](keyedSourceName)
@@ -543,7 +535,6 @@ abstract class StreamJob[
           s"routing job ${config.jobName} results back through CheckResults<${checkResults.name}>"
         )
         checkResults.checkOutputEvents[OUT](
-          runner.getSinkConfig(),
           stream.executeAndCollect(
             config.jobName,
             checkResults.collectLimit

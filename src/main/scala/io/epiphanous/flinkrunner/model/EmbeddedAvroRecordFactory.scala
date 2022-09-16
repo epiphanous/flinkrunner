@@ -26,24 +26,7 @@ trait EmbeddedAvroRecordFactory[
     */
   implicit def fromKV(recordInfo: EmbeddedAvroRecordInfo[A]): E
 
-  /** A stream format for reading avro records from parquet files. This is
-    * only needed in cases where you have an avro parquet source. You can
-    * provide this simply by using
-    *
-    * {{{AvroParquetReaders.forSpecificRecord(YOUR-AVRO-CLASS)}}}
-    *
-    * or {{{AvroParquetReaders.forGenericRecord(YOUR-SCHEMA)}}}
-    *
-    * depending on whether your embedded avro type is a specific or generic
-    * record. It usually will be specific.
-    *
-    * This is another leak in this leaky abstraction of embedded avro
-    * records, another annoying bit of boilerplate. But it's required
-    * because of Java's type erasure on the generic embedded avro type A.
-    *
-    * Important: This is intentionally unimplemented so we don't force
-    * implementers of this trait to provide one, but throw if it's needed,
-    * but not provided by the implementer
+  /** A stream format for reading avro records from parquet files.
     */
-  implicit def avroParquetRecordFormat: StreamFormat[A] = ???
+  implicit val avroParquetRecordFormatOpt: Option[StreamFormat[A]] = None
 }
