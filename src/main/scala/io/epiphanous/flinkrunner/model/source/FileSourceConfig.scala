@@ -182,8 +182,7 @@ case class FileSourceConfig[ADT <: FlinkEvent](
     format match {
       case StreamFormatName.Parquet => super.getAvroSourceStream[E, A](env)
       case StreamFormatName.Avro    =>
-        val inputFormat = new EmbeddedAvroInputFormat[E, A, ADT](path)
-        env.createInput(inputFormat)
+        env.createInput(new EmbeddedAvroInputFormat[E, A, ADT](origin))
       case _                        =>
         throw new RuntimeException(badFormatAvroMessage)
     }

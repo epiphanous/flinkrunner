@@ -251,7 +251,7 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
   )
 
   lazy val disableGenericTypes: Boolean               =
-    getBooleanOpt("disable.generic.types").getOrElse(true)
+    getBooleanOpt("disable.generic.types").getOrElse(false)
   lazy val systemHelp: String                         = _config.getString("system.help")
   lazy val jobHelp: String                            = getString("help")
   lazy val jobDescription: String                     = getString("description")
