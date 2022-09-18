@@ -21,6 +21,7 @@ class FileSourceConfigTest extends PropSpec {
 //      println(out.map(_.toString).mkString("\n"))
       out.length shouldEqual 20
       out.head.asInstanceOf[BWrapper].$record.b0 shouldEqual "lmjr"
+      ()
     }
   }
 
@@ -30,7 +31,7 @@ class FileSourceConfigTest extends PropSpec {
       singleAvroSource[BWrapper, BRecord]()
   }
 
-  property("getAvroSourceStream Avro format property") {
+  ignore("getAvroSourceStream Avro format property") {
     val optConfig =
       """
         |execution.runtime-mode = batch
