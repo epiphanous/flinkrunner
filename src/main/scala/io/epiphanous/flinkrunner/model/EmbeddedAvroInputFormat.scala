@@ -55,10 +55,15 @@ class EmbeddedAvroInputFormat[
 
   override def reachedEnd(): Boolean = avroInputFormat.reachedEnd()
 
-  override def nextRecord(reuse: E): E =
-    AvroUtils.toEmbeddedAvroInstance[E, A, ADT](
-      avroInputFormat.nextRecord(reuse.$record),
-      typeClass
-    )
+  override def nextRecord(reuse: E): E = {
+    Option(avroInputFormat.nextRecord(reuse.$record))
+      .map(record =>
+        AvroUtils.toEmbeddedAvroInstance[E, A, ADT](
+          record,
+          typeClass
+        )
+      )
+      .getOrElse(null.asInstanceOf[E]) // fugly to compile
+  }
 
 }

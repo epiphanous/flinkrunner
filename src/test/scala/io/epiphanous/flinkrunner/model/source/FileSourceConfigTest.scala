@@ -20,9 +20,7 @@ class FileSourceConfigTest extends PropSpec {
         out: List[OUT]): Unit = {
 //      println(out.map(_.toString).mkString("\n"))
       out.length shouldEqual 20
-      out.head.asInstanceOf[BWrapper].$record.b1 shouldEqual Some(
-        825007375
-      )
+      out.head.asInstanceOf[BWrapper].$record.b0 shouldEqual "lmjr"
     }
   }
 

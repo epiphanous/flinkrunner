@@ -9,8 +9,8 @@ import org.apache.flink.connector.file.src.reader.StreamFormat
 import org.apache.flink.core.fs.FSDataInputStream
 import org.apache.flink.formats.parquet.avro.AvroParquetReaders
 
-/** A StreamFormat to read avro parquet files containing a type that embeds
-  * an avro record.
+/** A StreamFormat to read avro parquet files to produce a type E that
+  * embeds an avro record.
   * @param fromKV
   *   An implicitly provided method for creating an instance of type E from
   *   an avro record of type A. This is provided by having your E type's
@@ -88,11 +88,16 @@ class EmbeddedAvroParquetInputFormat[
   private def getReader(avroReader: StreamFormat.Reader[GenericRecord])
       : StreamFormat.Reader[E] =
     new StreamFormat.Reader[E] {
-      override def read(): E =
-        AvroUtils.toEmbeddedAvroInstance[E, A, ADT](
-          avroReader.read(),
-          typeClass
-        )
+      override def read(): E = {
+        Option(avroReader.read())
+          .map(record =>
+            AvroUtils.toEmbeddedAvroInstance[E, A, ADT](
+              record,
+              typeClass
+            )
+          )
+          .getOrElse(null.asInstanceOf[E]) // fugly for compiler
+      }
 
       override def close(): Unit = avroReader.close()
     }

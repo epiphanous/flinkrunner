@@ -2,11 +2,18 @@ package io.epiphanous.flinkrunner.model
 
 import org.apache.avro.generic.GenericRecord
 
-/** Event types that wrap avro records should implement this trait to
-  * support avro serialization with
-  * ConfluentAvroRegistryKafkaRecordSerializationSchema. A companion trait,
-  * EmbeddedAvroRecordFactory, can be used to support deserializing avro
-  * records into flink events.
+/** Event types that wrap avro records should implement this trait. This
+  * trait works with other avro related features in Flinkrunner, such as
+  * avro serdes for confluent schema registry and reading and writing avro
+  * and parquet files. A companion trait, EmbeddedAvroRecordFactory, can be
+  * used to support deserializing avro records into flink events.
+  *
+  * The embedded type can be a specific record or a generic record. Because
+  * generated specific record types are already associated with a schema,
+  * while GenericRecord is not, it is usually preferable to use specific
+  * types, via code generation. If you need to embed a generic record, you
+  * will have to provide a schema at runtime, which is sometimes less
+  * convenient.
   *
   * @tparam A
   *   An avro record type

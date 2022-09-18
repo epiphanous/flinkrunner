@@ -3,10 +3,9 @@ package io.epiphanous.flinkrunner.model
 import org.apache.avro.generic.GenericRecord
 
 /** Companion objects of event types that wrap avro records should
-  * implement this trait to support avro deserialization with
-  * ConfluentAvroRegistryKafkaDeserializationSchema. A companion trait,
-  * EmbeddedAvroRecord, can be used to support serializing avro records
-  * from the flink events that implement it.
+  * implement this trait to support avro deserialization. A companion
+  * trait, EmbeddedAvroRecord, can be used to support serializing avro
+  * records from the flink events that implement it.
   * @tparam E
   *   a flink event that implements EmbeddedAvroRecord[A]
   * @tparam A

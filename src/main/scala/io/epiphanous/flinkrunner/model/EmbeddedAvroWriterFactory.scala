@@ -31,7 +31,7 @@ class EmbeddedAvroWriterFactory[
     E <: ADT with EmbeddedAvroRecord[A],
     A <: GenericRecord: TypeInformation,
     ADT <: FlinkEvent](
-    isParquet: Boolean = true,
+    isParquet: Boolean,
     optSchema: Option[Schema] = None)
     extends BulkWriter.Factory[E] {
 

@@ -6,4 +6,3 @@ project/target
 *.log
 *.log_*
 log.file_IS_UNDEFINED*
-src/test/resources/avro-test/.brec*

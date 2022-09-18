@@ -45,8 +45,6 @@ import scala.util.{Failure, Success}
   * }}}
   *
   * Configuration options:
-  *   - `connector`: `file` (required only if it can't be inferred from the
-  *     source name)
   *   - `path`: a required config specifying the location of the directory
   *     or file
   *   - `format`: an optional config (defaults to `json`) identifying the
