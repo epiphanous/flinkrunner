@@ -1,13 +1,11 @@
 package io.epiphanous.flinkrunner.model
 
+import io.epiphanous.flinkrunner.util.AvroUtils
 import org.apache.avro.generic.GenericRecord
-import org.apache.avro.specific.SpecificRecordBase
 import org.apache.flink.api.common.io.FileInputFormat
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.core.fs.{FileInputSplit, Path}
 import org.apache.flink.formats.avro.AvroInputFormat
-
-import collection.JavaConverters._
 
 /** An input format to read avro files into a flink event that embeds an
   * avro record.
@@ -30,22 +28,11 @@ class EmbeddedAvroInputFormat[
     extends FileInputFormat[E] {
 
   setFilePath(path)
+  setNestedFileEnumeration(true)
 
   @transient
   lazy val typeClass: Class[A] =
     implicitly[TypeInformation[A]].getTypeClass
-
-  def recordInstance: A = typeClass.getConstructor().newInstance()
-
-  @transient
-  lazy val fieldNames: Seq[String] =
-    if (classOf[SpecificRecordBase].isAssignableFrom(typeClass))
-      recordInstance.getSchema.getFields.asScala
-        .map(_.name())
-    else Seq.empty
-
-  @transient
-  lazy val isGeneric: Boolean = fieldNames.isEmpty
 
   val avroInputFormat: AvroInputFormat[GenericRecord] = {
     val inputFormat = new AvroInputFormat(
@@ -61,24 +48,17 @@ class EmbeddedAvroInputFormat[
     avroInputFormat.open(fileSplit)
   }
 
+  override def close(): Unit = {
+    super.close()
+    avroInputFormat.close()
+  }
+
   override def reachedEnd(): Boolean = avroInputFormat.reachedEnd()
 
-  override def nextRecord(reuse: E): E = {
-    // this painful dance is because avro can't reflect on a scala case class and
-    // find the SCHEMA$ class, so throws an AvroRuntimeException: Not a Specific Class
-    val genericRecord = avroInputFormat.nextRecord(reuse.$record)
-    if (isGeneric)
-      fromKV(EmbeddedAvroRecordInfo(genericRecord.asInstanceOf[A]))
-    else {
-      val specificRecord: A =
-        fieldNames
-          .foldLeft(recordInstance) { case (a, f) =>
-            a.put(f, genericRecord.get(f))
-            a
-          }
-      fromKV(
-        EmbeddedAvroRecordInfo(specificRecord)
-      )
-    }
-  }
+  override def nextRecord(reuse: E): E =
+    AvroUtils.toEmbeddedAvroInstance[E, A, ADT](
+      avroInputFormat.nextRecord(reuse.$record),
+      typeClass
+    )
+
 }

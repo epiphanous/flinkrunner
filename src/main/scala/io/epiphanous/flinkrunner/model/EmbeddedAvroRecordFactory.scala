@@ -1,7 +1,6 @@
 package io.epiphanous.flinkrunner.model
 
 import org.apache.avro.generic.GenericRecord
-import org.apache.flink.connector.file.src.reader.StreamFormat
 
 /** Companion objects of event types that wrap avro records should
   * implement this trait to support avro deserialization with
@@ -25,8 +24,4 @@ trait EmbeddedAvroRecordFactory[
     *   New event of type E
     */
   implicit def fromKV(recordInfo: EmbeddedAvroRecordInfo[A]): E
-
-  /** A stream format for reading avro records from parquet files.
-    */
-  implicit val avroParquetRecordFormatOpt: Option[StreamFormat[A]] = None
 }

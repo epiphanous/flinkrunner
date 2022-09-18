@@ -1,28 +1,45 @@
 package io.epiphanous.flinkrunner.model.sink
 
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.model.FlinkConnectorName.Kafka
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.serde.{ConfluentAvroRegistryKafkaRecordSerializationSchema, JsonKafkaRecordSerializationSchema}
+import io.epiphanous.flinkrunner.serde.{
+  ConfluentAvroRegistryKafkaRecordSerializationSchema,
+  JsonKafkaRecordSerializationSchema
+}
 import io.epiphanous.flinkrunner.util.ConfigToProps
 import io.epiphanous.flinkrunner.util.ConfigToProps._
 import io.epiphanous.flinkrunner.util.StreamUtils.RichProps
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.connector.base.DeliveryGuarantee
-import org.apache.flink.connector.kafka.sink.{KafkaRecordSerializationSchema, KafkaSink}
+import org.apache.flink.connector.kafka.sink.{
+  KafkaRecordSerializationSchema,
+  KafkaSink
+}
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
 
 import java.util.Properties
 import scala.util.Try
 
+/** Kafka sink config.
+  *
+  * Configuration:
+  *
+  * @param name
+  *   name of the sink
+  * @param config
+  *   flinkrunner config
+  * @tparam ADT
+  *   the flinkrunner algebraic data type
+  */
 case class KafkaSinkConfig[ADT <: FlinkEvent: TypeInformation](
     name: String,
-    config: FlinkConfig,
-    connector: FlinkConnectorName = Kafka
+    config: FlinkConfig
 ) extends SinkConfig[ADT]
     with LazyLogging {
+
+  override val connector: FlinkConnectorName = FlinkConnectorName.Kafka
 
   override val properties: Properties = ConfigToProps.normalizeProps(
     config,

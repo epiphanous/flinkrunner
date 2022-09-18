@@ -1,7 +1,6 @@
 package io.epiphanous.flinkrunner.model.sink
 
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.model.FlinkConnectorName.Jdbc
 import io.epiphanous.flinkrunner.model.SupportedDatabase.Snowflake
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.model.sink.JdbcSinkConfig.DEFAULT_CONNECTION_TIMEOUT
@@ -13,7 +12,11 @@ import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat
 import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat.StatementExecutorFactory
 import org.apache.flink.connector.jdbc.internal.connection.SimpleJdbcConnectionProvider
 import org.apache.flink.connector.jdbc.internal.executor.JdbcBatchStatementExecutor
-import org.apache.flink.connector.jdbc.{JdbcConnectionOptions, JdbcExecutionOptions, JdbcStatementBuilder}
+import org.apache.flink.connector.jdbc.{
+  JdbcConnectionOptions,
+  JdbcExecutionOptions,
+  JdbcStatementBuilder
+}
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
 
@@ -80,19 +83,18 @@ import scala.util.{Failure, Success, Try}
   *       - `unique`: an optional boolean indicating if the index contains
   *         unique values (defaults to false)
   *
-  * @param config
-  *   the flink runner configuration in which this sink is defined
-  * @param connector
-  *   JDBC
   * @param name
   *   name of the sink
+  * @param config
+  *   the flink runner configuration in which this sink is defined
   */
 case class JdbcSinkConfig[ADT <: FlinkEvent](
     name: String,
-    config: FlinkConfig,
-    connector: FlinkConnectorName = Jdbc)
+    config: FlinkConfig)
     extends SinkConfig[ADT]
     with LazyLogging {
+
+  override val connector: FlinkConnectorName = FlinkConnectorName.Jdbc
 
   val database: String           = config.getString(pfx("connection.database"))
   val schema: String             =

@@ -28,14 +28,10 @@ object FlinkConnectorName extends Enum[FlinkConnectorName] {
 
   case object RabbitMQ extends FlinkConnectorName
 
-  case object MockSource extends FlinkConnectorName
-
-  case object MockSink extends FlinkConnectorName
-
   val sources: immutable.Seq[FlinkConnectorName] =
-    values diff IndexedSeq(CassandraSink, ElasticsearchSink, MockSink)
+    values diff IndexedSeq(CassandraSink, ElasticsearchSink)
   val sinks: immutable.Seq[FlinkConnectorName]   =
-    values diff IndexedSeq(Hybrid, MockSource)
+    values diff IndexedSeq(Hybrid)
 
   def fromSourceName(
       sourceName: String,

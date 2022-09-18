@@ -7,7 +7,9 @@ import io.epiphanous.flinkrunner.serde.{
   JsonRowDecoder,
   RowDecoder
 }
+import io.epiphanous.flinkrunner.util.ConfigToProps.getFromEither
 import io.epiphanous.flinkrunner.util.FileUtils.getResourceOrFile
+import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.eventtime.WatermarkStrategy
 import org.apache.flink.api.common.functions.FlatMapFunction
@@ -30,11 +32,62 @@ import org.apache.flink.util.Collector
 import java.time.Duration
 import scala.util.{Failure, Success}
 
+/** A source config for reading files as a source for a flink job. For
+  * example, the following config can be used to read a (possibly nested)
+  * directory of csv data files stored in s3, and monitor it continuously
+  * every minute for new files.
+  * {{{
+  *   source my-file-source {
+  *     path = "s3://my-bucket/data"
+  *     format = csv
+  *     monitor = 1m
+  *   }
+  * }}}
+  *
+  * Configuration options:
+  *   - `connector`: `file` (required only if it can't be inferred from the
+  *     source name)
+  *   - `path`: a required config specifying the location of the directory
+  *     or file
+  *   - `format`: an optional config (defaults to `json`) identifying the
+  *     file format, which can be one of
+  *     - `json`: line separated json objects
+  *     - `csv`: (comma delimited)
+  *     - `psv`: pipe separated values
+  *     - `tsv`: tab separated values
+  *     - `delimited`: general delimited (see config options below)
+  *     - `avro`: avro file format
+  *     - `parquet`: parquet file format
+  *     - `monitor`: an optional duration indicating how frequently the
+  *       file location should be monitored for new files. Defaults to 0,
+  *       meaning no new files will be monitored.
+  *     - `column.separator`: optional string that separate columns
+  *       (defaults to a comma if format is delimited)
+  *     - `line.separator`: optional string that separate lines (defaults
+  *       to the system line separator if format is delimited)
+  *     - `quote.character`: optional character that quotes values
+  *       (defaults to double quote if format is delimited)
+  *     - `escape.character`: optional character that escapes quote
+  *       characters in values (defaults to backslash if format is
+  *       delimited)
+  *     - `uses.header`: true if files contain a header line (defaults to
+  *       true)
+  *     - `uses.quotes`: true if all column values should be quoted or only
+  *       those that have embedded quotes (defaults to false)
+  *
+  * @param name
+  *   name of the source
+  * @param config
+  *   a flink config
+  * @tparam ADT
+  *   a flink algebraic data type
+  */
 case class FileSourceConfig[ADT <: FlinkEvent](
     name: String,
-    config: FlinkConfig,
-    connector: FlinkConnectorName = FlinkConnectorName.File)
+    config: FlinkConfig)
     extends SourceConfig[ADT] {
+
+  override val connector: FlinkConnectorName = FlinkConnectorName.File
 
   val path: String             = config.getString(pfx("path"))
   val format: StreamFormatName = StreamFormatName.withNameInsensitive(
@@ -48,21 +101,36 @@ case class FileSourceConfig[ADT <: FlinkEvent](
   val badFormatNonAvroMessage  =
     s"Invalid format ${format.entryName} for non-avro file source $name."
 
-  val origin: Path          = new Path(getResourceOrFile(path))
-  val monitorDuration: Long = properties
-    .getProperty("monitor.continuously", "0")
-    .toLong
+  val origin: Path = new Path(getResourceOrFile(path))
+
+  val monitorDuration: Long = getFromEither(
+    pfx(),
+    Seq(
+      "monitor",
+      "monitor.duration",
+      "monitor.continuously",
+      "monitor.every",
+      "monitor.continuously.every"
+    ),
+    config.getDurationOpt
+  ).map(_.toSeconds).getOrElse(0)
+
+  val delimitedConfig: DelimitedConfig =
+    DelimitedConfig.get(format, pfx(), config)
 
   def getStreamFormat[E <: ADT: TypeInformation]: StreamFormat[E] = ???
 
-  def getAvroStreamFormat[A <: GenericRecord]: StreamFormat[A] =
-    ???
+  /** Important: If users need to read parquet files and produce events
+    * with embedded GenericRecord instances, you must override this and
+    * provide a schema.
+    */
+  def genericAvroSchema: Option[Schema] = None
 
   def getRowDecoder[E <: ADT: TypeInformation]: RowDecoder[E] =
     format match {
       case StreamFormatName.Json => new JsonRowDecoder[E]
       case _                     =>
-        new DelimitedRowDecoder[E](DelimitedConfig.get(format, properties))
+        new DelimitedRowDecoder[E](delimitedConfig)
     }
 
   override def getSource[E <: ADT: TypeInformation]
@@ -162,9 +230,7 @@ case class FileSourceConfig[ADT <: FlinkEvent](
     )
     val fsb =
       FileSource.forRecordStreamFormat(
-        new EmbeddedAvroParquetRecordFormat[E, A, ADT](
-          getAvroStreamFormat
-        ),
+        new EmbeddedAvroParquetInputFormat[E, A, ADT](genericAvroSchema),
         origin
       )
     Right(

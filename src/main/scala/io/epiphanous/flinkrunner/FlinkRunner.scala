@@ -154,7 +154,6 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
         env.fromCollection(mockEvents).name(lbl).uid(lbl)
       case _                                 =>
         sourceConfig match {
-          case s: MockSourceConfig[ADT]     => s.getSourceStream[E](env)
           case s: FileSourceConfig[ADT]     => s.getSourceStream[E](env)
           case s: KafkaSourceConfig[ADT]    => s.getSourceStream[E](env)
           case s: KinesisSourceConfig[ADT]  => s.getSourceStream[E](env)

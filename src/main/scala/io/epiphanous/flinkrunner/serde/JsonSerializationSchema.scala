@@ -23,15 +23,9 @@ class JsonSerializationSchema[
     extends SerializationSchema[E]
     with LazyLogging {
 
-  val name: String           = sinkConfig.name
-  val jsonConfig: JsonConfig = JsonConfig(
-    sinkConfig.properties.getProperty("json.pretty", "false").toBoolean,
-    sinkConfig.properties.getProperty("json.sort.keys", "false").toBoolean,
-    Option(
-      sinkConfig.properties.getProperty("json.eol", System.lineSeparator())
-    ).map(s => if (s.equalsIgnoreCase("none")) null else s)
-  )
-  val jsonRowEncoder         = new JsonRowEncoder[E](jsonConfig)
+  val name: String   = sinkConfig.name
+  val jsonRowEncoder =
+    new JsonRowEncoder[E](JsonConfig(sinkConfig.pfx(), sinkConfig.config))
 
   /** Serialize an event into json-encoded byte array
     * @param event

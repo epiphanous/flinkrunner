@@ -15,7 +15,6 @@ class JsonRowEncoder[E: TypeInformation](
   override def encode(element: E): Try[String] = {
     Try(
       codec.jsonWriter.writeValueAsString(element) + jsonConfig.endOfLine
-        .getOrElse("")
     )
   }
 }

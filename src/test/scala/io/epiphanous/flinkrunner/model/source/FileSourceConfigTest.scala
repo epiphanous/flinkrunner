@@ -1,6 +1,5 @@
 package io.epiphanous.flinkrunner.model.source
 
-import io.epiphanous.flinkrunner.{FlinkRunner, PropSpec}
 import io.epiphanous.flinkrunner.flink.AvroStreamJob
 import io.epiphanous.flinkrunner.model.{
   BRecord,
@@ -8,6 +7,7 @@ import io.epiphanous.flinkrunner.model.{
   CheckResults,
   MyAvroADT
 }
+import io.epiphanous.flinkrunner.{FlinkRunner, PropSpec}
 import org.apache.flink.api.scala.createTypeInformation
 import org.apache.flink.streaming.api.scala.DataStream
 

@@ -3,23 +3,22 @@ package io.epiphanous.flinkrunner.util
 import com.typesafe.config.{ConfigException, ConfigObject}
 import io.epiphanous.flinkrunner.model.FlinkConfig
 
-import java.util.{Properties, List => JList, Map => JMap}
+import java.util.{List => JList, Map => JMap, Properties}
 import scala.collection.JavaConverters._
 
 object ConfigToProps {
 
-  /**
-   * For the requested prefix p, ensure each property keys has a config
-   * value that is the same at p.key and p.config.key.
-   * @param config
-   *   the FlinkConfig
-   * @param p
-   *   the prefix path
-   * @param keys
-   *   a list of property keys
-   * @return
-   *   properties (p.config as a Java Properties object)
-   */
+  /** For the requested prefix p, ensure each property keys has a config
+    * value that is the same at p.key and p.config.key.
+    * @param config
+    *   the FlinkConfig
+    * @param p
+    *   the prefix path
+    * @param keys
+    *   a list of property keys
+    * @return
+    *   properties (p.config as a Java Properties object)
+    */
   def normalizeProps(
       config: FlinkConfig,
       p: String,
@@ -45,6 +44,17 @@ object ConfigToProps {
     }
     props
   }
+
+  def getFromEither[T](
+      p: String,
+      names: Seq[String],
+      getter: String => Option[T]
+  ): Option[T] =
+    names
+      .flatMap(n => Seq(s"$p.$n", s"$p.config.$n"))
+      .map(getter)
+      .flatten
+      .headOption
 
   implicit class RichConfigObject(val config: Option[ConfigObject]) {
 

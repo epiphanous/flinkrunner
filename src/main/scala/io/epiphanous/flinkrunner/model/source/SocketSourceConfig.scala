@@ -1,24 +1,57 @@
 package io.epiphanous.flinkrunner.model.source
 
-import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkConnectorName, FlinkEvent, StreamFormatName}
-import io.epiphanous.flinkrunner.serde.RowDecoder
+import io.epiphanous.flinkrunner.model.{
+  FlinkConfig,
+  FlinkConnectorName,
+  FlinkEvent,
+  StreamFormatName
+}
+import io.epiphanous.flinkrunner.serde.{
+  DelimitedConfig,
+  DelimitedRowDecoder,
+  JsonRowDecoder,
+  RowDecoder
+}
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
+import org.apache.flink.streaming.api.scala.{
+  DataStream,
+  StreamExecutionEnvironment
+}
 
+/** A socket source configuration.
+  * @param name
+  *   source name
+  * @param config
+  *   flinkrunner config
+  * @tparam ADT
+  *   Flinkrunner algebraic data type
+  */
 case class SocketSourceConfig[ADT <: FlinkEvent](
     name: String,
-    config: FlinkConfig,
-    connector: FlinkConnectorName = FlinkConnectorName.Socket)
-    extends SourceConfig[ADT] {
+    config: FlinkConfig
+) extends SourceConfig[ADT] {
+
+  override val connector: FlinkConnectorName = FlinkConnectorName.Socket
 
   val host: String             = config.getString(pfx("host"))
   val port: Int                = config.getInt(pfx("port"))
   val format: StreamFormatName = StreamFormatName.withNameInsensitive(
-    config.getStringOpt(pfx("format")).getOrElse("csv")
+    config.getStringOpt(pfx("format")).getOrElse("json")
   )
 
   def getRowDecoder[E <: ADT: TypeInformation]: RowDecoder[E] =
-    RowDecoder.forEventType[E](format, properties)
+    format match {
+      case StreamFormatName.Json                            => new JsonRowDecoder[E]()
+      case StreamFormatName.Csv | StreamFormatName.Tsv |
+          StreamFormatName.Psv | StreamFormatName.Delimited =>
+        new DelimitedRowDecoder[E](
+          DelimitedConfig.get(format, pfx(), config)
+        )
+      case StreamFormatName.Parquet | StreamFormatName.Avro =>
+        throw new RuntimeException(
+          s"invalid format ${format.entryName} for socket source $name"
+        )
+    }
 
   override def getSourceStream[E <: ADT: TypeInformation](
       env: StreamExecutionEnvironment): DataStream[E] = {

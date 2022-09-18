@@ -1,9 +1,19 @@
 package io.epiphanous.flinkrunner.model.sink
 
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.model.FlinkConnectorName.Socket
-import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkConnectorName, FlinkEvent, StreamFormatName}
-import io.epiphanous.flinkrunner.serde.RowEncoder
+import io.epiphanous.flinkrunner.model.{
+  FlinkConfig,
+  FlinkConnectorName,
+  FlinkEvent,
+  StreamFormatName
+}
+import io.epiphanous.flinkrunner.serde.{
+  DelimitedConfig,
+  DelimitedRowEncoder,
+  JsonConfig,
+  JsonRowEncoder,
+  RowEncoder
+}
 import org.apache.flink.api.common.serialization.SerializationSchema
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.datastream.DataStreamSink
@@ -15,10 +25,11 @@ import scala.util.{Failure, Success}
 
 case class SocketSinkConfig[ADT <: FlinkEvent](
     name: String,
-    config: FlinkConfig,
-    connector: FlinkConnectorName = Socket)
+    config: FlinkConfig)
     extends SinkConfig[ADT]
     with LazyLogging {
+
+  override val connector: FlinkConnectorName = FlinkConnectorName.Socket
 
   val host: String             = config.getString(pfx("host"))
   val port: Int                = config.getInt(pfx("port"))
@@ -30,7 +41,19 @@ case class SocketSinkConfig[ADT <: FlinkEvent](
     config.getBooleanOpt(pfx("auto.flush")).getOrElse(false)
 
   def getTextLineEncoder[E <: ADT: TypeInformation]: RowEncoder[E] =
-    RowEncoder.forEventType[E](format, properties)
+    format match {
+      case StreamFormatName.Json                            =>
+        new JsonRowEncoder[E](JsonConfig(pfx(), config))
+      case StreamFormatName.Csv | StreamFormatName.Tsv |
+          StreamFormatName.Psv | StreamFormatName.Delimited =>
+        new DelimitedRowEncoder[E](
+          DelimitedConfig.get(format, pfx(), config)
+        )
+      case StreamFormatName.Parquet | StreamFormatName.Avro =>
+        throw new RuntimeException(
+          s"invalid format ${format.entryName} for socket sink $name"
+        )
+    }
 
   def getSerializationSchema[E <: ADT: TypeInformation]
       : SerializationSchema[E] =

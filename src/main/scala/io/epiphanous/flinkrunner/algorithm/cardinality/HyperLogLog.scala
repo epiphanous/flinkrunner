@@ -5,13 +5,12 @@ import com.google.common.hash.{Funnel, HashFunction}
 
 import scala.collection.immutable
 
-/**
- * Implements hyperloglog cardinality estimate based on paper by P.
- * Flajolet, È. Fusy, O. Gandouet, F. Meiunier. HyperLogLog: the analysis
- * of a near-optimal cardinality estimation algorithm. Proceedings of
- * Discrete Mathematics and Theoretical Computer Science. Pages 127-146.
- * 2007.
- */
+/** Implements hyperloglog cardinality estimate based on paper by P.
+  * Flajolet, È. Fusy, O. Gandouet, F. Meiunier. HyperLogLog: the analysis
+  * of a near-optimal cardinality estimation algorithm. Proceedings of
+  * Discrete Mathematics and Theoretical Computer Science. Pages 127-146.
+  * 2007.
+  */
 case class HyperLogLog[T](funnel: Funnel[T], b: Int) {
 
   require(b >= 4 && b <= 16, "b must be an integer in [4,16]")
@@ -48,15 +47,14 @@ case class HyperLogLog[T](funnel: Funnel[T], b: Int) {
   /** True if data has been added to the registers */
   def nonEmpty: Boolean = cardinality > 0
 
-  /**
-   * Incorporates an item into the registers, updates the cardinality
-   * estimate and returns it.
-   *
-   * @param item
-   *   the item to add
-   * @return
-   *   Long
-   */
+  /** Incorporates an item into the registers, updates the cardinality
+    * estimate and returns it.
+    *
+    * @param item
+    *   the item to add
+    * @return
+    *   Long
+    */
   def add(item: T): Long = {
     val x = hash(item)
     val j = 1 + (x & (m - 1))
@@ -65,12 +63,11 @@ case class HyperLogLog[T](funnel: Funnel[T], b: Int) {
     estimateCardinality
   }
 
-  /**
-   * Compute the current distinct cardinality estimate.
-   *
-   * @return
-   *   Long
-   */
+  /** Compute the current distinct cardinality estimate.
+    *
+    * @return
+    *   Long
+    */
   private def estimateCardinality: Long = {
     val E     = am2 / M.map(i => 1 / math.pow(2d, i.toDouble)).sum
     // small range correction
@@ -88,13 +85,12 @@ case class HyperLogLog[T](funnel: Funnel[T], b: Int) {
     cardinality
   }
 
-  /**
-   * Merge another HyperLogLog[T] instance into this instance. Note the
-   * other instance must have the same b parameter as this instance.
-   *
-   * @param another
-   *   the other HyperLogLog[T] instance
-   */
+  /** Merge another HyperLogLog[T] instance into this instance. Note the
+    * other instance must have the same b parameter as this instance.
+    *
+    * @param another
+    *   the other HyperLogLog[T] instance
+    */
   def merge(another: HyperLogLog[T]): HyperLogLog[T] = {
     if (another.nonEmpty) {
       require(another.m == m, s"Can only merge HLL with same b=$b")
@@ -106,28 +102,26 @@ case class HyperLogLog[T](funnel: Funnel[T], b: Int) {
     this
   }
 
-  /**
-   * Computes positive integer hash of item
-   *
-   * @param item
-   *   item to hash
-   * @return
-   *   Int
-   */
+  /** Computes positive integer hash of item
+    *
+    * @param item
+    *   item to hash
+    * @return
+    *   Int
+    */
   private def hash(item: T): Int = {
     val h = hasher.hashObject(item, funnel).asInt()
     if (h < 0) ~h else h
   }
 
-  /**
-   * Computes most significant set bit of an integer, where returned bit in
-   * [0,32].
-   *
-   * @param i
-   *   the non-negative Int to examine
-   * @return
-   *   Int
-   */
+  /** Computes most significant set bit of an integer, where returned bit
+    * in [0,32].
+    *
+    * @param i
+    *   the non-negative Int to examine
+    * @return
+    *   Int
+    */
   private def rho(i: Int): Int = {
     require(i >= 0, "i must be non-negative integer")
     (32 - HyperLogLog.MASKS.lastIndexWhere(_ <= i)) % 33

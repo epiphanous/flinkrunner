@@ -7,7 +7,7 @@
 <div align="center">
 <br />
 <!-- license -->
-<a href="https://github.com/epiphanous/flinkrunner/blob/master/LICENSE" title="License">
+<a href="https://github.com/epiphanous/flinkrunner/blob/main/LICENSE" title="License">
   <img src="https://img.shields.io/badge/license-MIT-brightgreen.svg" alt="license"/>
 </a>
 <!-- release -->
@@ -27,7 +27,8 @@
   <img src="https://img.shields.io/travis/com/epiphanous/flinkrunner.svg" alt="build" />
 </a>
 <!-- coverage -->
-<a href='https://coveralls.io/github/epiphanous/flinkrunner?branch=master'><img src='https://coveralls.io/repos/github/epiphanous/flinkrunner/badge.svg?branch=master' alt='Coverage Status' /></a>
+<a href='https://coveralls.io/github/epiphanous/flinkrunner?branch=main'><img 
+src='https://coveralls.io/repos/github/epiphanous/flinkrunner/badge.svg?branch=master' alt='Coverage Status' /></a>
 </div>
 
 <div align="center">
@@ -66,12 +67,12 @@ Flinkrunner is built to support many common data sources and sinks, including:
 | jdbc          | flink-connector-jdbc           |   no   | yes  |
 | rabbit mq     | flink-connector-rabbitmq       |  yes   | yes  |
 
-You can add a dependency for a connector you want to use by dropping the library into
-flink's `lib` directory during deployment of your jobs. You should make sure to match the
-library's version with the compiled flink and scala versions of `FlinkRunner`.
+You can add a dependency for a connector by dropping the library into flink's `lib`
+directory during deployment of your jobs. You should make sure to match the library's
+version with the compiled flink and scala versions of `FlinkRunner`.
 
-To run tests locally in your IDE, you can add a connector library to your dependencies
-like this:
+To run tests locally in your IDE, add a connector library to your dependencies in provided
+scope, like this:
 
 ```
 "org.apache.flink" % "flink-connector-kafka" % <flink-version> % Provided
@@ -82,8 +83,7 @@ replacing `<flink-version>` with the version of flink used in `FlinkRunner`.
 ### S3 Support
 
 S3 configuration is important for most flink usage scenarios. Flink has two different
-implementations to support S3:
-`flink-s3-fs-presto` and `flink-s3-fs-hadoop`.
+implementations to support S3: `flink-s3-fs-presto` and `flink-s3-fs-hadoop`.
 
 * `flink-s3-fs-presto` is registered under the schemes `s3://` and `s3p://` and is
   preferred for checkpointing to s3.
@@ -95,23 +95,26 @@ the `plugins` directory:
 
 ```bash
 cd $FLINK_DIR
-mkdir -p ./plugins/s3
-cp ./opt/flink-s3-fs-presto-<flink-version>.jar .plugins/s3-fs-preso
+mkdir -p ./plugins/s3-fs-presto
+cp ./opt/flink-s3-fs-presto-<flink-version>.jar .plugins/s3-fs-presto
+mkdir -p ./plugins/s3-fs-hadoop
 cp ./opt/flink-s3-fs-hadoop-<flink-version>.jar .plugins/s3-fs-hadoop
 ```
 
 replacing `<flink-version>` with the version of flink used in `FlinkRunner`.
 
 > *NOTE*:  Do not copy them into flink's `lib` directory, as this will not work! They need
-> to be in their own, > individual subdirectories of flink's deployed `plugins` directory.
+> to be in their own, individual subdirectories of flink's deployed `plugins` directory.
 
-> *NOTE
-> You will also need
->
-to [configure access](https://nightlies.apache.org/flink/flink-docs-release-1.15/docs/deployment/filesystems/s3/#configure-access-credentials)
+> *NOTE*: You will also need to
+> [configure access](https://nightlies.apache.org/flink/flink-docs-release-1.15/docs/deployment/filesystems/s3/#configure-access-credentials)
 > from your job to AWS S3. That is outside the scope of this readme.
 
 ### Avro Support
+
+Flinkrunner supports reading and writing avro messages with kafka and file systems. For
+kafka sources and sinks, Flinkrunner uses binary encoding with Confluent schema registry.
+For file sources and sinks, you can select either standard or parquet avro encoding.
 
 Add the following dependencies if you need Avro and Confluent schema registry support:
 
@@ -428,8 +431,8 @@ class AvroStreamJob[
   ADT <: FlinkEvent](runner:FlinkRunner[ADT])
 ```
 
-An `AvroStreamJob` is a specialized `StreamJob` class to support outputting to an avro 
-encoded sink (kafka or parquet-avro files). 
+An `AvroStreamJob` is a specialized `StreamJob` class to support outputting to an avro
+encoded sink (kafka or parquet-avro files).
 
 #### EmbeddedAvroRecord
 

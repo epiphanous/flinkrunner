@@ -1,6 +1,10 @@
 package io.epiphanous.flinkrunner.model.source
 
-import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkConnectorName, FlinkEvent}
+import io.epiphanous.flinkrunner.model.{
+  FlinkConfig,
+  FlinkConnectorName,
+  FlinkEvent
+}
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.connector.source.{Source, SourceSplit}
 import org.apache.flink.connector.base.source.hybrid.HybridSource
@@ -18,9 +22,10 @@ import org.apache.flink.streaming.api.functions.source.SourceFunction
   */
 case class HybridSourceConfig[ADT <: FlinkEvent](
     name: String,
-    config: FlinkConfig,
-    connector: FlinkConnectorName = FlinkConnectorName.Hybrid)
+    config: FlinkConfig)
     extends SourceConfig[ADT] {
+
+  override val connector: FlinkConnectorName = FlinkConnectorName.Hybrid
 
   def getSources[E <: ADT: TypeInformation]
       : List[Source[E, _ <: SourceSplit, _]] =
@@ -31,7 +36,7 @@ case class HybridSourceConfig[ADT <: FlinkEvent](
           case Right(source) => source
           case Left(_)       =>
             throw new RuntimeException(
-              s"Source $name can't used in a hybrid source as it's based on Flink's SourceFunction API. Hybrid sources require the new Source API."
+              s"Source $name can't be used in a hybrid source as it's based on Flink's SourceFunction API. Hybrid sources require the new Source API."
             )
         }
       )
