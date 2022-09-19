@@ -120,11 +120,11 @@ trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
       : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] =
     ??? // intentionally unimplemented
 
-  /** Create a source DataStream[E] of events. This implementation relies
-    * on the protected [[getAvroSource]] method to return either an (older
-    * style) flink source function or a (newer style) unified source api
-    * instance, from which it creates the data stream using the provided
-    * flink stream execution environment.
+  /** Create a source DataStream[E] of events. This default implementation
+    * relies on the [[getSource]] method to return either an (older style)
+    * flink source function or a (newer style) unified source api instance,
+    * from which it creates the data stream using the provided flink stream
+    * execution environment.
     *
     * @param env
     *   flink stream execution environment
@@ -132,7 +132,7 @@ trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
     *   event type (subclass of ADT)
     * @return
     */
-  def getSourceStream[E <: ADT: TypeInformation](
+  def getSourceStreamDefault[E <: ADT: TypeInformation](
       env: StreamExecutionEnvironment): DataStream[E] = {
     getSource
       .fold(
@@ -145,6 +145,22 @@ trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
       )
       .uid(label)
   }
+
+  /** Flinkrunner calls this method to create a source stream from
+    * configuration. This uses the default implementation provided in
+    * [[getSourceStreamDefault()]]. Subclasses can override this to provide
+    * other implementations.
+    *
+    * @param env
+    *   a flink stream execution environment
+    * @tparam E
+    *   the event stream type
+    * @return
+    *   DataStream[E]
+    */
+  def getSourceStream[E <: ADT: TypeInformation](
+      env: StreamExecutionEnvironment): DataStream[E] =
+    getSourceStreamDefault[E](env)
 
   /** Return either a SourceFunction[E] or a Source[E] where E is an event
     * that embeds an avro record of type A. No implementation is provided
@@ -170,7 +186,7 @@ trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
     ??? // intentionally unimplemented
 
   /** Create a source DataStream[E] of events that embed an avro record of
-    * type A. This implementation relies on the protected [[getAvroSource]]
+    * type A. This default implementation relies on the [[getAvroSource]]
     * method to return either an (older style) flink source function or a
     * (newer style) unified source api instance, from which it creates the
     * data stream using the provided flink stream execution environment.
@@ -187,7 +203,7 @@ trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
     * @return
     *   DataStream[E]
     */
-  def getAvroSourceStream[
+  def getAvroSourceStreamDefault[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](
       env: StreamExecutionEnvironment)(implicit
@@ -202,6 +218,28 @@ trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
         s => env.fromSource(s, getWatermarkStrategy, label)
       )
       .uid(label)
+
+  /** Flinkrunner calls this method to create an avro source stream. This
+    * method uses the default implementation in
+    * [[getAvroSourceStreamDefault()]]. Subclasses can provide their own
+    * implentations.
+    * @param env
+    *   a flink stream execution environment
+    * @param fromKV
+    *   an implicit method to create events of type E from avro records
+    * @tparam E
+    *   the stream event type, which embeds an avro type A
+    * @tparam A
+    *   an avro record type, embedded in E
+    * @return
+    *   DataStream[E]
+    */
+  def getAvroSourceStream[
+      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+      A <: GenericRecord: TypeInformation](
+      env: StreamExecutionEnvironment)(implicit
+      fromKV: EmbeddedAvroRecordInfo[A] => E): DataStream[E] =
+    getAvroSourceStreamDefault[E, A](env)
 }
 
 object SourceConfig {
