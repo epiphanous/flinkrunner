@@ -157,11 +157,9 @@ case class FileSourceConfig[ADT <: FlinkEvent](
     */
   override def getSourceStream[E <: ADT: TypeInformation](
       env: StreamExecutionEnvironment): DataStream[E] = {
-    require(
-      format.isText,
-      s"getSourceStream can't handle non-text format $format"
-    )
-    flatMapTextStream(getTextFileStream(env), getRowDecoder[E])
+    if (format.isText)
+      flatMapTextStream(getTextFileStream(env), getRowDecoder[E])
+    else super.getSourceStream(env)
   }
 
   def getTextFileStream(
