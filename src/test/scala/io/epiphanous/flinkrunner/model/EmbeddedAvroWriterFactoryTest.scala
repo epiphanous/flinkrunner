@@ -10,11 +10,17 @@ class EmbeddedAvroWriterFactoryTest
     with AvroFileTestUtils {
 
   def doWriteTest(isParquet: Boolean): Unit = {
-    getTempFile(isParquet).map { path =>
+    val fmt =
+      if (isParquet) StreamFormatName.Parquet else StreamFormatName.Avro
+    getTempFile(fmt).map { path =>
       Try {
         val fileInfoView = getFileInfoView(path)
         val before       = fileInfoView.readAttributes()
-        writeFile(path.toString, isParquet, genPop[BWrapper]())
+        writeFile(
+          path.toString,
+          fmt,
+          genPop[BWrapper]()
+        )
         val after        = fileInfoView.readAttributes()
         after.size() should be > before.size()
       } should be a 'success
@@ -23,11 +29,13 @@ class EmbeddedAvroWriterFactoryTest
   }
 
   def doRoundTripTest(isParquet: Boolean): Unit = {
+    val fmt =
+      if (isParquet) StreamFormatName.Parquet else StreamFormatName.Avro
     val pop = genPop[BWrapper](10)
-    getTempFile(isParquet).map { path =>
+    getTempFile(fmt).map { path =>
       Try {
         val file   = path.toString
-        writeFile(file, isParquet, pop)
+        writeFile(file, fmt, pop)
         val result = readFile(file, isParquet)
         result shouldEqual pop
       } should be a 'success

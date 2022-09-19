@@ -1,5 +1,13 @@
 package io.epiphanous.flinkrunner.model
 
+import io.epiphanous.flinkrunner.serde.{
+  DelimitedConfig,
+  EmbeddedAvroDelimitedFileEncoder,
+  EmbeddedAvroJsonFileEncoder,
+  JsonConfig,
+  JsonFileEncoder,
+  JsonRowDecoder
+}
 import org.apache.flink.api.common.serialization.BulkWriter
 import org.apache.flink.api.scala.createTypeInformation
 import org.apache.flink.configuration.Configuration
@@ -13,6 +21,7 @@ import org.apache.flink.core.fs.{
 import org.apache.flink.testutils.TestFileSystem
 
 import java.io.File
+import java.nio.file
 import java.nio.file.{Files, Paths}
 import java.nio.file.attribute.BasicFileAttributeView
 import scala.collection.mutable.ArrayBuffer
@@ -74,13 +83,46 @@ trait AvroFileTestUtils {
     pop.toList
   }
 
-  def writeFile(
+  def writeBulkFile(
       path: String,
       isParquet: Boolean,
       pop: List[BWrapper]): Unit = {
     val writer = getWriter(path, isParquet)
     pop.foreach(writer.addElement)
     writer.finish()
+  }
+
+  def writeFile(
+      path: String,
+      format: StreamFormatName,
+      pop: List[BWrapper],
+      delimitedConfig: DelimitedConfig = DelimitedConfig.CSV,
+      jsonConfig: JsonConfig = JsonConfig()): Unit = {
+    val stream           = getStream(path)
+    val (mapper, finish) = format match {
+      case StreamFormatName.Json =>
+        val encoder =
+          new EmbeddedAvroJsonFileEncoder[BWrapper, BRecord, MyAvroADT](
+            jsonConfig
+          )
+        ((bw: BWrapper) => encoder.encode(bw, stream), () => ())
+
+      case fmt if fmt.isDelimited =>
+        val encoder = new EmbeddedAvroDelimitedFileEncoder[
+          BWrapper,
+          BRecord,
+          MyAvroADT
+        ](delimitedConfig)
+        ((bw: BWrapper) => encoder.encode(bw, stream), () => ())
+
+      case fmt if fmt.isBulk =>
+        val writer = getWriter(path, fmt == StreamFormatName.Parquet)
+        ((bw: BWrapper) => writer.addElement(bw), () => writer.finish())
+    }
+    pop.foreach(mapper)
+    finish()
+    stream.flush()
+    stream.close()
   }
 
   def getFileInfoView(path: java.nio.file.Path): BasicFileAttributeView =
@@ -90,8 +132,13 @@ trait AvroFileTestUtils {
         classOf[BasicFileAttributeView]
       )
 
-  def getTempFile(isParquet: Boolean): Try[java.nio.file.Path] = {
-    val pa = if (isParquet) "parquet" else "avro"
-    Try(Files.createTempFile(s"$pa-test-", s".$pa"))
+  def getTempBulkFile(isParquet: Boolean): Try[java.nio.file.Path] =
+    getTempFile(
+      if (isParquet) StreamFormatName.Parquet else StreamFormatName.Avro
+    )
+
+  def getTempFile(format: StreamFormatName): Try[file.Path] = {
+    val x = format.entryName.toLowerCase
+    Try(Files.createTempFile(s"$x-test-", s".$x"))
   }
 }

@@ -22,7 +22,11 @@ class DelimitedRowDecoder[E: TypeInformation](
     delimitedConfig = delimitedConfig
   )
 
-  override def decode(line: String): Try[E] =
-    Try(codec.csvReader.readValue[E](line))
+  override def tryDecode(line: String): Try[E] = {
+    Try {
+      val e = codec.csvReader.readValue[E](line)
+      e
+    }
+  }
 
 }

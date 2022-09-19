@@ -60,7 +60,7 @@ case class SocketSourceConfig[ADT <: FlinkEvent](
       .socketTextStream(host, port)
       .name(s"raw:$label")
       .uid(s"raw:$label")
-      .flatMap(line => decoder.decode(line).toOption)
+      .flatMap(line => decoder.decode(line))
       .uid(label)
       .name(label)
   }

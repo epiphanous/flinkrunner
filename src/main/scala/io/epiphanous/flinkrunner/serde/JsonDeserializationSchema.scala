@@ -37,13 +37,7 @@ class JsonDeserializationSchema[
     val payload = new String(bytes, StandardCharsets.UTF_8)
     jsonRowDecoder
       .decode(payload)
-      .fold(
-        error =>
-          throw new RuntimeException(
-            s"failed to deserialize event: ${error.getMessage}"
-          ),
-        e => e
-      )
+      .getOrElse(null.asInstanceOf[E]) // bleh!!
   }
 
   /** Determine if the next event is the end of the stream or not. We

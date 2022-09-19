@@ -1,32 +1,26 @@
 package io.epiphanous.flinkrunner.model.source
 
 import io.epiphanous.flinkrunner.flink.AvroStreamJob
-import io.epiphanous.flinkrunner.model.{
-  AvroFileTestUtils,
-  BRecord,
-  BWrapper,
-  CheckResults,
-  MyAvroADT
-}
+import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.{FlinkRunner, PropSpec}
 import org.apache.flink.api.scala.createTypeInformation
 import org.apache.flink.streaming.api.scala.DataStream
 
-import java.nio.file.{Files, Paths}
+import java.nio.file.Files
 import scala.util.Try
 
 class FileSourceConfigTest extends PropSpec with AvroFileTestUtils {
 
-  class TestCheckResults(pop: List[BWrapper], path: java.nio.file.Path)
+  class TestCheckResults(in: List[BWrapper], path: java.nio.file.Path)
       extends CheckResults[MyAvroADT] {
     override val name: String = "test-check-results"
 
     override def checkOutputEvents[OUT <: MyAvroADT](
         out: List[OUT]): Unit = {
-      println("=====[INPUT]======\n" + pop.mkString("\n"))
+      println("=====[INPUT]======\n" + in.mkString("\n"))
       println("\n=====[OUTPUT]======\n" + out.mkString("\n"))
       Try(Files.delete(path)) should be a 'success
-      out shouldEqual pop
+      out shouldEqual in
       ()
     }
   }
@@ -37,41 +31,49 @@ class FileSourceConfigTest extends PropSpec with AvroFileTestUtils {
       singleAvroSource[BWrapper, BRecord]()
   }
 
-  def doAvroFileSourceTest(isParquet: Boolean) = {
-    val format = if (isParquet) "parquet" else "avro"
-    val pop    = genPop[BWrapper]()
-    getTempFile(isParquet).map { path =>
+  def doFileSourceTest(format: StreamFormatName) = {
+    val fmtName = format.entryName.toLowerCase
+    val in      = genPop[BWrapper]()
+    getTempFile(format).map { path =>
       val file      = path.toString
-      writeFile(file, isParquet, pop)
+      writeFile(file, format, in)
       val optConfig =
         s"""
            |execution.runtime-mode = batch
            |jobs {
-           |  $format-test-job {
+           |  $fmtName-test-job {
            |    sources {
            |      test-file-source {
            |        path = "$file"
-           |        format = $format
+           |        format = $fmtName
            |      }
            |    }
            |  }
            |}
            |""".stripMargin
       getAvroJobRunner[TestIdentityJob, BWrapper, BRecord, MyAvroADT](
-        Array(s"$format-test-job"),
+        Array(s"$fmtName-test-job"),
         optConfig,
-        new TestCheckResults(pop, path),
+        new TestCheckResults(in, path),
         (_, runner) => new TestIdentityJob(runner)
       ).process()
     }
   }
 
   property("getAvroSourceStream Avro format property") {
-    doAvroFileSourceTest(false)
+    doFileSourceTest(StreamFormatName.Avro)
   }
 
   property("getAvroSourceStream Parquet format property") {
-    doAvroFileSourceTest(true)
+    doFileSourceTest(StreamFormatName.Parquet)
+  }
+
+  property("getAvroSourceStream Json format property") {
+    doFileSourceTest(StreamFormatName.Json)
+  }
+
+  property("getAvroSourceStream Csv format property") {
+    doFileSourceTest(StreamFormatName.Csv)
   }
 
 }
