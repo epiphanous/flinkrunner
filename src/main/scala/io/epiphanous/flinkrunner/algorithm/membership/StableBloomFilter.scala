@@ -6,27 +6,26 @@ import com.google.common.hash.{Funnel, HashFunction}
 import java.nio.ByteBuffer
 import scala.util.Random
 
-/**
- * Implements the stable bloom filter from the paper by F. Deng and D.
- * Rafiei. <a href="">Approximately detecting duplicates for streaming data
- * using stable bloom filters</a>. In SIGMOD, pages 25–36, 2006.
- *
- * We use heap storage (an array of Longs). This implies <code>M=m*d</code>
- * can be set as high as about 125 giga-bits.
- *
- * @param funnel
- *   a Guava funnel for taking input
- * @param m
- *   number of cells (see the paper, <code>m</code> is a <code>Long</code>
- *   but <code>m/floor(63/d)</code> must fit in a 32-bit <code>Int</code>)
- * @param d
- *   bits per cell (see the paper, should lie in [1,63] but often set to 1,
- *   2 or 3)
- * @param FPR
- *   expected false positive rate (should lie in (0,1))
- * @tparam T
- *   the type of funnel used
- */
+/** Implements the stable bloom filter from the paper by F. Deng and D.
+  * Rafiei. <a href="">Approximately detecting duplicates for streaming
+  * data using stable bloom filters</a>. In SIGMOD, pages 25–36, 2006.
+  *
+  * We use heap storage (an array of Longs). This implies
+  * <code>M=m*d</code> can be set as high as about 125 giga-bits.
+  *
+  * @param funnel
+  *   a Guava funnel for taking input
+  * @param m
+  *   number of cells (see the paper, <code>m</code> is a <code>Long</code>
+  *   but <code>m/floor(63/d)</code> must fit in a 32-bit <code>Int</code>)
+  * @param d
+  *   bits per cell (see the paper, should lie in [1,63] but often set to
+  *   1, 2 or 3)
+  * @param FPR
+  *   expected false positive rate (should lie in (0,1))
+  * @tparam T
+  *   the type of funnel used
+  */
 case class StableBloomFilter[T](
     funnel: Funnel[T],
     m: Long,
@@ -76,13 +75,12 @@ case class StableBloomFilter[T](
   /** heap storage for our bits */
   val storage: Array[Long] = Array.fill[Long](w)(0)
 
-  /**
-   * Insert a stream element into the filter.
-   *
-   * @param item
-   *   the item to insert
-   * @return
-   */
+  /** Insert a stream element into the filter.
+    *
+    * @param item
+    *   the item to insert
+    * @return
+    */
   def add(item: T): Boolean = {
     val cells     = hash(item)
     val maybeSeen = cells.forall(i => get(i) > 0L)
@@ -91,23 +89,21 @@ case class StableBloomFilter[T](
     maybeSeen
   }
 
-  /**
-   * Return true if this SBF might contain the requested item.
-   *
-   * @param item
-   *   the item to check
-   * @return
-   */
+  /** Return true if this SBF might contain the requested item.
+    *
+    * @param item
+    *   the item to check
+    * @return
+    */
   def mightContain(item: T): Boolean =
     hash(item).forall(i => get(i) > 0L)
 
-  /**
-   * Merge another filter into this filter.
-   *
-   * @param another
-   *   the other filter
-   * @return
-   */
+  /** Merge another filter into this filter.
+    *
+    * @param another
+    *   the other filter
+    * @return
+    */
   def merge(another: StableBloomFilter[T]): StableBloomFilter[T] = {
     require(
       another.M == M && another.d == d && another.FPR == FPR,
@@ -117,34 +113,31 @@ case class StableBloomFilter[T](
     this
   }
 
-  /**
-   * Decrement P cells randomly. As recommended in the DR paper, we only
-   * generate a single random index, then decrement that cell and the next
-   * <code>P-1</code> cells (wrapping around if needed).
-   */
+  /** Decrement P cells randomly. As recommended in the DR paper, we only
+    * generate a single random index, then decrement that cell and the next
+    * <code>P-1</code> cells (wrapping around if needed).
+    */
   private def decrementRandomCells(): Unit = {
     val p = (random.nextDouble() * m).toLong
     Range(0, P).map(i => (i + p) % m).foreach(decrement)
   }
 
-  /**
-   * Gets the current value of the <code>i</code>'th cell.
-   *
-   * @param i
-   *   the cell to get (in <code>[0, m)</code>)
-   * @return
-   */
+  /** Gets the current value of the <code>i</code>'th cell.
+    *
+    * @param i
+    *   the cell to get (in <code>[0, m)</code>)
+    * @return
+    */
   def get(i: Long): Long = {
     val (x, j) = offset(i)
     getBitsValue(x, j)
   }
 
-  /**
-   * Decrement a cell by one.
-   *
-   * @param i
-   *   the cell to decrement (in <code>[0,m)</code>)
-   */
+  /** Decrement a cell by one.
+    *
+    * @param i
+    *   the cell to decrement (in <code>[0,m)</code>)
+    */
   def decrement(i: Long): Unit = {
     val (x, j)  = offset(i)
     val current = getBitsValue(x, j)
@@ -152,44 +145,42 @@ case class StableBloomFilter[T](
       storage(x) -= (1L << j)
   }
 
-  /**
-   * Set a cell's value to Max
-   *
-   * @param i
-   *   the cell to set (in <code>[0,m)</code>)
-   */
+  /** Set a cell's value to Max
+    *
+    * @param i
+    *   the cell to set (in <code>[0,m)</code>)
+    */
   def set(i: Long): Unit = {
     val (x, j) = offset(i)
     storage(x) |= (Max.toLong << j)
   }
 
-  /**
-   * Extract the Int value of <code>d</code> bits (bits <code>j</code> to
-   * <code>j+d-1</code>) from stored element <code>x</code>.
-   *
-   * @param x
-   *   the index into storage
-   * @param j
-   *   the LSB to start from
-   * @return
-   *   Int
-   */
+  /** Extract the Int value of <code>d</code> bits (bits <code>j</code> to
+    * <code>j+d-1</code>) from stored element <code>x</code>.
+    *
+    * @param x
+    *   the index into storage
+    * @param j
+    *   the LSB to start from
+    * @return
+    *   Int
+    */
   def getBitsValue(x: Int, j: Int): Long =
     (storage(x) & (Max.toLong << j)) >>> j
 
-  /**
-   * Converts a cell number into a tuple of <code>(x:Int, j:Int)</code>,
-   * allowing other methods to get and set cell values.
-   *
-   * <code>x</code> in the integer offset within storage that contains cell
-   * <code>i</code>. <code>j</code> is the relative offset (in [0,63]) of
-   * the LSB of cell <code>i</code> within <code>storage[x]</code>.
-   *
-   * @param i
-   *   the cell number in [0,m)
-   * @return
-   *   (Int, Int)
-   */
+  /** Converts a cell number into a tuple of <code>(x:Int, j:Int)</code>,
+    * allowing other methods to get and set cell values.
+    *
+    * <code>x</code> in the integer offset within storage that contains
+    * cell <code>i</code>. <code>j</code> is the relative offset (in
+    * [0,63]) of the LSB of cell <code>i</code> within
+    * <code>storage[x]</code>.
+    *
+    * @param i
+    *   the cell number in [0,m)
+    * @return
+    *   (Int, Int)
+    */
   def offset(i: Long): (Int, Int) = {
     // the cell covers d bits starting at b (within our total M bits)
     val b = i * d
@@ -201,13 +192,12 @@ case class StableBloomFilter[T](
     (x, j)
   }
 
-  /**
-   * Computes <code>K</code> hash functions of a filter item.
-   *
-   * @param item
-   *   the item to hash
-   * @return
-   */
+  /** Computes <code>K</code> hash functions of a filter item.
+    *
+    * @param item
+    *   the item to hash
+    * @return
+    */
   def hash(item: T): Seq[Long] = {
     val hash128 = hasher.hashObject(item, funnel).asBytes()
     val hash1   = ByteBuffer.wrap(hash128, 0, 8).getLong
@@ -227,28 +217,26 @@ object StableBloomFilter {
   val LN2: Double         = Math.log(2)
   val LN2_SQUARED: Double = LN2 * LN2
 
-  /**
-   * Return a builder for constructing an instance of StableBloomFilter[T]
-   */
+  /** Return a builder for constructing an instance of StableBloomFilter[T]
+    */
   def builder[T](funnel: Funnel[T]): StableBloomFilterBuilder[T] =
     StableBloomFilterBuilder[T](funnel)
 
-  /**
-   * Return the optimal number of cells to decrement each time a new item
-   * is inserted in the filter. This quantity is represented by the symbol
-   * <code>P</code> in the DR paper (eqn 17).
-   *
-   * @param m
-   *   number of cells in the SBF
-   * @param K
-   *   number of hash functions
-   * @param d
-   *   bits per cell (<code>Max = 2**d - 1</code>)
-   * @param FPS
-   *   false positive rate
-   * @return
-   *   P optimal number of cells to decrement
-   */
+  /** Return the optimal number of cells to decrement each time a new item
+    * is inserted in the filter. This quantity is represented by the symbol
+    * <code>P</code> in the DR paper (eqn 17).
+    *
+    * @param m
+    *   number of cells in the SBF
+    * @param K
+    *   number of hash functions
+    * @param d
+    *   bits per cell (<code>Max = 2**d - 1</code>)
+    * @param FPS
+    *   false positive rate
+    * @return
+    *   P optimal number of cells to decrement
+    */
   def optimalP(m: Long, K: Int, d: Int, FPS: Double): Int = {
 
     val Max = (1L << d) - 1

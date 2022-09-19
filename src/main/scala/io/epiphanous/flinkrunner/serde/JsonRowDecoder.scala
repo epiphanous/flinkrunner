@@ -11,6 +11,6 @@ class JsonRowDecoder[E: TypeInformation] extends RowDecoder[E] {
     implicitly[TypeInformation[E]].getTypeClass
   )
 
-  override def decode(line: String): Try[E] =
-    Try(codec.jsonReader.readValue(line))
+  override def tryDecode(line: String): Try[E] =
+    Try(codec.jsonReader.readValue[E](line))
 }

@@ -17,7 +17,7 @@ class DelimitedRowDecoderTest extends PropSpec {
       }
       .mkString(",") + System.lineSeparator()
     val decodedSimpleB = decoder.decode(line)
-    decodedSimpleB.success.value.toString shouldEqual simpleB.toString
+    decodedSimpleB.value.toString shouldEqual simpleB.toString
   }
 
 }

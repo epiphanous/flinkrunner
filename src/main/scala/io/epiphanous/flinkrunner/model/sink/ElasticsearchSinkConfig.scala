@@ -1,10 +1,18 @@
 package io.epiphanous.flinkrunner.model.sink
 
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkConnectorName, FlinkEvent}
+import io.epiphanous.flinkrunner.model.{
+  FlinkConfig,
+  FlinkConnectorName,
+  FlinkEvent
+}
 import org.apache.flink.api.connector.sink2.SinkWriter
 import org.apache.flink.connector.elasticsearch.sink
-import org.apache.flink.connector.elasticsearch.sink.{Elasticsearch7SinkBuilder, ElasticsearchEmitter, FlushBackoffType}
+import org.apache.flink.connector.elasticsearch.sink.{
+  Elasticsearch7SinkBuilder,
+  ElasticsearchEmitter,
+  FlushBackoffType
+}
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
 import org.apache.http.HttpHost
@@ -13,12 +21,34 @@ import org.elasticsearch.client.Requests
 import java.net.URL
 import scala.collection.JavaConverters.mapAsJavaMap
 
+/** Elasticsearch sink config
+  *
+  * Configuration:
+  *   - `index`: the name of the elasticsearch index to insert records into
+  *   - `transports`: list of elasticsearch endpoints
+  *   - `bulk.flush.backoff`:
+  *     - `type`
+  *     - `retries`
+  *     - `delay`
+  *   - `bulk.flush.max.actions`
+  *   - `bulk.flush.max.size.mb`
+  *   - `bulk.flush.interval.ms`
+  *
+  * @param name
+  *   name of the sink
+  * @param config
+  *   flinkrunner configuration
+  * @tparam ADT
+  *   the flinkrunner algebraic data type
+  */
 case class ElasticsearchSinkConfig[ADT <: FlinkEvent](
     name: String,
-    config: FlinkConfig,
-    connector: FlinkConnectorName = FlinkConnectorName.ElasticsearchSink
+    config: FlinkConfig
 ) extends SinkConfig[ADT]
     with LazyLogging {
+
+  override val connector: FlinkConnectorName =
+    FlinkConnectorName.ElasticsearchSink
 
   val index: String              = config.getString(pfx("index"))
   val transports: List[HttpHost] =

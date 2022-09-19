@@ -28,9 +28,18 @@ object StreamFormatName extends Enum[StreamFormatName] {
 
   case object Avro extends StreamFormatName
 
-  def isBulk(format: StreamFormatName): Boolean = format match {
-    case Parquet => true
-    case _       => false
+  implicit class RichStreamFormatName(format: StreamFormatName) {
+    def isBulk: Boolean = format match {
+      case Parquet | Avro => true
+      case _              => false
+    }
+
+    def isText: Boolean = !format.isBulk
+
+    def isDelimited: Boolean = format match {
+      case Delimited | Csv | Tsv | Psv => true
+      case _                           => false
+    }
   }
 
 }

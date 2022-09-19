@@ -48,7 +48,7 @@ case class RabbitMQConnectionInfo(
     cb.build()
   }
 }
-object RabbitMQConnectionInfo             {
+object RabbitMQConnectionInfo {
   def apply(uri: String, c: Properties): RabbitMQConnectionInfo = {
     RabbitMQConnectionInfo(
       uri,

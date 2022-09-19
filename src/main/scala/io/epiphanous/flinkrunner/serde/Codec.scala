@@ -11,6 +11,7 @@ import com.fasterxml.jackson.dataformat.csv.{
 }
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import com.github.pjfanning.jackson.reflect.ScalaReflectExtensions
 import org.apache.avro.generic.GenericRecord
 
 import java.io.OutputStream
@@ -21,6 +22,15 @@ case class Codec[E](
     typeClass: Class[E],
     jsonConfig: JsonConfig = JsonConfig(),
     delimitedConfig: DelimitedConfig = DelimitedConfig.CSV) {
+
+  object CsvMapperScalaReflectExtensions {
+    def ::(mapper: CsvMapper) = new Mixin(mapper)
+
+    final class Mixin private[CsvMapperScalaReflectExtensions] (
+        mapper: CsvMapper)
+        extends CsvMapper(mapper)
+        with ScalaReflectExtensions
+  }
 
   lazy val isAvro: Boolean =
     classOf[GenericRecord].isAssignableFrom(typeClass)
@@ -46,7 +56,8 @@ case class Codec[E](
         DeserializationFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE,
         false
       )
-    (if (isAvro) mapper.addModule(avroModule) else mapper).build()
+    (if (isAvro) mapper.addModule(avroModule) else mapper)
+      .build() :: ScalaReflectExtensions
   }
 
   lazy val jsonWriter: ObjectWriter = jsonMapper.writerFor(typeClass)
@@ -68,7 +79,12 @@ case class Codec[E](
         DeserializationFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE,
         false
       )
-    (if (isAvro) builder.addModule(avroModule) else builder).build()
+      .configure(
+        DeserializationFeature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS,
+        false
+      )
+    (if (isAvro) builder.addModule(avroModule) else builder)
+      .build() :: CsvMapperScalaReflectExtensions
   }
 
   lazy val csvSchema: CsvSchema = {
@@ -92,7 +108,7 @@ case class Codec[E](
                              } else start)
       .withColumnSeparator(delimitedConfig.columnSeparator)
       .withLineSeparator(delimitedConfig.lineSeparator)
-      .withEscapeChar(delimitedConfig.escapeChar)
+      .withEscapeChar(delimitedConfig.escapeCharacter)
       .withUseHeader(false) // delimited header use handled in encoder
     if (delimitedConfig.useQuotes)
       updatedWithConfig.withQuoteChar(delimitedConfig.quoteCharacter)

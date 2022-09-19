@@ -2,20 +2,19 @@ package io.epiphanous.flinkrunner.algorithm.membership
 
 import com.google.common.hash.Funnel
 
-/**
- * A builder interface for creating StableBloomFilter instances.
- *
- * @param funnel
- *   a guava funnel
- * @param numCells
- *   number of cells in the filter
- * @param bitsPerCell
- *   number of bits per cell in the filter
- * @param falsePositiveRate
- *   desired maximum false positive rate of the filter
- * @tparam T
- *   the type of item inserted into the filter
- */
+/** A builder interface for creating StableBloomFilter instances.
+  *
+  * @param funnel
+  *   a guava funnel
+  * @param numCells
+  *   number of cells in the filter
+  * @param bitsPerCell
+  *   number of bits per cell in the filter
+  * @param falsePositiveRate
+  *   desired maximum false positive rate of the filter
+  * @tparam T
+  *   the type of item inserted into the filter
+  */
 case class StableBloomFilterBuilder[T](
     funnel: Funnel[T],
     numCells: Long = 1000000,

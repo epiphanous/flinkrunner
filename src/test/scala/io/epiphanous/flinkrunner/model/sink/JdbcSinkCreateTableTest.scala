@@ -1,6 +1,10 @@
 package io.epiphanous.flinkrunner.model.sink
 
-import com.dimafeng.testcontainers.{MSSQLServerContainer, MySQLContainer, PostgreSQLContainer}
+import com.dimafeng.testcontainers.{
+  MSSQLServerContainer,
+  MySQLContainer,
+  PostgreSQLContainer
+}
 import io.epiphanous.flinkrunner.UnitSpec
 import io.epiphanous.flinkrunner.model.{FlinkConfig, MyAvroADT}
 

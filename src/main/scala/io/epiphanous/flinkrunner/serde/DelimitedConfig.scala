@@ -1,8 +1,7 @@
 package io.epiphanous.flinkrunner.serde
 
-import io.epiphanous.flinkrunner.model.StreamFormatName
-
-import java.util.Properties
+import io.epiphanous.flinkrunner.model.{FlinkConfig, StreamFormatName}
+import io.epiphanous.flinkrunner.util.ConfigToProps.getFromEither
 
 /** A delimited file format configuration.
   * @param columnSeparator
@@ -11,7 +10,7 @@ import java.util.Properties
   *   the line separator string (defaults to "\n")
   * @param quoteCharacter
   *   the quote character (defaults to '"')
-  * @param escapeChar
+  * @param escapeCharacter
   *   the escape character (defaults to '\')
   * @param useHeader
   *   true to emit a header line with column names (defaults to false);
@@ -23,10 +22,10 @@ case class DelimitedConfig(
     columnSeparator: Char = ',',
     lineSeparator: String = "\n",
     quoteCharacter: Char = '"',
-    escapeChar: Char = '\\',
-    useHeader: Boolean = false,
+    escapeCharacter: Char = '\\',
+    useHeader: Boolean = true,
     useQuotes: Boolean = false,
-    columns: List[String] = List.empty
+    columns: Seq[String] = Seq.empty
 )
 
 object DelimitedConfig {
@@ -38,9 +37,10 @@ object DelimitedConfig {
     * properties and columns passed in.
     * @param format
     *   the StreamFormatName describing the requested configuration
-    * @param properties
-    *   delimited configuration as a set of properties (usually taken from
-    *   the FileSink configuration)
+    * @param prefix
+    *   a configuration prefix
+    * @param config
+    *   flink config to pull config info from, relative to prefix
     * @param columns
     *   an optional list of column names (only required if the class being
     *   encoded is an avro GenericRecord)
@@ -49,42 +49,64 @@ object DelimitedConfig {
     */
   def get(
       format: StreamFormatName,
-      properties: Properties,
-      columns: List[String] = List.empty): DelimitedConfig = {
-    val useHeader = properties.getProperty("use.header", "true").toBoolean
-    val useQuotes = properties.getProperty("use.quotes", "false").toBoolean
-    format match {
-      case StreamFormatName.Tsv       =>
-        TSV.copy(
-          useHeader = useHeader,
-          useQuotes = useQuotes,
-          columns = columns
-        )
-      case StreamFormatName.Psv       =>
-        PSV.copy(
-          useHeader = useHeader,
-          useQuotes = useQuotes,
-          columns = columns
-        )
-      case StreamFormatName.Delimited =>
-        DelimitedConfig(
-          properties.getProperty("column.separator", ",").toCharArray.head,
-          properties.getProperty("line.separator", "\n"),
-          properties.getProperty("quote.character", "\"").toCharArray.head,
-          properties
-            .getProperty("escape.character", "\\")
-            .toCharArray
-            .head,
-          useHeader,
-          useQuotes,
-          columns
-        )
-      case _                          =>
-        CSV.copy(
-          useHeader = useHeader,
-          useQuotes = useQuotes,
-          columns = columns
-        )
+      prefix: String,
+      config: FlinkConfig,
+      columns: Seq[String] = Seq.empty
+  ): DelimitedConfig = {
+
+    val useQuotes: Option[Boolean] = getFromEither(
+      prefix,
+      Seq("uses.quotes", "use.quotes", "use.quote"),
+      config.getBooleanOpt
+    )
+
+    val useHeader: Option[Boolean] = getFromEither(
+      prefix,
+      Seq("uses.header", "use.header", "use.headers"),
+      config.getBooleanOpt
+    )
+
+    val colSep: Option[String] = getFromEither(
+      prefix,
+      Seq("column.separator", "col.sep"),
+      config.getStringOpt
+    )
+
+    val lineSep: Option[String] = getFromEither(
+      prefix,
+      Seq("line.separator", "line.sep"),
+      config.getStringOpt
+    )
+
+    val quoteChar: Option[String] = getFromEither(
+      prefix,
+      Seq("quote.character", "quote.char"),
+      config.getStringOpt
+    )
+
+    val escapeChar: Option[String] = getFromEither(
+      prefix,
+      Seq("escape.character", "escape.char"),
+      config.getStringOpt
+    )
+
+    val defaults = format match {
+      case StreamFormatName.Tsv => TSV
+      case StreamFormatName.Psv => PSV
+      case _                    => CSV
     }
+
+    DelimitedConfig(
+      columnSeparator =
+        colSep.map(_.head).getOrElse(defaults.columnSeparator),
+      lineSeparator = lineSep.getOrElse(defaults.lineSeparator),
+      quoteCharacter =
+        quoteChar.map(_.head).getOrElse(defaults.quoteCharacter),
+      escapeCharacter =
+        escapeChar.map(_.head).getOrElse(defaults.escapeCharacter),
+      useHeader = useHeader.getOrElse(defaults.useHeader),
+      useQuotes = useQuotes.getOrElse(defaults.useQuotes),
+      columns = columns
+    )
   }
 }

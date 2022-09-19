@@ -1,11 +1,6 @@
 package io.epiphanous.flinkrunner.model
 
-import com.typesafe.config.{
-  Config,
-  ConfigFactory,
-  ConfigObject,
-  ConfigOriginFactory
-}
+import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigOriginFactory}
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.util.ConfigToProps.RichConfigObject
 import io.epiphanous.flinkrunner.util.FileUtils.getResourceOrFile
@@ -251,7 +246,7 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
   )
 
   lazy val disableGenericTypes: Boolean               =
-    getBooleanOpt("disable.generic.types").getOrElse(true)
+    getBooleanOpt("disable.generic.types").getOrElse(false)
   lazy val systemHelp: String                         = _config.getString("system.help")
   lazy val jobHelp: String                            = getString("help")
   lazy val jobDescription: String                     = getString("description")

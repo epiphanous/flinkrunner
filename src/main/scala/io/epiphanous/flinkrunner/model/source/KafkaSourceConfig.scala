@@ -1,16 +1,18 @@
 package io.epiphanous.flinkrunner.model.source
 
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.serde.{ConfluentAvroRegistryKafkaRecordDeserializationSchema, JsonKafkaRecordDeserializationSchema}
+import io.epiphanous.flinkrunner.serde.{
+  ConfluentAvroRegistryKafkaRecordDeserializationSchema,
+  JsonKafkaRecordDeserializationSchema
+}
 import io.epiphanous.flinkrunner.util.ConfigToProps
 import io.epiphanous.flinkrunner.util.ConfigToProps._
 import io.epiphanous.flinkrunner.util.StreamUtils.RichProps
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.connector.source.{Source, SourceSplit}
-import org.apache.flink.connector.file.src.reader.StreamFormat
 import org.apache.flink.connector.kafka.source.KafkaSource
-import org.apache.flink.connector.kafka.source.enumerator.initializer.{NoStoppingOffsetsInitializer, OffsetsInitializer}
+import org.apache.flink.connector.kafka.source.enumerator.initializer.OffsetsInitializer
 import org.apache.flink.connector.kafka.source.reader.deserializer.KafkaRecordDeserializationSchema
 import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.kafka.clients.consumer.OffsetResetStrategy
@@ -18,26 +20,81 @@ import org.apache.kafka.clients.consumer.OffsetResetStrategy
 import java.util.Properties
 import scala.util.Try
 
+/** A source config for using a kafka as a source for a flink job. For
+  * example, the following config can be used to read from a topic in kafka
+  * that contains confluent avro encoded messages.
+  * {{{
+  *   source my-kafka-source {
+  *     bootstrap.servers = "broker1:9092, broker2:9092, broker3:9092"
+  *     topic = "my-avro-topic"
+  *     is.keyed = true
+  *     schema.registry.url = "http://schema-registry:8082"
+  *   }
+  * }}}
+  *
+  * Configuration options:
+  *   - `connector`: `kafka` (required only if it can't be inferred from
+  *     the source name)
+  *   - `bootstrap.servers`: required list of kafka brokers (specified as a
+  *     comma separated string)
+  *   - `topic`: name of the topic (required; use
+  *     <code>&lt;canonical-name&gt;</code> or
+  *     <code>&lt;simple-name&gt;</code> to use the full namespaced or
+  *     simple name of the event type as the topic name)
+  *   - `keyed`: if true, the topic has a key (optional, defaults to false,
+  *     and flinkrunner assumes kafka keys are strings)
+  *   - `starting.offset`: `earliest`, `latest`, or timestamp in epoch
+  *     millis (defaults to `earliest`)
+  *   - `stopping.offset`: `latest`, `committed`, timestamp in epoch
+  *     millis, or `none` (defaults to `none`)
+  *   - `group.id`: consumer group id (defaults to
+  *     <code>&lt;job-name&gt;.&lt;sink-name&gt;</code>)
+  *   - `schema.registry`: optional confluent schema registry configuration
+  *     - `url`: schema registry endpoint (required)
+  *     - `cache.capacity`: size of schema cache in the registry client
+  *       (defaults to 1000)
+  *     - `headers`: key/value map of headers to pass to the schema
+  *       registry (useful for auth)
+  *     - `props`: other properties to pass to schema registry client
+  *   - `config`: optional properties to pass to kafka client
+  *
+  * @param name
+  *   name of the kafka source
+  * @param config
+  *   flinkrunner config
+  * @tparam ADT
+  *   Flinkrunner algebraic data type
+  */
 case class KafkaSourceConfig[ADT <: FlinkEvent](
     name: String,
-    config: FlinkConfig,
-    connector: FlinkConnectorName = FlinkConnectorName.Kafka)
+    config: FlinkConfig)
     extends SourceConfig[ADT] {
 
-  override val properties: Properties     = ConfigToProps.normalizeProps(
+  override val connector: FlinkConnectorName = FlinkConnectorName.Kafka
+
+  override val properties: Properties = ConfigToProps.normalizeProps(
     config,
     pfx(),
     List("bootstrap.servers")
   )
-  val topic: String                       = config.getString(pfx("topic"))
-  val isKeyed: Boolean                    =
-    config.getBooleanOpt(pfx("isKeyed")).getOrElse(true)
-  val bootstrapServers: String            =
+
+  val topic: String = config.getString(pfx("topic"))
+
+  val bootstrapServers: String =
     properties.getProperty("bootstrap.servers")
-  val bounded: Boolean                    =
-    config.getBooleanOpt(pfx("bounded")).getOrElse(false)
+
+  val isKeyed: Boolean = getFromEither(
+    pfx(),
+    Seq("keyed", "is.keyed"),
+    config.getBooleanOpt
+  ).getOrElse(false)
+
   val startingOffsets: OffsetsInitializer =
-    config.getStringOpt(pfx("starting.offset")) match {
+    getFromEither(
+      pfx(),
+      Seq("starting.offset", "beginning.offset"),
+      config.getStringOpt
+    ) match {
       case Some(o) if o.equalsIgnoreCase("earliest") =>
         OffsetsInitializer.earliest()
       case Some(o) if o.equalsIgnoreCase("latest")   =>
@@ -49,15 +106,20 @@ case class KafkaSourceConfig[ADT <: FlinkEvent](
           OffsetResetStrategy.EARLIEST
         )
     }
-  val stoppingOffsets: OffsetsInitializer =
-    config.getStringOpt(pfx("stopping.offset")) match {
+
+  val stoppingOffsets: Option[OffsetsInitializer] =
+    getFromEither(
+      pfx(),
+      Seq("stopping.offset", "ending.offset"),
+      config.getStringOpt
+    ) match {
       case Some(o) if o.equalsIgnoreCase("latest")    =>
-        OffsetsInitializer.latest()
+        Some(OffsetsInitializer.latest())
       case Some(o) if o.equalsIgnoreCase("committed") =>
-        OffsetsInitializer.committedOffsets()
+        Some(OffsetsInitializer.committedOffsets())
       case Some(o) if o.matches("[0-9]+")             =>
-        OffsetsInitializer.timestamp(o.toLong)
-      case _                                          => new NoStoppingOffsetsInitializer()
+        Some(OffsetsInitializer.timestamp(o.toLong))
+      case _                                          => None
     }
 
   val groupId: String = config
@@ -65,8 +127,7 @@ case class KafkaSourceConfig[ADT <: FlinkEvent](
     .getOrElse(s"${config.jobName}.$name")
 
   val schemaRegistryConfig: SchemaRegistryConfig =
-    config
-      .getObjectOption(pfx("schema.registry"))
+    getFromEither(pfx(), Seq("schema.registry"), config.getObjectOption)
       .map { o =>
         val c             = o.toConfig
         val url           = c.getString("url")
@@ -122,8 +183,7 @@ case class KafkaSourceConfig[ADT <: FlinkEvent](
   override def getAvroSource[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](implicit
-      fromKV: EmbeddedAvroRecordInfo[A] => E,
-      avroParquetRecordFormat: StreamFormat[A])
+      fromKV: EmbeddedAvroRecordInfo[A] => E)
       : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] =
     Right(_getSource(getAvroDeserializationSchema[E, A]))
 
@@ -143,8 +203,6 @@ case class KafkaSourceConfig[ADT <: FlinkEvent](
       .setDeserializer(
         deserializer
       )
-    (if (bounded)
-       ksb.setBounded(stoppingOffsets)
-     else ksb).build()
+    stoppingOffsets.map(ksb.setBounded).getOrElse(ksb).build()
   }
 }

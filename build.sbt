@@ -49,6 +49,7 @@ val V = new {
   val jdbcMysql           = "8.0.30"
   val jdbcPg              = "42.5.0"
   val jdbcMssql           = "11.2.0.jre11"
+  val hadoop              = "2.8.5"
 }
 
 val flinkDeps =
@@ -106,6 +107,7 @@ val circeDeps = Seq(
 ).map(d => "io.circe" %% s"circe-$d" % V.circe)
 
 val otherDeps = Seq(
+  "org.apache.hadoop"                % "hadoop-client"                    % V.hadoop              % Provided,
   "io.confluent"                     % "kafka-avro-serializer"            % V.confluentAvroSerde  % Provided,
   "com.amazonaws"                    % "aws-java-sdk-core"                % V.awsSdk              % Provided,
   "com.beachape"                    %% "enumeratum"                       % V.enumeratum,
@@ -118,7 +120,7 @@ val otherDeps = Seq(
   "org.scalacheck"                  %% "scalacheck"                       % V.scalaCheck,
   "com.fasterxml.jackson.module"    %% "jackson-module-scala"             % V.jackson,
   // not sure this works with nested types on csv as well as jsonmapper...will wait to find out
-//  "com.github.pjfanning"            %% "jackson-scala-reflect-extensions" % V.jackson,
+  "com.github.pjfanning"            %% "jackson-scala-reflect-extensions" % V.jackson,
   "com.fasterxml.jackson.dataformat" % "jackson-dataformat-csv"           % V.jackson,
   "com.fasterxml.jackson.datatype"   % "jackson-datatype-jsr310"          % V.jackson,
   "com.dimafeng"                    %% "testcontainers-scala-scalatest"   % V.testContainersScala % Test,

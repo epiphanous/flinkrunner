@@ -1,9 +1,9 @@
 package io.epiphanous.flinkrunner.model.sink
 
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.model.FlinkConnectorName.File
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.serde._
+import io.epiphanous.flinkrunner.util.AvroUtils.instanceOf
 import org.apache.avro.generic.GenericRecord
 import org.apache.avro.specific.SpecificRecordBase
 import org.apache.flink.api.common.serialization.Encoder
@@ -12,27 +12,94 @@ import org.apache.flink.connector.file.sink.FileSink
 import org.apache.flink.core.fs.Path
 import org.apache.flink.core.io.SimpleVersionedSerializer
 import org.apache.flink.streaming.api.datastream.DataStreamSink
-import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.{BasePathBucketAssigner, DateTimeBucketAssigner}
-import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.{CheckpointRollingPolicy, OnCheckpointRollingPolicy}
-import org.apache.flink.streaming.api.functions.sink.filesystem.{BucketAssigner, OutputFileConfig}
+import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.{
+  BasePathBucketAssigner,
+  DateTimeBucketAssigner
+}
+import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.{
+  CheckpointRollingPolicy,
+  OnCheckpointRollingPolicy
+}
+import org.apache.flink.streaming.api.functions.sink.filesystem.{
+  BucketAssigner,
+  OutputFileConfig
+}
 import org.apache.flink.streaming.api.scala.DataStream
 
 import java.nio.charset.StandardCharsets
 import scala.collection.JavaConverters._
 
+/** File sink config.
+  *
+  * Configuration:
+  *   - `path`: a required config specifying the location of the directory
+  *     or file
+  *   - `format`: an optional config (defaults to `json`) identifying the
+  *     file format, which can be one of
+  *     - `json`: line separated json objects
+  *     - `csv`: (comma delimited)
+  *     - `psv`: pipe separated values
+  *     - `tsv`: tab separated values
+  *     - `delimited`: general delimited (see config options below)
+  *     - `avro`: avro file format
+  *     - `parquet`: parquet file format
+  *     - `monitor`: an optional duration indicating how frequently the
+  *       file location should be monitored for new files. Defaults to 0,
+  *       meaning no new files will be monitored.
+  *     - `column.separator`: optional string that separate columns
+  *       (defaults to a comma if format is delimited)
+  *     - `line.separator`: optional string that separate lines (defaults
+  *       to the system line separator if format is delimited)
+  *     - `quote.character`: optional character that quotes values
+  *       (defaults to double quote if format is delimited)
+  *     - `escape.character`: optional character that escapes quote
+  *       characters in values (defaults to backslash if format is
+  *       delimited)
+  *     - `uses.header`: true if files contain a header line (defaults to
+  *       true)
+  *     - `uses.quotes`: true if all column values should be quoted or only
+  *       those that have embedded quotes (defaults to false)
+  *   - `bucket`: optional configs associated with bucketing emitted files
+  *     - `check.interval.ms`: maximum time to wait to emit the currently
+  *       accumulating file
+  *     - `assigner`: how files are assigned to buckets
+  *       - `type`: one of (`none`, `datetime`, `custom`; default
+  *         `datetime`)
+  *       - `datetime.format`: when `type=datetime` this format specifier
+  *         controls how the bucket path is created
+  *   - `output.file.part`: controls the prefixing and suffixing of the
+  *     emitted file names
+  *     - `prefix`
+  *     - `suffix`
+  *
+  * @param name
+  *   name of the sink
+  * @param config
+  *   flinkrunner config
+  * @tparam ADT
+  *   the flinkrunner algebraic data type
+  */
 case class FileSinkConfig[ADT <: FlinkEvent](
     name: String,
-    config: FlinkConfig,
-    connector: FlinkConnectorName = File)
-    extends SinkConfig[ADT]
+    config: FlinkConfig
+) extends SinkConfig[ADT]
     with LazyLogging {
 
-  val path: String             = config.getString(pfx("path"))
-  val destination: Path        = new Path(path)
+  override def connector: FlinkConnectorName = FlinkConnectorName.File
+
+  val path: String      = config.getString(pfx("path"))
+  val destination: Path = new Path(path)
+
   val format: StreamFormatName = StreamFormatName.withNameInsensitive(
     config.getString(pfx("format"))
   )
-  val isBulk: Boolean          = StreamFormatName.isBulk(format)
+
+  val isBulk: Boolean      = format.isBulk
+  val isText: Boolean      = format.isText
+  val isDelimited: Boolean = format.isDelimited
+
+  val delimitedConfig: DelimitedConfig =
+    DelimitedConfig.get(format, pfx(), config)
 
   /** Create a row-encoded file sink and send the data stream to it.
     * @param dataStream
@@ -71,11 +138,13 @@ case class FileSinkConfig[ADT <: FlinkEvent](
       A <: GenericRecord: TypeInformation](
       dataStream: DataStream[E]): DataStreamSink[E] = {
     val sink = format match {
-      case StreamFormatName.Parquet =>
+      case StreamFormatName.Parquet | StreamFormatName.Avro =>
         FileSink
           .forBulkFormat(
             destination,
-            new EmbeddedAvroParquetRecordFactory[E, A, ADT]()
+            new EmbeddedAvroWriterFactory[E, A, ADT](
+              format == StreamFormatName.Parquet
+            )
           )
           .withBucketAssigner(getBucketAssigner)
           .withBucketCheckInterval(getBucketCheckInterval)
@@ -92,7 +161,7 @@ case class FileSinkConfig[ADT <: FlinkEvent](
           .withRollingPolicy(getCheckpointRollingPolicy)
           .withOutputFileConfig(getOutputFileConfig)
           .build()
-      case _                        =>
+      case _                                                =>
         throw new RuntimeException(
           s"Invalid format for getAvroSink: $format"
         )
@@ -159,7 +228,7 @@ case class FileSinkConfig[ADT <: FlinkEvent](
         s"Invalid format for getRowEncoder: $format"
       )
     case _                        =>
-      new DelimitedFileEncoder[E](DelimitedConfig.get(format, properties))
+      new DelimitedFileEncoder[E](delimitedConfig)
   }
 
   def getAvroRowEncoder[
@@ -167,21 +236,16 @@ case class FileSinkConfig[ADT <: FlinkEvent](
       A <: GenericRecord: TypeInformation]: Encoder[E] = {
     val avroTypeClass = implicitly[TypeInformation[A]].getTypeClass
     format match {
-      case StreamFormatName.Json    =>
+      case StreamFormatName.Json                            =>
         new EmbeddedAvroJsonFileEncoder[E, A, ADT]()
-      case StreamFormatName.Parquet =>
+      case StreamFormatName.Parquet | StreamFormatName.Avro =>
         throw new RuntimeException(
-          s"Parquet is a bulk format and invalid for getAvroRowEncoder on sink $name"
+          s"${format.entryName} is a bulk format and invalid for encoding text to sink $name"
         )
-      case _                        =>
+      case _                                                =>
         val columns =
           if (classOf[SpecificRecordBase].isAssignableFrom(avroTypeClass))
-            avroTypeClass
-              .getConstructor()
-              .newInstance()
-              .getSchema
-              .getFields
-              .asScala
+            instanceOf(avroTypeClass).getSchema.getFields.asScala
               .map(_.name())
               .toList
           else
@@ -190,7 +254,7 @@ case class FileSinkConfig[ADT <: FlinkEvent](
               .split("\\s+,\\s+")
               .toList
         new EmbeddedAvroDelimitedFileEncoder[E, A, ADT](
-          DelimitedConfig.get(format, properties, columns)
+          delimitedConfig.copy(columns = columns)
         )
     }
   }

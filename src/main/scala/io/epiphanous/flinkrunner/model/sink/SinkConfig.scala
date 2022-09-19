@@ -9,6 +9,24 @@ import org.apache.flink.api.common.typeinfo.TypeInformation
 import java.util
 import java.util.Properties
 
+/** A flinkrunner sink configuration trait. All sink configs have a few
+  * common configuration options.
+  *
+  * Common Configuration Options:
+  *
+  *   - `name`: the sink name
+  *   - `connector`: one of
+  *     - [[FlinkConnectorName.CassandraSink]]
+  *     - [[FlinkConnectorName.ElasticsearchSink]]
+  *     - [[FlinkConnectorName.File]]
+  *     - [[FlinkConnectorName.Jdbc]]
+  *     - [[FlinkConnectorName.Kafka]]
+  *     - [[FlinkConnectorName.Kinesis]]
+  *     - [[FlinkConnectorName.RabbitMQ]]
+  *     - [[FlinkConnectorName.Socket]]
+  * @tparam ADT
+  *   the flinkrunner algebraic data type
+  */
 trait SinkConfig[ADT <: FlinkEvent] extends LazyLogging {
   def name: String
   def config: FlinkConfig
@@ -25,7 +43,7 @@ trait SinkConfig[ADT <: FlinkEvent] extends LazyLogging {
   lazy val propertiesMap: util.HashMap[String, String] =
     properties.asJavaMap
 
-  val label: String = s"${connector.entryName.toLowerCase}/$name"
+  lazy val label: String = s"${connector.entryName.toLowerCase}/$name"
 
 }
 
@@ -40,17 +58,16 @@ object SinkConfig {
         config.jobName,
         config.getStringOpt(s"sinks.$name.connector")
       ) match {
-      case Kafka             => KafkaSinkConfig(name, config, Kafka)
-      case Kinesis           => KinesisSinkConfig(name, config, Kinesis)
-      case File              => FileSinkConfig(name, config, File)
-      case Socket            => SocketSinkConfig(name, config, Socket)
-      case Jdbc              => JdbcSinkConfig(name, config, Jdbc)
+      case Kafka             => KafkaSinkConfig(name, config)
+      case Kinesis           => KinesisSinkConfig(name, config)
+      case File              => FileSinkConfig(name, config)
+      case Socket            => SocketSinkConfig(name, config)
+      case Jdbc              => JdbcSinkConfig(name, config)
       case CassandraSink     =>
-        CassandraSinkConfig(name, config, CassandraSink)
+        CassandraSinkConfig(name, config)
       case ElasticsearchSink =>
-        ElasticsearchSinkConfig(name, config, ElasticsearchSink)
-      case RabbitMQ          => RabbitMQSinkConfig(name, config, RabbitMQ)
-      case MockSink          => MockSinkConfig(name, config, MockSink)
+        ElasticsearchSinkConfig(name, config)
+      case RabbitMQ          => RabbitMQSinkConfig(name, config)
       case connector         =>
         throw new RuntimeException(
           s"Don't know how to configure ${connector.entryName} sink connector $name (job ${config.jobName}"

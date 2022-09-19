@@ -6,7 +6,7 @@ import org.apache.avro.specific.SpecificRecordBase
 import org.apache.flink.api.common.serialization.BulkWriter
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.core.fs.FSDataOutputStream
-import org.apache.flink.formats.parquet.ParquetWriterFactory
+import org.apache.flink.formats.avro.AvroWriters
 import org.apache.flink.formats.parquet.avro.AvroParquetWriters
 
 /** An avro parquet writer factory for types that wrap an avro record.
@@ -27,10 +27,12 @@ import org.apache.flink.formats.parquet.avro.AvroParquetWriters
   * @tparam ADT
   *   The algebraic data type that implements FlinkEvent
   */
-class EmbeddedAvroParquetRecordFactory[
+class EmbeddedAvroWriterFactory[
     E <: ADT with EmbeddedAvroRecord[A],
     A <: GenericRecord: TypeInformation,
-    ADT <: FlinkEvent](optSchema: Option[Schema] = None)
+    ADT <: FlinkEvent](
+    isParquet: Boolean,
+    optSchema: Option[Schema] = None)
     extends BulkWriter.Factory[E] {
 
   val typeClass: Class[A] = implicitly[TypeInformation[A]].getTypeClass
@@ -39,7 +41,7 @@ class EmbeddedAvroParquetRecordFactory[
     optSchema.nonEmpty || classOf[SpecificRecordBase].isAssignableFrom(
       typeClass
     ),
-    s"EmbeddedAvroParquetRecordFactory requires a unique avro schema when the embedded avro type is GenericRecord"
+    s"EmbeddedAvroWriterFactory requires a unique avro schema when the embedded avro type is GenericRecord"
   )
 
   val schema: Schema = optSchema.getOrElse(
@@ -49,8 +51,10 @@ class EmbeddedAvroParquetRecordFactory[
       .getSchema
   )
 
-  val avroWriterFactory: ParquetWriterFactory[GenericRecord] =
-    AvroParquetWriters.forGenericRecord(schema)
+  val avroWriterFactory: BulkWriter.Factory[GenericRecord] =
+    if (isParquet)
+      AvroParquetWriters.forGenericRecord(schema)
+    else AvroWriters.forGenericRecord(schema)
 
   override def create(out: FSDataOutputStream): BulkWriter[E] = {
     val avroWriter = avroWriterFactory.create(out)

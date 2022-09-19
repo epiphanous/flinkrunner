@@ -1,10 +1,7 @@
 package io.epiphanous.flinkrunner.flink
 
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.model.sink.SinkConfig
-import io.epiphanous.flinkrunner.model.source.SourceConfig
 import io.epiphanous.flinkrunner.{FlinkRunner, PropSpec}
-import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.connector.file.src.reader.StreamFormat
 import org.apache.flink.formats.parquet.avro.AvroParquetReaders
 import org.apache.flink.streaming.api.scala._
@@ -18,9 +15,9 @@ class AvroStreamJobSpec extends PropSpec {
     val inA: List[AWrapper] = genPop[AWrapper](3)
 
     /** a name for this check configuration */
-    override def name: String = "my-avro-check-results"
+    override val name: String = "my-avro-check-results"
 
-    override def collectLimit: Int = inA.size
+    override val collectLimit: Int = inA.size
 
     /** Return a list of test events to run through a mock job.
       *
@@ -29,8 +26,7 @@ class AvroStreamJobSpec extends PropSpec {
       * @return
       *   List[IN]
       */
-    override def getInputEvents[IN <: MyAvroADT: TypeInformation](
-        sourceConfig: SourceConfig[MyAvroADT]): List[IN] =
+    override def getInputEvents[IN <: MyAvroADT](name: String): List[IN] =
       inA.asInstanceOf[List[IN]]
 
     /** Check the results of a mock run of a job.
@@ -40,14 +36,9 @@ class AvroStreamJobSpec extends PropSpec {
       * @tparam OUT
       *   the ourput event type
       */
-    override def checkOutputEvents[OUT <: MyAvroADT: TypeInformation](
-        sinkConfig: SinkConfig[MyAvroADT],
-        out: List[OUT]): Unit = {
-      implicitly[TypeInformation[OUT]].getTypeClass.getSimpleName match {
-        case "AWrapper" => runTestA(inA, out.asInstanceOf[List[AWrapper]])
-        case _          => throw new RuntimeException("Shouldn't happen")
-      }
-    }
+    override def checkOutputEvents[OUT <: MyAvroADT](
+        out: List[OUT]): Unit =
+      runTestA(inA, out.asInstanceOf[List[AWrapper]])
 
     def runTestA(in: List[AWrapper], out: List[AWrapper]): Unit = {
 //      logger.debug(

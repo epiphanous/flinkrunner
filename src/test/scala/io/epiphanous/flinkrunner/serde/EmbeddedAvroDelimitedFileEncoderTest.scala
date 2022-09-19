@@ -1,26 +1,19 @@
 package io.epiphanous.flinkrunner.serde
 
 import io.epiphanous.flinkrunner.PropSpec
-import io.epiphanous.flinkrunner.model.{
-  ARecord,
-  AWrapper,
-  MyAvroADT,
-  StreamFormatName
-}
+import io.epiphanous.flinkrunner.model.{ARecord, AWrapper, MyAvroADT}
 import org.apache.flink.api.scala.createTypeInformation
 
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
-import java.util.Properties
-import collection.JavaConverters._
+import scala.collection.JavaConverters._
 
 class EmbeddedAvroDelimitedFileEncoderTest extends PropSpec {
 
-  val delimitedConfig = DelimitedConfig.get(
-    StreamFormatName.Psv,
-    new Properties(),
-    ARecord.SCHEMA$.getFields.asScala.map(_.name()).toList
-  )
+  val delimitedConfig: DelimitedConfig =
+    DelimitedConfig.PSV.copy(columns =
+      ARecord.SCHEMA$.getFields.asScala.map(_.name()).toList
+    )
 
   val encoder =
     new EmbeddedAvroDelimitedFileEncoder[AWrapper, ARecord, MyAvroADT](
