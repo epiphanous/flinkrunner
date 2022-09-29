@@ -4,9 +4,7 @@ import io.epiphanous.flinkrunner.serde.{
   DelimitedConfig,
   EmbeddedAvroDelimitedFileEncoder,
   EmbeddedAvroJsonFileEncoder,
-  JsonConfig,
-  JsonFileEncoder,
-  JsonRowDecoder
+  JsonConfig
 }
 import org.apache.flink.api.common.serialization.BulkWriter
 import org.apache.flink.api.scala.createTypeInformation
@@ -22,8 +20,8 @@ import org.apache.flink.testutils.TestFileSystem
 
 import java.io.File
 import java.nio.file
-import java.nio.file.{Files, Paths}
 import java.nio.file.attribute.BasicFileAttributeView
+import java.nio.file.{Files, Paths}
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Try
 

@@ -13,7 +13,17 @@ import org.apache.flink.table.api.bridge.scala.StreamTableEnvironment
 
 import scala.collection.JavaConverters._
 
-/** Flink Job Invoker
+/** FlinkRunner base class. All users of Flinkrunner will create their own
+  * subclass. The only required parameter is a [[FlinkConfig]] object. Two
+  * additional optional arguments exist for simplifying testing:
+  *   - [[CheckResults]] - a class to provide inputs and check outputs to
+  *     test your jobs transformation functions
+  * @param config
+  *   a flink runner configuration
+  * @param checkResultsOpt
+  *   an optional CheckResults class for testing
+  * @tparam ADT
+  *   an algebraic data type for events processed by this flinkrunner
   */
 abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     val config: FlinkConfig,
@@ -195,7 +205,8 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
         env.fromCollection(mockEvents).name(lbl).uid(lbl)
       case _                                 =>
         sourceConfig match {
-          case s: FileSourceConfig[ADT]     => s.getAvroSourceStream[E, A](env)
+          case s: FileSourceConfig[ADT]     =>
+            s.getAvroSourceStream[E, A](env)
           case s: KafkaSourceConfig[ADT]    =>
             s.getAvroSourceStream[E, A](env)
           case s: KinesisSourceConfig[ADT]  =>

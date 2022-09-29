@@ -56,17 +56,20 @@ trait BasePropGenerators {
   def genOneWith[T](arb: Arbitrary[T]): T =
     genOne[T](arb)
 
+  def genStreamWith[T](arb: Arbitrary[T]): Stream[T] = genStream(arb)
+
   def genOne[T](implicit arb: Arbitrary[T]): T = genPop[T](1).head
+
+  def genStream[T](implicit arb: Arbitrary[T]): Stream[T] =
+    Stream
+      .from(0)
+      .flatMap(_ => arb.arbitrary.sample)
 
   def genPop[T](
       mean: Int = 10,
       sd: Double = 0
   )(implicit arb: Arbitrary[T]): List[T] =
-    Stream
-      .from(0)
-      .map(_ => arb.arbitrary.sample)
-      .filter(_.nonEmpty)
+    genStream[T]
       .take(((Random.nextGaussian() - 0.5) * sd + mean).round.toInt)
-      .flatten
       .toList
 }

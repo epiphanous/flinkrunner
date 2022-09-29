@@ -15,8 +15,6 @@ import org.apache.flink.streaming.api.functions.source.SourceFunction
   *   name of the hybrid source
   * @param config
   *   a flinkrunner configuration
-  * @param connector
-  *   [[FlinkConnectorName.Hybrid]]
   * @tparam ADT
   *   the flinkrunner algebraic data type
   */

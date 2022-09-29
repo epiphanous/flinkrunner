@@ -45,11 +45,11 @@ val V = new {
   val squants             = "1.8.3"
   val confluentAvroSerde  = "7.1.1"
   val parquet             = "1.12.3"
-  val awsSdk              = "1.12.296"
+  val awsSdk              = "1.12.307"
   val jdbcMysql           = "8.0.30"
   val jdbcPg              = "42.5.0"
   val jdbcMssql           = "11.2.0.jre11"
-  val hadoop              = "2.8.5"
+  val hadoop              = "3.3.2"
 }
 
 val flinkDeps =
@@ -119,7 +119,6 @@ val otherDeps = Seq(
   "org.scalatestplus"               %% "scalacheck-1-16"                  % V.scalaTestPlus       % Test,
   "org.scalacheck"                  %% "scalacheck"                       % V.scalaCheck,
   "com.fasterxml.jackson.module"    %% "jackson-module-scala"             % V.jackson,
-  // not sure this works with nested types on csv as well as jsonmapper...will wait to find out
   "com.github.pjfanning"            %% "jackson-scala-reflect-extensions" % V.jackson,
   "com.fasterxml.jackson.dataformat" % "jackson-dataformat-csv"           % V.jackson,
   "com.fasterxml.jackson.datatype"   % "jackson-datatype-jsr310"          % V.jackson,
