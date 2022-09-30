@@ -164,12 +164,13 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
         env.fromCollection(mockEvents).name(lbl).uid(lbl)
       case _                                 =>
         sourceConfig match {
-          case s: FileSourceConfig[ADT]     => s.getSourceStream[E](env)
-          case s: KafkaSourceConfig[ADT]    => s.getSourceStream[E](env)
-          case s: KinesisSourceConfig[ADT]  => s.getSourceStream[E](env)
-          case s: RabbitMQSourceConfig[ADT] => s.getSourceStream[E](env)
-          case s: SocketSourceConfig[ADT]   => s.getSourceStream[E](env)
-          case s: HybridSourceConfig[ADT]   => s.getSourceStream[E](env)
+          case s: FileSourceConfig[ADT]      => s.getSourceStream[E](env)
+          case s: KafkaSourceConfig[ADT]     => s.getSourceStream[E](env)
+          case s: KinesisSourceConfig[ADT]   => s.getSourceStream[E](env)
+          case s: RabbitMQSourceConfig[ADT]  => s.getSourceStream[E](env)
+          case s: SocketSourceConfig[ADT]    => s.getSourceStream[E](env)
+          case s: HybridSourceConfig[ADT]    => s.getSourceStream[E](env)
+          case s: GeneratorSourceConfig[ADT] => s.getSourceStream[E](env)
         }
     }
   }
@@ -205,17 +206,19 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
         env.fromCollection(mockEvents).name(lbl).uid(lbl)
       case _                                 =>
         sourceConfig match {
-          case s: FileSourceConfig[ADT]     =>
+          case s: FileSourceConfig[ADT]      =>
             s.getAvroSourceStream[E, A](env)
-          case s: KafkaSourceConfig[ADT]    =>
+          case s: KafkaSourceConfig[ADT]     =>
             s.getAvroSourceStream[E, A](env)
-          case s: KinesisSourceConfig[ADT]  =>
+          case s: KinesisSourceConfig[ADT]   =>
             s.getAvroSourceStream[E, A](env)
-          case s: RabbitMQSourceConfig[ADT] =>
+          case s: RabbitMQSourceConfig[ADT]  =>
             s.getAvroSourceStream[E, A](env)
-          case s: SocketSourceConfig[ADT]   =>
+          case s: SocketSourceConfig[ADT]    =>
             s.getAvroSourceStream[E, A](env)
-          case s: HybridSourceConfig[ADT]   =>
+          case s: HybridSourceConfig[ADT]    =>
+            s.getAvroSourceStream[E, A](env)
+          case s: GeneratorSourceConfig[ADT] =>
             s.getAvroSourceStream[E, A](env)
         }
     }

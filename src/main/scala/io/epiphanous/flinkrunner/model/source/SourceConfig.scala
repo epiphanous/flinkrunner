@@ -258,6 +258,10 @@ object SourceConfig {
       case Kinesis   => KinesisSourceConfig[ADT](name, config)
       case RabbitMQ  => RabbitMQSourceConfig[ADT](name, config)
       case Socket    => SocketSourceConfig[ADT](name, config)
+      case Generator =>
+        throw new RuntimeException(
+          s"You must provide a concrete subclass of GeneratorSourceConfig for source connector $name in job ${config.jobName}"
+        )
       case connector =>
         throw new RuntimeException(
           s"Don't know how to configure ${connector.entryName} source connector $name in job ${config.jobName}"
