@@ -86,7 +86,7 @@ class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
       case a: GenericRecord        =>
         val obj = toEmbeddedAvroInstance[E, A, ADT](a, avroClass)
         logger.trace(
-          s"deserializing ${a.getSchema.getFullName} record ${obj.$id} from $topic with key=$key, headers=$headers"
+          s"deserializing ${avroClass.getSimpleName} record ${obj.$id} from $topic with key=$key, headers=$headers"
         )
         out.collect(obj)
       case c if Option(c).nonEmpty =>
