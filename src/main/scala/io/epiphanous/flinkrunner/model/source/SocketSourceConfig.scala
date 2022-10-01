@@ -1,22 +1,10 @@
 package io.epiphanous.flinkrunner.model.source
 
-import io.epiphanous.flinkrunner.model.{
-  FlinkConfig,
-  FlinkConnectorName,
-  FlinkEvent,
-  StreamFormatName
-}
-import io.epiphanous.flinkrunner.serde.{
-  DelimitedConfig,
-  DelimitedRowDecoder,
-  JsonRowDecoder,
-  RowDecoder
-}
+import io.epiphanous.flinkrunner.FlinkRunner
+import io.epiphanous.flinkrunner.model.{FlinkConnectorName, FlinkEvent, StreamFormatName}
+import io.epiphanous.flinkrunner.serde.{DelimitedConfig, DelimitedRowDecoder, JsonRowDecoder, RowDecoder}
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.streaming.api.scala.{
-  DataStream,
-  StreamExecutionEnvironment
-}
+import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
 
 /** A socket source configuration.
   * @param name
@@ -28,7 +16,7 @@ import org.apache.flink.streaming.api.scala.{
   */
 case class SocketSourceConfig[ADT <: FlinkEvent](
     name: String,
-    config: FlinkConfig
+    runner: FlinkRunner[ADT]
 ) extends SourceConfig[ADT] {
 
   override val connector: FlinkConnectorName = FlinkConnectorName.Socket

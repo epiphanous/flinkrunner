@@ -8,6 +8,7 @@ import io.epiphanous.flinkrunner.model.source._
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.datastream.DataStreamSink
+import org.apache.flink.streaming.api.functions.source.datagen.DataGenerator
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.table.api.bridge.scala.StreamTableEnvironment
 
@@ -142,7 +143,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     */
   def getSourceConfig(
       sourceName: String = getDefaultSourceName): SourceConfig[ADT] =
-    SourceConfig[ADT](sourceName, config)
+    SourceConfig[ADT](sourceName, this)
 
   /** Helper method to convert a source config into a json-encoded source
     * data stream.
@@ -174,6 +175,13 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
         }
     }
   }
+
+  def getDataGenerator[E <: ADT: TypeInformation]: DataGenerator[E] = ???
+
+  def getAvroDataGenerator[
+      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+      A <: GenericRecord: TypeInformation](implicit
+      fromKV: EmbeddedAvroRecordInfo[A] => E): DataGenerator[E] = ???
 
   /** Helper method to convert a source config into an avro-encoded source
     * data stream. At the moment this is only supported for kafka sources
@@ -264,7 +272,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
 
   def getSinkConfig(
       sinkName: String = getDefaultSinkName): SinkConfig[ADT] =
-    SinkConfig[ADT](sinkName, config)
+    SinkConfig[ADT](sinkName, this)
 
   /** Usually, we should write to the sink, unless we have a non-empty
     * CheckResults configuration that determines otherwise.

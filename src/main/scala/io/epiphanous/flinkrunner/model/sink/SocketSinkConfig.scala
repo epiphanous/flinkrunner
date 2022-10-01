@@ -1,19 +1,13 @@
 package io.epiphanous.flinkrunner.model.sink
 
 import com.typesafe.scalalogging.LazyLogging
+import io.epiphanous.flinkrunner.FlinkRunner
 import io.epiphanous.flinkrunner.model.{
-  FlinkConfig,
   FlinkConnectorName,
   FlinkEvent,
   StreamFormatName
 }
-import io.epiphanous.flinkrunner.serde.{
-  DelimitedConfig,
-  DelimitedRowEncoder,
-  JsonConfig,
-  JsonRowEncoder,
-  RowEncoder
-}
+import io.epiphanous.flinkrunner.serde._
 import org.apache.flink.api.common.serialization.SerializationSchema
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.datastream.DataStreamSink
@@ -25,7 +19,7 @@ import scala.util.{Failure, Success}
 
 case class SocketSinkConfig[ADT <: FlinkEvent](
     name: String,
-    config: FlinkConfig)
+    runner: FlinkRunner[ADT])
     extends SinkConfig[ADT]
     with LazyLogging {
 

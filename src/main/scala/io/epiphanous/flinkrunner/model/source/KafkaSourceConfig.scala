@@ -1,10 +1,8 @@
 package io.epiphanous.flinkrunner.model.source
 
+import io.epiphanous.flinkrunner.FlinkRunner
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.serde.{
-  ConfluentAvroRegistryKafkaRecordDeserializationSchema,
-  JsonKafkaRecordDeserializationSchema
-}
+import io.epiphanous.flinkrunner.serde.{ConfluentAvroRegistryKafkaRecordDeserializationSchema, JsonKafkaRecordDeserializationSchema}
 import io.epiphanous.flinkrunner.util.ConfigToProps
 import io.epiphanous.flinkrunner.util.ConfigToProps._
 import io.epiphanous.flinkrunner.util.StreamUtils.RichProps
@@ -67,7 +65,7 @@ import scala.util.Try
   */
 case class KafkaSourceConfig[ADT <: FlinkEvent](
     name: String,
-    config: FlinkConfig)
+    runner: FlinkRunner[ADT])
     extends SourceConfig[ADT] {
 
   override val connector: FlinkConnectorName = FlinkConnectorName.Kafka

@@ -1,6 +1,7 @@
 package io.epiphanous.flinkrunner.model.sink
 
 import com.typesafe.scalalogging.LazyLogging
+import io.epiphanous.flinkrunner.FlinkRunner
 import io.epiphanous.flinkrunner.model.FlinkConnectorName._
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.util.StreamUtils._
@@ -29,8 +30,10 @@ import java.util.Properties
   */
 trait SinkConfig[ADT <: FlinkEvent] extends LazyLogging {
   def name: String
-  def config: FlinkConfig
+  def runner: FlinkRunner[ADT]
   def connector: FlinkConnectorName
+
+  val config: FlinkConfig = runner.config
 
   def pfx(path: String = ""): String = Seq(
     Some("sinks"),
@@ -50,27 +53,27 @@ trait SinkConfig[ADT <: FlinkEvent] extends LazyLogging {
 object SinkConfig {
   def apply[ADT <: FlinkEvent: TypeInformation](
       name: String,
-      config: FlinkConfig): SinkConfig[ADT] = {
+      runner: FlinkRunner[ADT]): SinkConfig[ADT] = {
 
     FlinkConnectorName
       .fromSinkName(
         name,
-        config.jobName,
-        config.getStringOpt(s"sinks.$name.connector")
+        runner.config.jobName,
+        runner.config.getStringOpt(s"sinks.$name.connector")
       ) match {
-      case Kafka             => KafkaSinkConfig(name, config)
-      case Kinesis           => KinesisSinkConfig(name, config)
-      case File              => FileSinkConfig(name, config)
-      case Socket            => SocketSinkConfig(name, config)
-      case Jdbc              => JdbcSinkConfig(name, config)
+      case Kafka             => KafkaSinkConfig(name, runner)
+      case Kinesis           => KinesisSinkConfig(name, runner)
+      case File              => FileSinkConfig(name, runner)
+      case Socket            => SocketSinkConfig(name, runner)
+      case Jdbc              => JdbcSinkConfig(name, runner)
       case CassandraSink     =>
-        CassandraSinkConfig(name, config)
+        CassandraSinkConfig(name, runner)
       case ElasticsearchSink =>
-        ElasticsearchSinkConfig(name, config)
-      case RabbitMQ          => RabbitMQSinkConfig(name, config)
+        ElasticsearchSinkConfig(name, runner)
+      case RabbitMQ          => RabbitMQSinkConfig(name, runner)
       case connector         =>
         throw new RuntimeException(
-          s"Don't know how to configure ${connector.entryName} sink connector $name (job ${config.jobName}"
+          s"Don't know how to configure ${connector.entryName} sink connector $name (job ${runner.config.jobName}"
         )
     }
   }

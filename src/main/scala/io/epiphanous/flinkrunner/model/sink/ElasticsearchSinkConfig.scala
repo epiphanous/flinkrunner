@@ -1,11 +1,8 @@
 package io.epiphanous.flinkrunner.model.sink
 
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.model.{
-  FlinkConfig,
-  FlinkConnectorName,
-  FlinkEvent
-}
+import io.epiphanous.flinkrunner.FlinkRunner
+import io.epiphanous.flinkrunner.model.{FlinkConnectorName, FlinkEvent}
 import org.apache.flink.api.connector.sink2.SinkWriter
 import org.apache.flink.connector.elasticsearch.sink
 import org.apache.flink.connector.elasticsearch.sink.{
@@ -36,14 +33,14 @@ import scala.collection.JavaConverters.mapAsJavaMap
   *
   * @param name
   *   name of the sink
-  * @param config
-  *   flinkrunner configuration
+  * @param runner
+  *   flinkrunner instance
   * @tparam ADT
   *   the flinkrunner algebraic data type
   */
 case class ElasticsearchSinkConfig[ADT <: FlinkEvent](
     name: String,
-    config: FlinkConfig
+    runner: FlinkRunner[ADT]
 ) extends SinkConfig[ADT]
     with LazyLogging {
 

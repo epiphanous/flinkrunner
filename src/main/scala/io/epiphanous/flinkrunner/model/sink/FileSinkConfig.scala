@@ -1,6 +1,7 @@
 package io.epiphanous.flinkrunner.model.sink
 
 import com.typesafe.scalalogging.LazyLogging
+import io.epiphanous.flinkrunner.FlinkRunner
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.serde._
 import io.epiphanous.flinkrunner.util.AvroUtils.instanceOf
@@ -74,14 +75,14 @@ import scala.collection.JavaConverters._
   *
   * @param name
   *   name of the sink
-  * @param config
-  *   flinkrunner config
+  * @param runner
+  *   flinkrunner instance
   * @tparam ADT
   *   the flinkrunner algebraic data type
   */
 case class FileSinkConfig[ADT <: FlinkEvent](
     name: String,
-    config: FlinkConfig
+    runner: FlinkRunner[ADT]
 ) extends SinkConfig[ADT]
     with LazyLogging {
 

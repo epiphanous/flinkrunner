@@ -1,14 +1,12 @@
 package io.epiphanous.flinkrunner.model.source
 
+import io.epiphanous.flinkrunner.FlinkRunner
 import io.epiphanous.flinkrunner.model._
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.connector.source.{Source, SourceSplit}
 import org.apache.flink.streaming.api.functions.source.SourceFunction
-import org.apache.flink.streaming.api.functions.source.datagen.{
-  DataGenerator,
-  DataGeneratorSource
-}
+import org.apache.flink.streaming.api.functions.source.datagen.DataGeneratorSource
 
 import java.time.Instant
 import java.util.Random
@@ -38,7 +36,10 @@ import java.util.concurrent.atomic.AtomicLong
   * @tparam ADT
   *   Flinkrunner algebraic data type
   */
-trait GeneratorSourceConfig[ADT <: FlinkEvent] extends SourceConfig[ADT] {
+case class GeneratorSourceConfig[ADT <: FlinkEvent](
+    name: String,
+    runner: FlinkRunner[ADT])
+    extends SourceConfig[ADT] {
 
   override def connector: FlinkConnectorName = FlinkConnectorName.Generator
 
@@ -76,7 +77,7 @@ trait GeneratorSourceConfig[ADT <: FlinkEvent] extends SourceConfig[ADT] {
     */
   def getAndProgressTime(byMillisOpt: Option[Long] = None): Long = {
     val direction: Int =
-      if (rng.nextGaussian() <= probOutOfOrder) {
+      if (rng.nextDouble() <= probOutOfOrder) {
         logger.trace("generating random value out of order")
         -1
       } else 1
@@ -91,39 +92,13 @@ trait GeneratorSourceConfig[ADT <: FlinkEvent] extends SourceConfig[ADT] {
     * @return
     *   Boolean
     */
-  def wantsNull: Boolean = rng.nextGaussian() <= probNull
-
-  /** Returns a flink data generator. Must be implemented by subclasses.
-    * @tparam E
-    *   the type of event to generate (must be subclass of ADT)
-    * @return
-    *   DataGenerator[E]
-    */
-  def getGenerator[E <: ADT: TypeInformation]: DataGenerator[E] = ???
-
-  /** Returns a flink data generator for an avro embedded event type. Must
-    * be implemented by subclasses.
-    *
-    * @param fromKV
-    *   an implicit function to generate an instance of E from an instance
-    *   of A
-    * @tparam E
-    *   the type of event to generate (must be subclass of ADT)
-    * @tparam A
-    *   an avro type embedded in E
-    * @return
-    *   DataGenerator[E]
-    */
-  def getAvroGenerator[
-      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
-      A <: GenericRecord: TypeInformation](implicit
-      fromKV: EmbeddedAvroRecordInfo[A] => E): DataGenerator[E] = ???
+  def wantsNull: Boolean = rng.nextDouble() <= probNull
 
   override def getSource[E <: ADT: TypeInformation]
       : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] =
     Left(
       new DataGeneratorSource(
-        getGenerator[E],
+        runner.getDataGenerator[E],
         rowsPerSecond,
         if (maxRows > 0) maxRows else null
       )
@@ -136,7 +111,7 @@ trait GeneratorSourceConfig[ADT <: FlinkEvent] extends SourceConfig[ADT] {
       : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] =
     Left(
       new DataGeneratorSource(
-        getAvroGenerator[E, A],
+        runner.getAvroDataGenerator[E, A],
         rowsPerSecond,
         if (maxRows > 0) maxRows else null
       )

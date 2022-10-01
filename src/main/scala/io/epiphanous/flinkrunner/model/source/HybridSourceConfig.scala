@@ -1,10 +1,7 @@
 package io.epiphanous.flinkrunner.model.source
 
-import io.epiphanous.flinkrunner.model.{
-  FlinkConfig,
-  FlinkConnectorName,
-  FlinkEvent
-}
+import io.epiphanous.flinkrunner.FlinkRunner
+import io.epiphanous.flinkrunner.model.{FlinkConnectorName, FlinkEvent}
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.connector.source.{Source, SourceSplit}
 import org.apache.flink.connector.base.source.hybrid.HybridSource
@@ -20,7 +17,7 @@ import org.apache.flink.streaming.api.functions.source.SourceFunction
   */
 case class HybridSourceConfig[ADT <: FlinkEvent](
     name: String,
-    config: FlinkConfig)
+    runner: FlinkRunner[ADT])
     extends SourceConfig[ADT] {
 
   override val connector: FlinkConnectorName = FlinkConnectorName.Hybrid
@@ -30,7 +27,7 @@ case class HybridSourceConfig[ADT <: FlinkEvent](
     config
       .getStringList(pfx("sources"))
       .map(name =>
-        SourceConfig[ADT](name, config).getSource[E] match {
+        SourceConfig[ADT](name, runner).getSource[E] match {
           case Right(source) => source
           case Left(_)       =>
             throw new RuntimeException(

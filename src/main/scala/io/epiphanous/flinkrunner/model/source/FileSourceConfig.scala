@@ -1,5 +1,6 @@
 package io.epiphanous.flinkrunner.model.source
 
+import io.epiphanous.flinkrunner.FlinkRunner
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.serde._
 import io.epiphanous.flinkrunner.util.ConfigToProps.getFromEither
@@ -12,16 +13,10 @@ import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.connector.source.{Source, SourceSplit}
 import org.apache.flink.api.scala.createTypeInformation
 import org.apache.flink.connector.file.src.FileSource
-import org.apache.flink.connector.file.src.reader.{
-  StreamFormat,
-  TextLineInputFormat
-}
+import org.apache.flink.connector.file.src.reader.{StreamFormat, TextLineInputFormat}
 import org.apache.flink.core.fs.Path
 import org.apache.flink.streaming.api.functions.source.SourceFunction
-import org.apache.flink.streaming.api.scala.{
-  DataStream,
-  StreamExecutionEnvironment
-}
+import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
 import org.apache.flink.util.Collector
 
 import java.time.Duration
@@ -69,14 +64,14 @@ import java.time.Duration
   *
   * @param name
   *   name of the source
-  * @param config
-  *   a flink config
+  * @param runner
+  *   a flink runner
   * @tparam ADT
   *   a flink algebraic data type
   */
 case class FileSourceConfig[ADT <: FlinkEvent](
     name: String,
-    config: FlinkConfig)
+    runner: FlinkRunner[ADT])
     extends SourceConfig[ADT] {
 
   override val connector: FlinkConnectorName = FlinkConnectorName.File

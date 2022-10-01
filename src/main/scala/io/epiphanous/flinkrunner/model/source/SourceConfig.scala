@@ -1,6 +1,7 @@
 package io.epiphanous.flinkrunner.model.source
 
 import com.typesafe.scalalogging.LazyLogging
+import io.epiphanous.flinkrunner.FlinkRunner
 import io.epiphanous.flinkrunner.model.FlinkConnectorName._
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.util.BoundedLatenessWatermarkStrategy
@@ -45,8 +46,12 @@ import scala.util.Try
   */
 trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
   def name: String
-  def config: FlinkConfig
+
+  def runner: FlinkRunner[ADT]
+
   def connector: FlinkConnectorName
+
+  val config: FlinkConfig = runner.config
 
   def pfx(path: String = ""): String = Seq(
     Some("sources"),
@@ -245,26 +250,23 @@ trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
 object SourceConfig {
   def apply[ADT <: FlinkEvent](
       name: String,
-      config: FlinkConfig): SourceConfig[ADT] = {
+      runner: FlinkRunner[ADT]): SourceConfig[ADT] = {
     FlinkConnectorName
       .fromSourceName(
         name,
-        config.jobName,
-        config.getStringOpt(s"sources.$name.connector")
+        runner.config.jobName,
+        runner.config.getStringOpt(s"sources.$name.connector")
       ) match {
-      case File      => FileSourceConfig[ADT](name, config)
-      case Hybrid    => HybridSourceConfig[ADT](name, config)
-      case Kafka     => KafkaSourceConfig[ADT](name, config)
-      case Kinesis   => KinesisSourceConfig[ADT](name, config)
-      case RabbitMQ  => RabbitMQSourceConfig[ADT](name, config)
-      case Socket    => SocketSourceConfig[ADT](name, config)
-      case Generator =>
-        throw new RuntimeException(
-          s"You must provide a concrete subclass of GeneratorSourceConfig for source connector $name in job ${config.jobName}"
-        )
+      case File      => FileSourceConfig[ADT](name, runner)
+      case Hybrid    => HybridSourceConfig[ADT](name, runner)
+      case Kafka     => KafkaSourceConfig[ADT](name, runner)
+      case Kinesis   => KinesisSourceConfig[ADT](name, runner)
+      case RabbitMQ  => RabbitMQSourceConfig[ADT](name, runner)
+      case Socket    => SocketSourceConfig[ADT](name, runner)
+      case Generator => GeneratorSourceConfig[ADT](name, runner)
       case connector =>
         throw new RuntimeException(
-          s"Don't know how to configure ${connector.entryName} source connector $name in job ${config.jobName}"
+          s"Don't know how to configure ${connector.entryName} source connector $name in job ${runner.config.jobName}"
         )
     }
   }
