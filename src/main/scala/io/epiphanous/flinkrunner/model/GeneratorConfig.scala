@@ -2,7 +2,9 @@ package io.epiphanous.flinkrunner.model
 
 import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicLong
+import java.util.stream.IntStream
 import java.util.{Properties, Random}
+import collection.JavaConverters._
 
 /** Configuration for a data generator.
   * @param rowsPerSecond
@@ -41,7 +43,7 @@ case class GeneratorConfig(
   val rng: Random = seedOpt.map(s => new Random(s)).getOrElse(new Random())
 
   /** The start time of the generator's time sequence */
-  val startTime = Instant.now().minusMillis(startAgo.toMillis)
+  val startTime: Instant = Instant.now().minusMillis(startAgo.toMillis)
 
   /** A time sequence to simulate the movement of time as we generate
     * events
@@ -103,12 +105,17 @@ case class GeneratorConfig(
 
   def getRandInt: Int                            = rng.nextInt()
   def getRandInt(bound: Int): Int                = rng.nextInt(bound)
+  def getRandLong: Long                          = rng.nextLong()
   def getRandDouble: Double                      = rng.nextDouble()
   def getRandBoolean: Boolean                    = rng.nextBoolean()
   def getRandString(maxLength: Int = 20): String = {
-    val chars: Seq[Char] = ('A' to 'Z') ++ ('a' to 'z') ++ ('0' to '9')
-    Range(0, rng.nextInt(maxLength))
-      .map(_ => chars(rng.nextInt(chars.length)))
+    rng
+      .ints(48, 123)
+      .filter(i => (i <= 57 || i >= 65) && (i <= 90 || i >= 97))
+      .limit(maxLength)
+      .iterator()
+      .asScala
+      .map(_.toChar)
       .mkString("")
   }
 }
