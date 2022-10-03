@@ -1,6 +1,11 @@
 package io.epiphanous.flinkrunner.model
 
-import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigOriginFactory}
+import com.typesafe.config.{
+  Config,
+  ConfigFactory,
+  ConfigObject,
+  ConfigOriginFactory
+}
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.util.ConfigToProps.RichConfigObject
 import io.epiphanous.flinkrunner.util.FileUtils.getResourceOrFile
@@ -184,13 +189,9 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
   lazy val isStage: Boolean    = environment.startsWith("stag")
   lazy val isProd: Boolean     = environment.startsWith("prod")
 
-  private[flinkrunner] def configureStreamExecutionEnvironment
+  private[flinkrunner] def getStreamExecutionEnvironment
       : StreamExecutionEnvironment = {
-    val env =
-      if (isDev)
-        StreamExecutionEnvironment.createLocalEnvironment(1)
-      else
-        StreamExecutionEnvironment.getExecutionEnvironment
+    val env = StreamExecutionEnvironment.getExecutionEnvironment
 
     // maybe disable generic types (prevents kyro serialization fallback)
     if (disableGenericTypes)

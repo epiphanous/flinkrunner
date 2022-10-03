@@ -6,6 +6,7 @@ import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.model.sink._
 import io.epiphanous.flinkrunner.model.source._
 import org.apache.avro.generic.GenericRecord
+import org.apache.flink.api.common.JobExecutionResult
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala._
@@ -13,19 +14,46 @@ import org.apache.flink.table.api.bridge.scala.StreamTableEnvironment
 
 import scala.collection.JavaConverters._
 
-/** Flink Job Invoker
+/** FlinkRunner base class. All users of Flinkrunner will create their own
+  * subclass. The only required parameter is a FlinkConfig object. Two
+  * additional optional arguments exist for simplifying testing:
+  *   - CheckResults - a class to provide inputs and check outputs to test
+  *     your job's transformation functions
+  *   - GeneratorFactory - a factory class to create DataGenerator
+  *     instances to build random event streams for testing
+  * @param config
+  *   a flink runner configuration
+  * @param checkResultsOpt
+  *   an optional CheckResults class for testing
+  * @param generatorFactoryOpt
+  *   an optional GeneratorFactory instance to create data generators if
+  *   you plan to use the GeneratorSource
+  * @tparam ADT
+  *   an algebraic data type for events processed by this flinkrunner
   */
 abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     val config: FlinkConfig,
-    val checkResultsOpt: Option[CheckResults[ADT]] = None)
+    val checkResultsOpt: Option[CheckResults[ADT]] = None,
+    val generatorFactoryOpt: Option[GeneratorFactory[ADT]] = None)
     extends LazyLogging {
 
-  /** the configured StreamExecutionEnvironment */
   val env: StreamExecutionEnvironment =
-    config.configureStreamExecutionEnvironment
+    config.getStreamExecutionEnvironment
 
-  /** the configured StreamTableEnvironment (for table jobs) */
   val tableEnv: StreamTableEnvironment = StreamTableEnvironment.create(env)
+
+  /** Gets (and returns as string) the execution plan for the job from the
+    * StreamExecutionEnvironment.
+    * @return
+    *   String
+    */
+  def getExecutionPlan: String = env.getExecutionPlan
+
+  /** Executes the job graph.
+    * @return
+    *   JobExecutionResult
+    */
+  def execute: JobExecutionResult = env.execute(config.jobName)
 
   config.showConfig match {
     case ShowConfigOption.None      => ()
@@ -35,6 +63,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
   }
 
   /** Invoke a job by name. Must be provided by an implementing class.
+    *
     * @param jobName
     *   the job name
     */
@@ -125,6 +154,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
   /** Helper method to resolve the source configuration. Implementers can
     * override this method to customize source configuration behavior, in
     * particular, the deserialization schemas used by flink runner.
+    *
     * @param sourceName
     *   source name
     * @return
@@ -132,7 +162,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     */
   def getSourceConfig(
       sourceName: String = getDefaultSourceName): SourceConfig[ADT] =
-    SourceConfig[ADT](sourceName, config)
+    SourceConfig[ADT](sourceName, config, generatorFactoryOpt)
 
   /** Helper method to convert a source config into a json-encoded source
     * data stream.
@@ -154,12 +184,13 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
         env.fromCollection(mockEvents).name(lbl).uid(lbl)
       case _                                 =>
         sourceConfig match {
-          case s: FileSourceConfig[ADT]     => s.getSourceStream[E](env)
-          case s: KafkaSourceConfig[ADT]    => s.getSourceStream[E](env)
-          case s: KinesisSourceConfig[ADT]  => s.getSourceStream[E](env)
-          case s: RabbitMQSourceConfig[ADT] => s.getSourceStream[E](env)
-          case s: SocketSourceConfig[ADT]   => s.getSourceStream[E](env)
-          case s: HybridSourceConfig[ADT]   => s.getSourceStream[E](env)
+          case s: FileSourceConfig[ADT]      => s.getSourceStream[E](env)
+          case s: KafkaSourceConfig[ADT]     => s.getSourceStream[E](env)
+          case s: KinesisSourceConfig[ADT]   => s.getSourceStream[E](env)
+          case s: RabbitMQSourceConfig[ADT]  => s.getSourceStream[E](env)
+          case s: SocketSourceConfig[ADT]    => s.getSourceStream[E](env)
+          case s: HybridSourceConfig[ADT]    => s.getSourceStream[E](env)
+          case s: GeneratorSourceConfig[ADT] => s.getSourceStream[E](env)
         }
     }
   }
@@ -186,7 +217,8 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](
       sourceConfig: SourceConfig[ADT])(implicit
-      fromKV: EmbeddedAvroRecordInfo[A] => E): DataStream[E] =
+      fromKV: EmbeddedAvroRecordInfo[A] => E): DataStream[E] = {
+
     checkResultsOpt
       .map(c => c.getInputEvents[E](sourceConfig.name))
       .getOrElse(Seq.empty[E]) match {
@@ -195,19 +227,23 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
         env.fromCollection(mockEvents).name(lbl).uid(lbl)
       case _                                 =>
         sourceConfig match {
-          case s: FileSourceConfig[ADT]     => s.getAvroSourceStream[E, A](env)
-          case s: KafkaSourceConfig[ADT]    =>
+          case s: FileSourceConfig[ADT]      =>
             s.getAvroSourceStream[E, A](env)
-          case s: KinesisSourceConfig[ADT]  =>
+          case s: KafkaSourceConfig[ADT]     =>
             s.getAvroSourceStream[E, A](env)
-          case s: RabbitMQSourceConfig[ADT] =>
+          case s: KinesisSourceConfig[ADT]   =>
             s.getAvroSourceStream[E, A](env)
-          case s: SocketSourceConfig[ADT]   =>
+          case s: RabbitMQSourceConfig[ADT]  =>
             s.getAvroSourceStream[E, A](env)
-          case s: HybridSourceConfig[ADT]   =>
+          case s: SocketSourceConfig[ADT]    =>
+            s.getAvroSourceStream[E, A](env)
+          case s: HybridSourceConfig[ADT]    =>
+            s.getAvroSourceStream[E, A](env)
+          case s: GeneratorSourceConfig[ADT] =>
             s.getAvroSourceStream[E, A](env)
         }
     }
+  }
 
   //  ********************** SINKS **********************
 
@@ -229,6 +265,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     configToSink[E](stream, getSinkConfig(sinkName))
 
   /** Create an avro-encoded stream sink from configuration.
+    *
     * @param stream
     *   the data stream to send to the sink
     * @param sinkName
@@ -254,6 +291,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
 
   /** Usually, we should write to the sink, unless we have a non-empty
     * CheckResults configuration that determines otherwise.
+    *
     * @return
     *   true to write to the sink, false otherwise
     */

@@ -24,12 +24,18 @@ import scala.util.Try
   *
   *   - `name`: the source name
   *   - `connector`: one of
-  *     - [[FlinkConnectorName.File]]
-  *     - [[FlinkConnectorName.Hybrid]]
-  *     - [[FlinkConnectorName.Kafka]]
-  *     - [[FlinkConnectorName.Kinesis]]
-  *     - [[FlinkConnectorName.RabbitMQ]]
-  *     - [[FlinkConnectorName.Socket]]
+  *     - [[FlinkConnectorName.File]] - for reading text, avro or parquet
+  *       files
+  *     - [[FlinkConnectorName.Generator]] - for generating random event
+  *       source streams
+  *     - [[FlinkConnectorName.Hybrid]] - for combining multiple sources
+  *       into a single stream
+  *     - [[FlinkConnectorName.Kafka]] - for kafka-based stream sources
+  *     - [[FlinkConnectorName.Kinesis]] - for kinesis-based stream sources
+  *     - [[FlinkConnectorName.RabbitMQ]] - for rabbitmq-based stream
+  *       sources
+  *     - [[FlinkConnectorName.Socket]] - for reading text data from a
+  *       network socket
   *   - `watermark.strategy`: one of:
   *     - `bounded out of orderness`
   *     - `bounded lateness`
@@ -41,11 +47,13 @@ import scala.util.Try
   *     advancing a watermark when using bounded lateness watermarks
   *   - `config`: properties to pass to the underlying flink connector
   * @tparam ADT
-  *   Flinkrunner algebraic data type
+  *   flinkrunner algebraic data type
   */
 trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
   def name: String
+
   def config: FlinkConfig
+
   def connector: FlinkConnectorName
 
   def pfx(path: String = ""): String = Seq(
@@ -148,7 +156,7 @@ trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
 
   /** Flinkrunner calls this method to create a source stream from
     * configuration. This uses the default implementation provided in
-    * [[getSourceStreamDefault()]]. Subclasses can override this to provide
+    * getSourceStreamDefault(). Subclasses can override this to provide
     * other implementations.
     *
     * @param env
@@ -221,8 +229,8 @@ trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
 
   /** Flinkrunner calls this method to create an avro source stream. This
     * method uses the default implementation in
-    * [[getAvroSourceStreamDefault()]]. Subclasses can provide their own
-    * implentations.
+    * getAvroSourceStreamDefault(). Subclasses can provide their own
+    * implementations.
     * @param env
     *   a flink stream execution environment
     * @param fromKV
@@ -245,7 +253,9 @@ trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
 object SourceConfig {
   def apply[ADT <: FlinkEvent](
       name: String,
-      config: FlinkConfig): SourceConfig[ADT] = {
+      config: FlinkConfig,
+      generatorFactoryOpt: Option[GeneratorFactory[ADT]] = None)
+      : SourceConfig[ADT] = {
     FlinkConnectorName
       .fromSourceName(
         name,
@@ -258,6 +268,20 @@ object SourceConfig {
       case Kinesis   => KinesisSourceConfig[ADT](name, config)
       case RabbitMQ  => RabbitMQSourceConfig[ADT](name, config)
       case Socket    => SocketSourceConfig[ADT](name, config)
+      case Generator =>
+        generatorFactoryOpt
+          .map(factory =>
+            GeneratorSourceConfig[ADT](
+              name,
+              config,
+              factory
+            )
+          )
+          .getOrElse(
+            throw new RuntimeException(
+              s"Can't configure ${Generator.entryName} source connector $name in job ${config.jobName}: missing generator factory"
+            )
+          )
       case connector =>
         throw new RuntimeException(
           s"Don't know how to configure ${connector.entryName} source connector $name in job ${config.jobName}"

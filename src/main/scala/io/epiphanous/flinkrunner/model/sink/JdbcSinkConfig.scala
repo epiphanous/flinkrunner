@@ -86,7 +86,9 @@ import scala.util.{Failure, Success, Try}
   * @param name
   *   name of the sink
   * @param config
-  *   the flink runner configuration in which this sink is defined
+  *   flinkrunner configuration
+  * @tparam ADT
+  *   flinkrunner algebraic data type
   */
 case class JdbcSinkConfig[ADT <: FlinkEvent](
     name: String,

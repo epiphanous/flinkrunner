@@ -53,7 +53,7 @@ import java.util.Properties
   * @param config
   *   flinkrunner config
   * @tparam ADT
-  *   Flinkrunner algebraic data type
+  *   flinkrunner algebraic data type
   */
 case class KinesisSourceConfig[ADT <: FlinkEvent](
     name: String,

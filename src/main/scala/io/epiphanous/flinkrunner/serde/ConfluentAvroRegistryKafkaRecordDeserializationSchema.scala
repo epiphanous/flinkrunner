@@ -4,7 +4,13 @@ import com.typesafe.scalalogging.LazyLogging
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
 import io.confluent.kafka.serializers.KafkaAvroDeserializer
 import io.epiphanous.flinkrunner.model.source.KafkaSourceConfig
-import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, EmbeddedAvroRecordInfo, FlinkEvent, SchemaRegistryConfig}
+import io.epiphanous.flinkrunner.model.{
+  EmbeddedAvroRecord,
+  EmbeddedAvroRecordInfo,
+  FlinkEvent,
+  SchemaRegistryConfig
+}
+import io.epiphanous.flinkrunner.util.AvroUtils.toEmbeddedAvroInstance
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.serialization.DeserializationSchema
 import org.apache.flink.api.common.typeinfo.{TypeHint, TypeInformation}
@@ -24,8 +30,8 @@ import scala.collection.JavaConverters._
   *   an optional schema registry client
   */
 class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
-    E <: ADT with EmbeddedAvroRecord[A],
-    A <: GenericRecord,
+    E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+    A <: GenericRecord: TypeInformation,
     ADT <: FlinkEvent
 ](
     sourceConfig: KafkaSourceConfig[ADT],
@@ -33,6 +39,8 @@ class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
 )(implicit fromKV: EmbeddedAvroRecordInfo[A] => E)
     extends KafkaRecordDeserializationSchema[E]
     with LazyLogging {
+
+  val avroClass: Class[A] = implicitly[TypeInformation[A]].getTypeClass
 
   var valueDeserializer: KafkaAvroDeserializer       = _
   var keyDeserializer: Option[KafkaAvroDeserializer] = _
@@ -76,13 +84,9 @@ class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
     valueDeserializer
       .deserialize(topic, record.value()) match {
       case a: GenericRecord        =>
-        val obj = fromKV(
-          EmbeddedAvroRecordInfo(a.asInstanceOf[A], key, headers)
+        out.collect(
+          toEmbeddedAvroInstance[E, A, ADT](a, avroClass, key, headers)
         )
-        logger.trace(
-          s"deserializing ${a.getSchema.getFullName} record ${obj.$id} from $topic with key=$key, headers=$headers"
-        )
-        out.collect(obj)
       case c if Option(c).nonEmpty =>
         throw new RuntimeException(
           s"deserialized value is an unexpected type of object: $c"

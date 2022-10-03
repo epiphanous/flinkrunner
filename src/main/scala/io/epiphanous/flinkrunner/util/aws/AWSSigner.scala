@@ -2,7 +2,11 @@ package io.epiphanous.flinkrunner.util.aws
 
 import cats.effect.IO
 import com.amazonaws.auth.internal.SignerConstants
-import com.amazonaws.auth.{AWS4Signer, AWSCredentials, DefaultAWSCredentialsProviderChain}
+import com.amazonaws.auth.{
+  AWS4Signer,
+  AWSCredentials,
+  DefaultAWSCredentialsProviderChain
+}
 import com.typesafe.scalalogging.LazyLogging
 import org.http4s.{Header, Request, Uri}
 import org.typelevel.ci.CIString

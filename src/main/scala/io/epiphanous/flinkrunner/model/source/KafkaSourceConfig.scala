@@ -59,11 +59,11 @@ import scala.util.Try
   *   - `config`: optional properties to pass to kafka client
   *
   * @param name
-  *   name of the kafka source
+  *   name of the source
   * @param config
   *   flinkrunner config
   * @tparam ADT
-  *   Flinkrunner algebraic data type
+  *   flinkrunner algebraic data type
   */
 case class KafkaSourceConfig[ADT <: FlinkEvent](
     name: String,
@@ -161,7 +161,8 @@ case class KafkaSourceConfig[ADT <: FlinkEvent](
     */
   def getAvroDeserializationSchema[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
-      A <: GenericRecord](implicit fromKV: EmbeddedAvroRecordInfo[A] => E)
+      A <: GenericRecord: TypeInformation](implicit
+      fromKV: EmbeddedAvroRecordInfo[A] => E)
       : KafkaRecordDeserializationSchema[E] = {
     new ConfluentAvroRegistryKafkaRecordDeserializationSchema[E, A, ADT](
       this

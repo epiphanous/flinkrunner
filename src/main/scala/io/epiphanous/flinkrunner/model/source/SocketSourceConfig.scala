@@ -20,11 +20,11 @@ import org.apache.flink.streaming.api.scala.{
 
 /** A socket source configuration.
   * @param name
-  *   source name
+  *   name of the source
   * @param config
   *   flinkrunner config
   * @tparam ADT
-  *   Flinkrunner algebraic data type
+  *   flinkrunner algebraic data type
   */
 case class SocketSourceConfig[ADT <: FlinkEvent](
     name: String,

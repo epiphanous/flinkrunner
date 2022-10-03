@@ -1,6 +1,9 @@
 package io.epiphanous.flinkrunner.util
 
-import io.epiphanous.flinkrunner.model.{QuotingEscapeStrategy, SupportedDatabase}
+import io.epiphanous.flinkrunner.model.{
+  QuotingEscapeStrategy,
+  SupportedDatabase
+}
 import io.epiphanous.flinkrunner.util.Quoting.SINGLE_QUOTE
 
 import scala.collection.mutable

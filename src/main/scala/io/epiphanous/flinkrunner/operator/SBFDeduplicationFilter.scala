@@ -5,7 +5,12 @@ import io.epiphanous.flinkrunner.algorithm.membership.StableBloomFilter
 import io.epiphanous.flinkrunner.model.FlinkEvent
 import io.epiphanous.flinkrunner.model.source.SourceConfig
 import org.apache.flink.api.common.functions.RichFilterFunction
-import org.apache.flink.api.common.state.{AggregatingState, AggregatingStateDescriptor, ValueState, ValueStateDescriptor}
+import org.apache.flink.api.common.state.{
+  AggregatingState,
+  AggregatingStateDescriptor,
+  ValueState,
+  ValueStateDescriptor
+}
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.scala._
 import org.apache.flink.configuration.Configuration

@@ -1,6 +1,12 @@
 package io.epiphanous.flinkrunner.serde
 
-import io.epiphanous.flinkrunner.model.{ARecord, AWrapper, BRecord, BWrapper}
+import io.epiphanous.flinkrunner.model.{
+  ARecord,
+  AWrapper,
+  BRecord,
+  BWrapper
+}
+import org.apache.flink.api.scala.createTypeInformation
 import org.apache.flink.util.Collector
 
 import scala.collection.mutable

@@ -21,9 +21,11 @@ import org.apache.flink.streaming.connectors.rabbitmq.{
 
 /** Source configuration for Rabbit MQ.
   * @param name
-  *   unique name of the source
+  *   name of the source
   * @param config
-  *   The full flink config in which this source is defined
+  *   flinkrunner config
+  * @tparam ADT
+  *   flinkrunner algebraic data type
   */
 case class RabbitMQSourceConfig[ADT <: FlinkEvent](
     name: String,

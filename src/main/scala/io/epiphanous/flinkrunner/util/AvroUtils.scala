@@ -43,14 +43,24 @@ object AvroUtils {
       A <: GenericRecord,
       ADT <: FlinkEvent](
       genericRecord: GenericRecord,
-      typeClass: Class[A])(implicit
+      typeClass: Class[A],
+      keyOpt: Option[String] = None,
+      headers: Map[String, String] = Map.empty)(implicit
       fromKV: EmbeddedAvroRecordInfo[A] => E): E =
     if (isGeneric(typeClass))
-      fromKV(EmbeddedAvroRecordInfo(genericRecord.asInstanceOf[A]))
+      fromKV(
+        EmbeddedAvroRecordInfo(
+          genericRecord.asInstanceOf[A],
+          keyOpt,
+          headers
+        )
+      )
     else
       fromKV(
         EmbeddedAvroRecordInfo(
-          genericRecord.toSpecific(instanceOf(typeClass))
+          genericRecord.toSpecific(instanceOf(typeClass)),
+          keyOpt,
+          headers
         )
       )
 

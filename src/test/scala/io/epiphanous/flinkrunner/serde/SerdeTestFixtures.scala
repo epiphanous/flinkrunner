@@ -1,15 +1,24 @@
 package io.epiphanous.flinkrunner.serde
 
 import io.confluent.kafka.schemaregistry.avro.AvroSchema
-import io.confluent.kafka.schemaregistry.client.{MockSchemaRegistryClient, SchemaMetadata, SchemaRegistryClient}
+import io.confluent.kafka.schemaregistry.client.{
+  MockSchemaRegistryClient,
+  SchemaMetadata,
+  SchemaRegistryClient
+}
 import io.epiphanous.flinkrunner.PropSpec
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.model.sink.KafkaSinkConfig
 import io.epiphanous.flinkrunner.model.source.KafkaSourceConfig
 import org.apache.avro.Schema
-import org.apache.avro.generic.{GenericContainer, GenericDatumWriter, GenericRecord}
+import org.apache.avro.generic.{
+  GenericContainer,
+  GenericDatumWriter,
+  GenericRecord
+}
 import org.apache.avro.io.{DecoderFactory, EncoderFactory}
 import org.apache.avro.specific.SpecificDatumReader
+import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.scala.createTypeInformation
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
@@ -114,8 +123,8 @@ trait SerdeTestFixtures extends PropSpec {
       .asInstanceOf[KafkaSourceConfig[MyAvroADT]]
 
   def getDeserializerFor[
-      E <: MyAvroADT with EmbeddedAvroRecord[A],
-      A <: GenericRecord](implicit
+      E <: MyAvroADT with EmbeddedAvroRecord[A]: TypeInformation,
+      A <: GenericRecord: TypeInformation](implicit
       fromKV: EmbeddedAvroRecordInfo[A] => E) = {
     val ds = new ConfluentAvroRegistryKafkaRecordDeserializationSchema[
       E,
