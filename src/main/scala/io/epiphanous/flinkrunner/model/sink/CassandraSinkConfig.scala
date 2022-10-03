@@ -18,7 +18,7 @@ import org.apache.flink.streaming.connectors.cassandra.CassandraSink
   * @param name
   *   name of the sink
   * @param config
-  *   flink runner config
+  *   flink runner configuration
   * @tparam ADT
   *   the flinkrunner algebraic data type
   */

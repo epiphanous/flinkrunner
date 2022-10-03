@@ -34,11 +34,11 @@ import java.time.Duration
   * @param name
   *   name of the source
   * @param config
-  *   a flinkrunner config
+  *   flinkrunner config
   * @param generatorFactory
   *   a generator factory for creating generators for ADT events
   * @tparam ADT
-  *   Flinkrunner algebraic data type
+  *   flinkrunner algebraic data type
   */
 case class GeneratorSourceConfig[ADT <: FlinkEvent](
     name: String,

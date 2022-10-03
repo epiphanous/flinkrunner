@@ -191,11 +191,7 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
 
   private[flinkrunner] def getStreamExecutionEnvironment
       : StreamExecutionEnvironment = {
-    val env =
-//      if (isDev)
-//        StreamExecutionEnvironment.createLocalEnvironment(1)
-//      else
-      StreamExecutionEnvironment.getExecutionEnvironment
+    val env = StreamExecutionEnvironment.getExecutionEnvironment
 
     // maybe disable generic types (prevents kyro serialization fallback)
     if (disableGenericTypes)

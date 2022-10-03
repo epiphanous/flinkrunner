@@ -70,9 +70,9 @@ import java.time.Duration
   * @param name
   *   name of the source
   * @param config
-  *   a flink runner config
+  *   flinkrunner config
   * @tparam ADT
-  *   a flink algebraic data type
+  *   flinkrunner algebraic data type
   */
 case class FileSourceConfig[ADT <: FlinkEvent](
     name: String,

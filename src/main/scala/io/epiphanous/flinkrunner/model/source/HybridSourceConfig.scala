@@ -12,11 +12,11 @@ import org.apache.flink.streaming.api.functions.source.SourceFunction
 
 /** A hybrid source configuration.
   * @param name
-  *   name of the hybrid source
+  *   name of the source
   * @param config
-  *   a flinkrunner config
+  *   flinkrunner config
   * @tparam ADT
-  *   the flinkrunner algebraic data type
+  *   flinkrunner algebraic data type
   */
 case class HybridSourceConfig[ADT <: FlinkEvent](
     name: String,

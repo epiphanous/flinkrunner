@@ -18,7 +18,9 @@ import scala.collection.JavaConverters._
   * subclass. The only required parameter is a FlinkConfig object. Two
   * additional optional arguments exist for simplifying testing:
   *   - CheckResults - a class to provide inputs and check outputs to test
-  *     your jobs transformation functions
+  *     your job's transformation functions
+  *   - GeneratorFactory - a factory class to create DataGenerator
+  *     instances to build random event streams for testing
   * @param config
   *   a flink runner configuration
   * @param checkResultsOpt

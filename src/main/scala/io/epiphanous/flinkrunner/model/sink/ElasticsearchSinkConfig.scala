@@ -37,7 +37,7 @@ import scala.collection.JavaConverters.mapAsJavaMap
   * @param name
   *   name of the sink
   * @param config
-  *   flinkrunner config
+  *   flinkrunner configuration
   * @tparam ADT
   *   the flinkrunner algebraic data type
   */

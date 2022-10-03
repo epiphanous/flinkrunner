@@ -24,12 +24,18 @@ import scala.util.Try
   *
   *   - `name`: the source name
   *   - `connector`: one of
-  *     - [[FlinkConnectorName.File]]
-  *     - [[FlinkConnectorName.Hybrid]]
-  *     - [[FlinkConnectorName.Kafka]]
-  *     - [[FlinkConnectorName.Kinesis]]
-  *     - [[FlinkConnectorName.RabbitMQ]]
-  *     - [[FlinkConnectorName.Socket]]
+  *     - [[FlinkConnectorName.File]] - for reading text, avro or parquet
+  *       files
+  *     - [[FlinkConnectorName.Generator]] - for generating random event
+  *       source streams
+  *     - [[FlinkConnectorName.Hybrid]] - for combining multiple sources
+  *       into a single stream
+  *     - [[FlinkConnectorName.Kafka]] - for kafka-based stream sources
+  *     - [[FlinkConnectorName.Kinesis]] - for kinesis-based stream sources
+  *     - [[FlinkConnectorName.RabbitMQ]] - for rabbitmq-based stream
+  *       sources
+  *     - [[FlinkConnectorName.Socket]] - for reading text data from a
+  *       network socket
   *   - `watermark.strategy`: one of:
   *     - `bounded out of orderness`
   *     - `bounded lateness`
@@ -41,7 +47,7 @@ import scala.util.Try
   *     advancing a watermark when using bounded lateness watermarks
   *   - `config`: properties to pass to the underlying flink connector
   * @tparam ADT
-  *   Flinkrunner algebraic data type
+  *   flinkrunner algebraic data type
   */
 trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
   def name: String

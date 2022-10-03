@@ -59,11 +59,11 @@ import scala.util.Try
   *   - `config`: optional properties to pass to kafka client
   *
   * @param name
-  *   name of the kafka source
+  *   name of the source
   * @param config
   *   flinkrunner config
   * @tparam ADT
-  *   Flinkrunner algebraic data type
+  *   flinkrunner algebraic data type
   */
 case class KafkaSourceConfig[ADT <: FlinkEvent](
     name: String,
