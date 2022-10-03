@@ -176,11 +176,13 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     }
   }
 
-  def getDataGenerator[E <: ADT: TypeInformation]: DataGenerator[E] = ???
+  def getDataGenerator[E <: ADT: TypeInformation](
+      sourceConfig: GeneratorSourceConfig[ADT]): DataGenerator[E] = ???
 
   def getAvroDataGenerator[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
-      A <: GenericRecord: TypeInformation](implicit
+      A <: GenericRecord: TypeInformation](
+      sourceConfig: GeneratorSourceConfig[ADT])(implicit
       fromKV: EmbeddedAvroRecordInfo[A] => E): DataGenerator[E] = ???
 
   /** Helper method to convert a source config into an avro-encoded source

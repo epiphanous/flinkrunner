@@ -44,9 +44,9 @@ case class GeneratorSourceConfig[ADT <: FlinkEvent](
   override def connector: FlinkConnectorName = FlinkConnectorName.Generator
 
   val rowsPerSecond: Long    =
-    config.getLongOpt("rows.per.second").getOrElse(Long.MaxValue)
-  val maxRows: Long          = config.getLongOpt("max.rows").getOrElse(-1)
-  val isBounded: Boolean     = Option(maxRows).nonEmpty
+    config.getLongOpt(pfx("rows.per.second")).getOrElse(Long.MaxValue)
+  val maxRows: Long          = config.getLongOpt(pfx("max.rows")).getOrElse(-1)
+  val isBounded: Boolean     = maxRows > 0
   val seedOpt: Option[Long]  = config.getLongOpt(pfx("seed"))
   val startTime: Instant     = Instant
     .now()
@@ -75,18 +75,19 @@ case class GeneratorSourceConfig[ADT <: FlinkEvent](
     * @return
     *   current time as epoch millis
     */
-  def getAndProgressTime(byMillisOpt: Option[Long] = None): Long = {
-    val direction: Int =
-      if (rng.nextDouble() <= probOutOfOrder) {
-        logger.trace("generating random value out of order")
-        -1
-      } else 1
+  def getAndProgressTime(byMillisOpt: Option[Long] = None): Long =
     timeSequence.getAndAdd(
-      byMillisOpt.getOrElse(
-        direction * rng.nextInt(maxTimeStep * direction)
-      )
+      byMillisOpt.getOrElse {
+        val direction: Int =
+          if (rng.nextDouble() <= probOutOfOrder) {
+            logger.trace("reversing time step")
+            -1
+          } else 1
+        val increment      = direction * rng.nextInt(maxTimeStep)
+        logger.trace(s"incrementing time by $increment millis")
+        increment
+      }
     )
-  }
 
   /** Returns true or false, according to the `prob.null` setting.
     * @return
@@ -98,7 +99,7 @@ case class GeneratorSourceConfig[ADT <: FlinkEvent](
       : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] =
     Left(
       new DataGeneratorSource(
-        runner.getDataGenerator[E],
+        runner.getDataGenerator[E](this),
         rowsPerSecond,
         if (maxRows > 0) maxRows else null
       )
@@ -111,7 +112,7 @@ case class GeneratorSourceConfig[ADT <: FlinkEvent](
       : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] =
     Left(
       new DataGeneratorSource(
-        runner.getAvroDataGenerator[E, A],
+        runner.getAvroDataGenerator[E, A](this),
         rowsPerSecond,
         if (maxRows > 0) maxRows else null
       )
