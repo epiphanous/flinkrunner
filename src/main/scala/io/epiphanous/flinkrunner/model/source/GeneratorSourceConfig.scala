@@ -1,6 +1,5 @@
 package io.epiphanous.flinkrunner.model.source
 
-import io.epiphanous.flinkrunner.FlinkRunner
 import io.epiphanous.flinkrunner.model._
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
@@ -8,11 +7,9 @@ import org.apache.flink.api.connector.source.{Source, SourceSplit}
 import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.flink.streaming.api.functions.source.datagen.DataGeneratorSource
 
-import java.time.Instant
-import java.util.Random
-import java.util.concurrent.atomic.AtomicLong
+import java.time.Duration
 
-/** A source configuration for a Flink [[DataGeneratorSource]] function.
+/** A source configuration for a Flink DataGeneratorSource function.
   *
   * This class is abstract because every generator is different. You must
   * implement a concrete subclass of this source config in order to use
@@ -33,75 +30,47 @@ import java.util.concurrent.atomic.AtomicLong
   *     (defaults to 0)
   *   - `prob.null` - optional probability of producing a null value
   *     (defaults to 0)
+  *
+  * @param name
+  *   name of the source
+  * @param config
+  *   a flinkrunner config
+  * @param generatorFactory
+  *   a generator factory for creating generators for ADT events
   * @tparam ADT
   *   Flinkrunner algebraic data type
   */
 case class GeneratorSourceConfig[ADT <: FlinkEvent](
     name: String,
-    runner: FlinkRunner[ADT])
+    config: FlinkConfig,
+    generatorFactory: GeneratorFactory[ADT])
     extends SourceConfig[ADT] {
 
   override def connector: FlinkConnectorName = FlinkConnectorName.Generator
 
-  val rowsPerSecond: Long    =
-    config.getLongOpt(pfx("rows.per.second")).getOrElse(Long.MaxValue)
-  val maxRows: Long          = config.getLongOpt(pfx("max.rows")).getOrElse(-1)
-  val isBounded: Boolean     = maxRows > 0
-  val seedOpt: Option[Long]  = config.getLongOpt(pfx("seed"))
-  val startTime: Instant     = Instant
-    .now()
-    .minusMillis(config.getDuration(pfx("start.ago")).toMillis)
-  val maxTimeStep: Int       =
-    config.getIntOpt(pfx("max.time.step.millis")).getOrElse(100)
-  val probOutOfOrder: Double =
-    config.getDoubleOpt(pfx("prob.out.of.order")).getOrElse(0)
-  val probNull: Double       =
-    config.getDoubleOpt(pfx("prob.null")).getOrElse(0)
+  val generatorConfig: GeneratorConfig = GeneratorConfig(
+    name,
+    config.getLongOpt(pfx("rows.per.second")).getOrElse(Long.MaxValue),
+    config.getLongOpt(pfx("max.rows")).getOrElse(-1),
+    config.getLongOpt(pfx("seed")),
+    config
+      .getDurationOpt(pfx("start.ago"))
+      .getOrElse(Duration.ofDays(365)),
+    config.getIntOpt(pfx("max.time.step.millis")).getOrElse(100),
+    config.getDoubleOpt(pfx("prob.out.of.order")).getOrElse(0),
+    config.getDoubleOpt(pfx("prob.null")).getOrElse(0),
+    properties
+  )
 
-  val rng: Random =
-    seedOpt.map(s => new Random(s)).getOrElse(new Random())
-
-  val timeSequence: AtomicLong = new AtomicLong(startTime.toEpochMilli)
-
-  /** Return the current time sequence and move the time pointer. If the
-    * optional parameter `byMillisOpt` is non-empty, the time pointer will
-    * be incremented by that number of milliseconds. Otherwise, the time
-    * pointer will be moved no more than the configured
-    * `max.time.progression.millis` setting (`100ms` by default). The
-    * direction of movement depends on the `prob.out.of.order` setting
-    * (`0.1 percent`).
-    * @param byMillisOpt
-    *   optional millis to increment time by
-    * @return
-    *   current time as epoch millis
-    */
-  def getAndProgressTime(byMillisOpt: Option[Long] = None): Long =
-    timeSequence.getAndAdd(
-      byMillisOpt.getOrElse {
-        val direction: Int =
-          if (rng.nextDouble() <= probOutOfOrder) {
-            logger.trace("reversing time step")
-            -1
-          } else 1
-        val increment      = direction * rng.nextInt(maxTimeStep)
-        logger.trace(s"incrementing time by $increment millis")
-        increment
-      }
-    )
-
-  /** Returns true or false, according to the `prob.null` setting.
-    * @return
-    *   Boolean
-    */
-  def wantsNull: Boolean = rng.nextDouble() <= probNull
+  val isBounded: Boolean = generatorConfig.maxRows > 0
 
   override def getSource[E <: ADT: TypeInformation]
       : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] =
     Left(
       new DataGeneratorSource(
-        runner.getDataGenerator[E](this),
-        rowsPerSecond,
-        if (maxRows > 0) maxRows else null
+        generatorFactory.getDataGenerator[E](generatorConfig),
+        generatorConfig.rowsPerSecond,
+        if (generatorConfig.maxRows > 0) generatorConfig.maxRows else null
       )
     )
 
@@ -112,9 +81,9 @@ case class GeneratorSourceConfig[ADT <: FlinkEvent](
       : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] =
     Left(
       new DataGeneratorSource(
-        runner.getAvroDataGenerator[E, A](this),
-        rowsPerSecond,
-        if (maxRows > 0) maxRows else null
+        generatorFactory.getAvroDataGenerator[E, A](generatorConfig),
+        generatorConfig.rowsPerSecond,
+        if (generatorConfig.maxRows > 0) generatorConfig.maxRows else null
       )
     )
 }

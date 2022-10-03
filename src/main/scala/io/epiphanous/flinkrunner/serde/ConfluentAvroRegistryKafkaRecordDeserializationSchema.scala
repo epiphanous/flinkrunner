@@ -84,7 +84,9 @@ class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
     valueDeserializer
       .deserialize(topic, record.value()) match {
       case a: GenericRecord        =>
-        out.collect(toEmbeddedAvroInstance[E, A, ADT](a, avroClass))
+        out.collect(
+          toEmbeddedAvroInstance[E, A, ADT](a, avroClass, key, headers)
+        )
       case c if Option(c).nonEmpty =>
         throw new RuntimeException(
           s"deserialized value is an unexpected type of object: $c"

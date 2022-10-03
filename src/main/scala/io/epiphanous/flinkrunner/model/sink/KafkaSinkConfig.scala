@@ -1,7 +1,6 @@
 package io.epiphanous.flinkrunner.model.sink
 
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.FlinkRunner
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.serde.{
   ConfluentAvroRegistryKafkaRecordSerializationSchema,
@@ -29,14 +28,14 @@ import scala.util.Try
   *
   * @param name
   *   name of the sink
-  * @param runner
-  *   flinkrunner instance
+  * @param config
+  *   flinkrunner config
   * @tparam ADT
   *   the flinkrunner algebraic data type
   */
 case class KafkaSinkConfig[ADT <: FlinkEvent: TypeInformation](
     name: String,
-    runner: FlinkRunner[ADT]
+    config: FlinkConfig
 ) extends SinkConfig[ADT]
     with LazyLogging {
 

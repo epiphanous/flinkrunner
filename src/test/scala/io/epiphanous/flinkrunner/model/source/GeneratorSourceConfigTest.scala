@@ -1,7 +1,7 @@
 package io.epiphanous.flinkrunner.model.source
 
-import io.epiphanous.flinkrunner.model.{FlinkConfig, MySimpleADT, SimpleA}
-import io.epiphanous.flinkrunner.{FlinkRunner, PropSpec}
+import io.epiphanous.flinkrunner.PropSpec
+import io.epiphanous.flinkrunner.model._
 import org.apache.flink.api.common.functions.RuntimeContext
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.scala.createTypeInformation
@@ -16,30 +16,29 @@ import java.time.{Duration, Instant}
 
 class GeneratorSourceConfigTest extends PropSpec {
 
+  class TestGeneratorFactory extends GeneratorFactory[MySimpleADT] {
+    override def getDataGenerator[E <: MySimpleADT: TypeInformation](
+        generatorConfig: GeneratorConfig): DataGenerator[E] = {
+      new DataGenerator[E] {
+        override def open(
+            name: String,
+            context: FunctionInitializationContext,
+            runtimeContext: RuntimeContext): Unit = {}
+
+        override def hasNext: Boolean = true
+
+        override def next(): E =
+          SimpleA("id", "a", 1, Instant.now()).asInstanceOf[E]
+      }
+    }
+  }
+
   def getSourceConfig(
       configStr: String): GeneratorSourceConfig[MySimpleADT] =
     GeneratorSourceConfig(
       "generator-test",
-      new FlinkRunner[MySimpleADT](
-        new FlinkConfig(Array("test"), Some(configStr))
-      ) {
-        override def invoke(jobName: String): Unit = {}
-
-        override def getDataGenerator[E <: MySimpleADT: TypeInformation](
-            sourceConfig: GeneratorSourceConfig[MySimpleADT])
-            : DataGenerator[E] =
-          new DataGenerator[E] {
-            override def open(
-                name: String,
-                context: FunctionInitializationContext,
-                runtimeContext: RuntimeContext): Unit = {}
-
-            override def hasNext: Boolean = true
-
-            override def next(): E =
-              SimpleA("id", "a", 1, Instant.now()).asInstanceOf[E]
-          }
-      }
+      new FlinkConfig(Array("test"), Some(configStr)),
+      new TestGeneratorFactory
     )
 
   property("basic getAndProgressTime property") {
@@ -50,10 +49,11 @@ class GeneratorSourceConfigTest extends PropSpec {
          |  }
          |}
          |""".stripMargin)
-    val t0    = sc.getAndProgressTime()
-    val t1    = sc.getAndProgressTime()
-    val start = sc.startTime
-    val step  = sc.maxTimeStep.toLong
+    val gc    = sc.generatorConfig
+    val t0    = gc.getAndProgressTime()
+    val t1    = gc.getAndProgressTime()
+    val start = gc.startTime
+    val step  = gc.maxTimeStep.toLong
     (t0 - start.toEpochMilli) should be < 1L
     (t1 - t0) should be >= 0L
     (t1 - t0) should be <= step
@@ -68,10 +68,11 @@ class GeneratorSourceConfigTest extends PropSpec {
          |  }
          |}
          |""".stripMargin)
-    val t0    = sc.getAndProgressTime()
-    val t1    = sc.getAndProgressTime()
-    val start = sc.startTime
-    val step  = sc.maxTimeStep.toLong
+    val gc    = sc.generatorConfig
+    val t0    = gc.getAndProgressTime()
+    val t1    = gc.getAndProgressTime()
+    val start = gc.startTime
+    val step  = gc.maxTimeStep.toLong
     (t0 - start.toEpochMilli) shouldEqual 0L
     (t1 - t0) should be <= 0L
     Math.abs(t1 - t0) should be <= step
@@ -98,7 +99,7 @@ class GeneratorSourceConfigTest extends PropSpec {
         |  }
         |}
         |""".stripMargin)
-    sc.seedOpt.value shouldEqual 123L
+    sc.generatorConfig.seedOpt.value shouldEqual 123L
   }
 
   property("rowsPerSecond property") {
@@ -110,7 +111,7 @@ class GeneratorSourceConfigTest extends PropSpec {
         |  }
         |}
         |""".stripMargin)
-    sc.rowsPerSecond shouldEqual 123L
+    sc.generatorConfig.rowsPerSecond shouldEqual 123L
   }
 
   property("maxRows property") {
@@ -122,7 +123,7 @@ class GeneratorSourceConfigTest extends PropSpec {
         |  }
         |}
         |""".stripMargin)
-    sc.maxRows shouldEqual 123L
+    sc.generatorConfig.maxRows shouldEqual 123L
   }
 
   property("bounded property") {
@@ -164,8 +165,8 @@ class GeneratorSourceConfigTest extends PropSpec {
       Instant
         .now()
         .minus(Duration.of(71, ChronoUnit.HOURS))
-    before.isBefore(sc.startTime) shouldEqual true
-    after.isAfter(sc.startTime) shouldEqual true
+    before.isBefore(sc.generatorConfig.startTime) shouldEqual true
+    after.isAfter(sc.generatorConfig.startTime) shouldEqual true
   }
 
   property("maxTimeStep property") {
@@ -177,7 +178,7 @@ class GeneratorSourceConfigTest extends PropSpec {
         |  }
         |}
         |""".stripMargin)
-    sc.maxTimeStep shouldEqual 123
+    sc.generatorConfig.maxTimeStep shouldEqual 123
   }
 
   property("prob out of order property") {
@@ -189,7 +190,7 @@ class GeneratorSourceConfigTest extends PropSpec {
         |  }
         |}
         |""".stripMargin)
-    sc.probOutOfOrder shouldEqual 0.5
+    sc.generatorConfig.probOutOfOrder shouldEqual 0.5
   }
 
   property("prob null property") {
@@ -201,7 +202,7 @@ class GeneratorSourceConfigTest extends PropSpec {
         |  }
         |}
         |""".stripMargin)
-    sc.probNull shouldEqual 0.5
+    sc.generatorConfig.probNull shouldEqual 0.5
   }
 
 }

@@ -1,8 +1,8 @@
 package io.epiphanous.flinkrunner.model.sink
 
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.FlinkRunner
 import io.epiphanous.flinkrunner.model.{
+  FlinkConfig,
   FlinkConnectorName,
   FlinkEvent,
   RabbitMQConnectionInfo
@@ -19,7 +19,7 @@ import org.apache.flink.streaming.connectors.rabbitmq.{
 
 case class RabbitMQSinkConfig[ADT <: FlinkEvent: TypeInformation](
     name: String,
-    runner: FlinkRunner[ADT])
+    config: FlinkConfig)
     extends SinkConfig[ADT]
     with LazyLogging {
 

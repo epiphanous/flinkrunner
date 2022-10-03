@@ -64,7 +64,8 @@ class JdbcSinkCreateTableTest extends UnitSpec {
            |}
            |""".stripMargin)
     )
-    val sinkConfig = new JdbcSinkConfig[MyAvroADT]("jdbc-test", runner)
+    val sinkConfig =
+      new JdbcSinkConfig[MyAvroADT]("jdbc-test", runner.config)
     sinkConfig.maybeCreateTable()
   }
 

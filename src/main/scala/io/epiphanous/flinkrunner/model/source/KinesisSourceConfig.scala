@@ -1,7 +1,10 @@
 package io.epiphanous.flinkrunner.model.source
 
-import io.epiphanous.flinkrunner.FlinkRunner
-import io.epiphanous.flinkrunner.model.{FlinkConnectorName, FlinkEvent}
+import io.epiphanous.flinkrunner.model.{
+  FlinkConfig,
+  FlinkConnectorName,
+  FlinkEvent
+}
 import io.epiphanous.flinkrunner.serde.JsonKinesisDeserializationSchema
 import io.epiphanous.flinkrunner.util.ConfigToProps
 import io.epiphanous.flinkrunner.util.ConfigToProps.getFromEither
@@ -47,14 +50,14 @@ import java.util.Properties
   *
   * @param name
   *   name of the source
-  * @param runner
-  *   flinkrunner instance
+  * @param config
+  *   flinkrunner config
   * @tparam ADT
   *   Flinkrunner algebraic data type
   */
 case class KinesisSourceConfig[ADT <: FlinkEvent](
     name: String,
-    runner: FlinkRunner[ADT])
+    config: FlinkConfig)
     extends SourceConfig[ADT] {
 
   override val connector: FlinkConnectorName = FlinkConnectorName.Kinesis

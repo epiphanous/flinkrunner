@@ -1,7 +1,10 @@
 package io.epiphanous.flinkrunner.model.sink
 
-import io.epiphanous.flinkrunner.FlinkRunner
-import io.epiphanous.flinkrunner.model.{FlinkConnectorName, FlinkEvent}
+import io.epiphanous.flinkrunner.model.{
+  FlinkConfig,
+  FlinkConnectorName,
+  FlinkEvent
+}
 import org.apache.flink.streaming.api.scala.DataStream
 import org.apache.flink.streaming.connectors.cassandra.CassandraSink
 
@@ -14,14 +17,14 @@ import org.apache.flink.streaming.connectors.cassandra.CassandraSink
   *
   * @param name
   *   name of the sink
-  * @param runner
-  *   flink runner instance
+  * @param config
+  *   flink runner config
   * @tparam ADT
   *   the flinkrunner algebraic data type
   */
 case class CassandraSinkConfig[ADT <: FlinkEvent](
     name: String,
-    runner: FlinkRunner[ADT]
+    config: FlinkConfig
 ) extends SinkConfig[ADT] {
 
   override val connector: FlinkConnectorName =

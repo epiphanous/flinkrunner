@@ -1,8 +1,11 @@
 package io.epiphanous.flinkrunner.model.sink
 
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.FlinkRunner
-import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkConnectorName, FlinkEvent}
+import io.epiphanous.flinkrunner.model.{
+  FlinkConfig,
+  FlinkConnectorName,
+  FlinkEvent
+}
 import io.epiphanous.flinkrunner.serde.JsonSerializationSchema
 import org.apache.flink.api.common.serialization.SerializationSchema
 import org.apache.flink.api.common.typeinfo.TypeInformation
@@ -33,7 +36,7 @@ import org.apache.flink.streaming.api.scala.DataStream
   */
 case class KinesisSinkConfig[ADT <: FlinkEvent: TypeInformation](
     name: String,
-    runner: FlinkRunner[ADT]
+    config: FlinkConfig
 ) extends SinkConfig[ADT]
     with LazyLogging {
 

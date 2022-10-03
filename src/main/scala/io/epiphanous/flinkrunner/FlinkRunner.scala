@@ -6,16 +6,16 @@ import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.model.sink._
 import io.epiphanous.flinkrunner.model.source._
 import org.apache.avro.generic.GenericRecord
+import org.apache.flink.api.common.JobExecutionResult
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.datastream.DataStreamSink
-import org.apache.flink.streaming.api.functions.source.datagen.DataGenerator
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.table.api.bridge.scala.StreamTableEnvironment
 
 import scala.collection.JavaConverters._
 
 /** FlinkRunner base class. All users of Flinkrunner will create their own
-  * subclass. The only required parameter is a [[FlinkConfig]] object. Two
+  * subclass. The only required parameter is a FlinkConfig object. Two
   * additional optional arguments exist for simplifying testing:
   *   - [[CheckResults]] - a class to provide inputs and check outputs to
   *     test your jobs transformation functions
@@ -23,22 +23,35 @@ import scala.collection.JavaConverters._
   *   a flink runner configuration
   * @param checkResultsOpt
   *   an optional CheckResults class for testing
+  * @param generatorFactoryOpt
+  *   an optional GeneratorFactory instance to create data generators if
+  *   you plan to use the GeneratorSource
   * @tparam ADT
   *   an algebraic data type for events processed by this flinkrunner
   */
-@SerialVersionUID(-9060995103764330323L)
 abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     val config: FlinkConfig,
-    val checkResultsOpt: Option[CheckResults[ADT]] = None)
-    extends Serializable
-    with LazyLogging {
+    val checkResultsOpt: Option[CheckResults[ADT]] = None,
+    val generatorFactoryOpt: Option[GeneratorFactory[ADT]] = None)
+    extends LazyLogging {
 
-  /** the configured StreamExecutionEnvironment */
   val env: StreamExecutionEnvironment =
-    config.configureStreamExecutionEnvironment
+    config.getStreamExecutionEnvironment
 
-  /** the configured StreamTableEnvironment (for table jobs) */
   val tableEnv: StreamTableEnvironment = StreamTableEnvironment.create(env)
+
+  /** Gets (and returns as string) the execution plan for the job from the
+    * StreamExecutionEnvironment.
+    * @return
+    *   String
+    */
+  def getExecutionPlan: String = env.getExecutionPlan
+
+  /** Executes the job graph.
+    * @return
+    *   JobExecutionResult
+    */
+  def execute: JobExecutionResult = env.execute(config.jobName)
 
   config.showConfig match {
     case ShowConfigOption.None      => ()
@@ -147,16 +160,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     */
   def getSourceConfig(
       sourceName: String = getDefaultSourceName): SourceConfig[ADT] =
-    SourceConfig[ADT](sourceName, this)
-
-  def getDataGenerator[E <: ADT: TypeInformation](
-      sourceConfig: GeneratorSourceConfig[ADT]): DataGenerator[E] = ???
-
-  def getAvroDataGenerator[
-      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
-      A <: GenericRecord: TypeInformation](
-      sourceConfig: GeneratorSourceConfig[ADT])(implicit
-      fromKV: EmbeddedAvroRecordInfo[A] => E): DataGenerator[E] = ???
+    SourceConfig[ADT](sourceName, config, generatorFactoryOpt)
 
   /** Helper method to convert a source config into a json-encoded source
     * data stream.
@@ -211,7 +215,8 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](
       sourceConfig: SourceConfig[ADT])(implicit
-      fromKV: EmbeddedAvroRecordInfo[A] => E): DataStream[E] =
+      fromKV: EmbeddedAvroRecordInfo[A] => E): DataStream[E] = {
+
     checkResultsOpt
       .map(c => c.getInputEvents[E](sourceConfig.name))
       .getOrElse(Seq.empty[E]) match {
@@ -236,6 +241,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
             s.getAvroSourceStream[E, A](env)
         }
     }
+  }
 
   //  ********************** SINKS **********************
 
@@ -279,7 +285,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
 
   def getSinkConfig(
       sinkName: String = getDefaultSinkName): SinkConfig[ADT] =
-    SinkConfig[ADT](sinkName, this)
+    SinkConfig[ADT](sinkName, config)
 
   /** Usually, we should write to the sink, unless we have a non-empty
     * CheckResults configuration that determines otherwise.

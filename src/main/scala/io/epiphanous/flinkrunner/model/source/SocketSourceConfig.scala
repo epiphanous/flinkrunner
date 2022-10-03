@@ -1,7 +1,7 @@
 package io.epiphanous.flinkrunner.model.source
 
-import io.epiphanous.flinkrunner.FlinkRunner
 import io.epiphanous.flinkrunner.model.{
+  FlinkConfig,
   FlinkConnectorName,
   FlinkEvent,
   StreamFormatName
@@ -21,14 +21,14 @@ import org.apache.flink.streaming.api.scala.{
 /** A socket source configuration.
   * @param name
   *   source name
-  * @param runner
-  *   flinkrunner instance
+  * @param config
+  *   flinkrunner config
   * @tparam ADT
   *   Flinkrunner algebraic data type
   */
 case class SocketSourceConfig[ADT <: FlinkEvent](
     name: String,
-    runner: FlinkRunner[ADT]
+    config: FlinkConfig
 ) extends SourceConfig[ADT] {
 
   override val connector: FlinkConnectorName = FlinkConnectorName.Socket

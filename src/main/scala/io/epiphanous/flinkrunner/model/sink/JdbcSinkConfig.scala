@@ -1,7 +1,6 @@
 package io.epiphanous.flinkrunner.model.sink
 
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.FlinkRunner
 import io.epiphanous.flinkrunner.model.SupportedDatabase.Snowflake
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.model.sink.JdbcSinkConfig.DEFAULT_CONNECTION_TIMEOUT
@@ -86,14 +85,14 @@ import scala.util.{Failure, Success, Try}
   *
   * @param name
   *   name of the sink
-  * @param runner
-  *   a flink runner instance
+  * @param config
+  *   a flink runner config
   * @tparam ADT
   *   flink runner algebraic data type
   */
 case class JdbcSinkConfig[ADT <: FlinkEvent](
     name: String,
-    runner: FlinkRunner[ADT])
+    config: FlinkConfig)
     extends SinkConfig[ADT]
     with LazyLogging {
 

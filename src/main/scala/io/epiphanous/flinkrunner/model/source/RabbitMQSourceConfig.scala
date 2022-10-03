@@ -1,7 +1,7 @@
 package io.epiphanous.flinkrunner.model.source
 
-import io.epiphanous.flinkrunner.FlinkRunner
 import io.epiphanous.flinkrunner.model.{
+  FlinkConfig,
   FlinkConnectorName,
   FlinkEvent,
   RabbitMQConnectionInfo
@@ -22,14 +22,14 @@ import org.apache.flink.streaming.connectors.rabbitmq.{
 /** Source configuration for Rabbit MQ.
   * @param name
   *   unique name of the source
-  * @param runner
-  *   flinkrunner instance
+  * @param config
+  *   flinkrunner config
   * @tparam ADT
   *   flink runner algebraic type definition
   */
 case class RabbitMQSourceConfig[ADT <: FlinkEvent](
     name: String,
-    runner: FlinkRunner[ADT]
+    config: FlinkConfig
 ) extends SourceConfig[ADT] {
 
   override val connector: FlinkConnectorName = FlinkConnectorName.RabbitMQ

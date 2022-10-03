@@ -1,7 +1,6 @@
 package io.epiphanous.flinkrunner.model.source
 
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.FlinkRunner
 import io.epiphanous.flinkrunner.model.FlinkConnectorName._
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.util.BoundedLatenessWatermarkStrategy
@@ -47,11 +46,9 @@ import scala.util.Try
 trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
   def name: String
 
-  def runner: FlinkRunner[ADT]
+  def config: FlinkConfig
 
   def connector: FlinkConnectorName
-
-  val config: FlinkConfig = runner.config
 
   def pfx(path: String = ""): String = Seq(
     Some("sources"),
@@ -153,7 +150,7 @@ trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
 
   /** Flinkrunner calls this method to create a source stream from
     * configuration. This uses the default implementation provided in
-    * [[getSourceStreamDefault()]]. Subclasses can override this to provide
+    * getSourceStreamDefault(). Subclasses can override this to provide
     * other implementations.
     *
     * @param env
@@ -226,8 +223,8 @@ trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
 
   /** Flinkrunner calls this method to create an avro source stream. This
     * method uses the default implementation in
-    * [[getAvroSourceStreamDefault()]]. Subclasses can provide their own
-    * implentations.
+    * getAvroSourceStreamDefault(). Subclasses can provide their own
+    * implementations.
     * @param env
     *   a flink stream execution environment
     * @param fromKV
@@ -250,23 +247,38 @@ trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
 object SourceConfig {
   def apply[ADT <: FlinkEvent](
       name: String,
-      runner: FlinkRunner[ADT]): SourceConfig[ADT] = {
+      config: FlinkConfig,
+      generatorFactoryOpt: Option[GeneratorFactory[ADT]] = None)
+      : SourceConfig[ADT] = {
     FlinkConnectorName
       .fromSourceName(
         name,
-        runner.config.jobName,
-        runner.config.getStringOpt(s"sources.$name.connector")
+        config.jobName,
+        config.getStringOpt(s"sources.$name.connector")
       ) match {
-      case File      => FileSourceConfig[ADT](name, runner)
-      case Hybrid    => HybridSourceConfig[ADT](name, runner)
-      case Kafka     => KafkaSourceConfig[ADT](name, runner)
-      case Kinesis   => KinesisSourceConfig[ADT](name, runner)
-      case RabbitMQ  => RabbitMQSourceConfig[ADT](name, runner)
-      case Socket    => SocketSourceConfig[ADT](name, runner)
-      case Generator => GeneratorSourceConfig[ADT](name, runner)
+      case File      => FileSourceConfig[ADT](name, config)
+      case Hybrid    => HybridSourceConfig[ADT](name, config)
+      case Kafka     => KafkaSourceConfig[ADT](name, config)
+      case Kinesis   => KinesisSourceConfig[ADT](name, config)
+      case RabbitMQ  => RabbitMQSourceConfig[ADT](name, config)
+      case Socket    => SocketSourceConfig[ADT](name, config)
+      case Generator =>
+        generatorFactoryOpt
+          .map(factory =>
+            GeneratorSourceConfig[ADT](
+              name,
+              config,
+              factory
+            )
+          )
+          .getOrElse(
+            throw new RuntimeException(
+              s"Can't configure ${Generator.entryName} source connector $name in job ${config.jobName}: missing generator factory"
+            )
+          )
       case connector =>
         throw new RuntimeException(
-          s"Don't know how to configure ${connector.entryName} source connector $name in job ${runner.config.jobName}"
+          s"Don't know how to configure ${connector.entryName} source connector $name in job ${config.jobName}"
         )
     }
   }

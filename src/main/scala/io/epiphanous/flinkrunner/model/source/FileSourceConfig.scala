@@ -1,6 +1,5 @@
 package io.epiphanous.flinkrunner.model.source
 
-import io.epiphanous.flinkrunner.FlinkRunner
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.serde._
 import io.epiphanous.flinkrunner.util.ConfigToProps.getFromEither
@@ -70,14 +69,14 @@ import java.time.Duration
   *
   * @param name
   *   name of the source
-  * @param runner
-  *   a flink runner
+  * @param config
+  *   a flink runner config
   * @tparam ADT
   *   a flink algebraic data type
   */
 case class FileSourceConfig[ADT <: FlinkEvent](
     name: String,
-    runner: FlinkRunner[ADT])
+    config: FlinkConfig)
     extends SourceConfig[ADT] {
 
   override val connector: FlinkConnectorName = FlinkConnectorName.File
