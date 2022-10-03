@@ -5,7 +5,10 @@ import io.epiphanous.flinkrunner.model.FlinkEvent
 import io.epiphanous.flinkrunner.model.sink.JdbcSinkConfig
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.connector.jdbc.internal.executor.JdbcBatchStatementExecutor
-import org.apache.flink.connector.jdbc.internal.{GenericJdbcSinkFunction, JdbcOutputFormat}
+import org.apache.flink.connector.jdbc.internal.{
+  GenericJdbcSinkFunction,
+  JdbcOutputFormat
+}
 
 class CreateTableJdbcSinkFunction[E <: ADT, ADT <: FlinkEvent](
     sinkConfig: JdbcSinkConfig[ADT],

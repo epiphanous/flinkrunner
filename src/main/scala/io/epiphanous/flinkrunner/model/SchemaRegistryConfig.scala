@@ -1,6 +1,9 @@
 package io.epiphanous.flinkrunner.model
 
-import io.confluent.kafka.schemaregistry.client.{CachedSchemaRegistryClient, SchemaRegistryClient}
+import io.confluent.kafka.schemaregistry.client.{
+  CachedSchemaRegistryClient,
+  SchemaRegistryClient
+}
 
 import java.util
 

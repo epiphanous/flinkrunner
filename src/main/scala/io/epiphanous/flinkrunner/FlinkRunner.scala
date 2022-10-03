@@ -17,8 +17,8 @@ import scala.collection.JavaConverters._
 /** FlinkRunner base class. All users of Flinkrunner will create their own
   * subclass. The only required parameter is a FlinkConfig object. Two
   * additional optional arguments exist for simplifying testing:
-  *   - [[CheckResults]] - a class to provide inputs and check outputs to
-  *     test your jobs transformation functions
+  *   - CheckResults - a class to provide inputs and check outputs to test
+  *     your jobs transformation functions
   * @param config
   *   a flink runner configuration
   * @param checkResultsOpt
