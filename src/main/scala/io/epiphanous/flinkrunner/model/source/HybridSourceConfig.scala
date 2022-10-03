@@ -10,8 +10,8 @@ import org.apache.flink.streaming.api.functions.source.SourceFunction
 /** A hybrid source configuration.
   * @param name
   *   name of the hybrid source
-  * @param config
-  *   a flinkrunner configuration
+  * @param runner
+  *   a flinkrunner instance
   * @tparam ADT
   *   the flinkrunner algebraic data type
   */

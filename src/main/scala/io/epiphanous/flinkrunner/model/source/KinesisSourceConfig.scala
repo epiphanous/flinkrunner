@@ -47,8 +47,8 @@ import java.util.Properties
   *
   * @param name
   *   name of the source
-  * @param config
-  *   flinkrunner config
+  * @param runner
+  *   flinkrunner instance
   * @tparam ADT
   *   Flinkrunner algebraic data type
   */

@@ -2,7 +2,10 @@ package io.epiphanous.flinkrunner.model.source
 
 import io.epiphanous.flinkrunner.FlinkRunner
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.serde.{ConfluentAvroRegistryKafkaRecordDeserializationSchema, JsonKafkaRecordDeserializationSchema}
+import io.epiphanous.flinkrunner.serde.{
+  ConfluentAvroRegistryKafkaRecordDeserializationSchema,
+  JsonKafkaRecordDeserializationSchema
+}
 import io.epiphanous.flinkrunner.util.ConfigToProps
 import io.epiphanous.flinkrunner.util.ConfigToProps._
 import io.epiphanous.flinkrunner.util.StreamUtils.RichProps
@@ -58,8 +61,8 @@ import scala.util.Try
   *
   * @param name
   *   name of the kafka source
-  * @param config
-  *   flinkrunner config
+  * @param runner
+  *   flinkrunner instance
   * @tparam ADT
   *   Flinkrunner algebraic data type
   */

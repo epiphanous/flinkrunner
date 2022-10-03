@@ -1,19 +1,31 @@
 package io.epiphanous.flinkrunner.model.source
 
 import io.epiphanous.flinkrunner.FlinkRunner
-import io.epiphanous.flinkrunner.model.{FlinkConnectorName, FlinkEvent, RabbitMQConnectionInfo}
+import io.epiphanous.flinkrunner.model.{
+  FlinkConnectorName,
+  FlinkEvent,
+  RabbitMQConnectionInfo
+}
 import io.epiphanous.flinkrunner.serde.JsonRMQDeserializationSchema
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.connector.source.{Source, SourceSplit}
 import org.apache.flink.streaming.api.functions.source.SourceFunction
-import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
-import org.apache.flink.streaming.connectors.rabbitmq.{RMQDeserializationSchema, RMQSource}
+import org.apache.flink.streaming.api.scala.{
+  DataStream,
+  StreamExecutionEnvironment
+}
+import org.apache.flink.streaming.connectors.rabbitmq.{
+  RMQDeserializationSchema,
+  RMQSource
+}
 
 /** Source configuration for Rabbit MQ.
   * @param name
   *   unique name of the source
-  * @param config
-  *   The full flink config in which this source is defined
+  * @param runner
+  *   flinkrunner instance
+  * @tparam ADT
+  *   flink runner algebraic type definition
   */
 case class RabbitMQSourceConfig[ADT <: FlinkEvent](
     name: String,

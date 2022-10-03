@@ -26,10 +26,12 @@ import scala.collection.JavaConverters._
   * @tparam ADT
   *   an algebraic data type for events processed by this flinkrunner
   */
+@SerialVersionUID(-9060995103764330323L)
 abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     val config: FlinkConfig,
     val checkResultsOpt: Option[CheckResults[ADT]] = None)
-    extends LazyLogging {
+    extends Serializable
+    with LazyLogging {
 
   /** the configured StreamExecutionEnvironment */
   val env: StreamExecutionEnvironment =
@@ -46,6 +48,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
   }
 
   /** Invoke a job by name. Must be provided by an implementing class.
+    *
     * @param jobName
     *   the job name
     */
@@ -136,6 +139,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
   /** Helper method to resolve the source configuration. Implementers can
     * override this method to customize source configuration behavior, in
     * particular, the deserialization schemas used by flink runner.
+    *
     * @param sourceName
     *   source name
     * @return
@@ -144,6 +148,15 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
   def getSourceConfig(
       sourceName: String = getDefaultSourceName): SourceConfig[ADT] =
     SourceConfig[ADT](sourceName, this)
+
+  def getDataGenerator[E <: ADT: TypeInformation](
+      sourceConfig: GeneratorSourceConfig[ADT]): DataGenerator[E] = ???
+
+  def getAvroDataGenerator[
+      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+      A <: GenericRecord: TypeInformation](
+      sourceConfig: GeneratorSourceConfig[ADT])(implicit
+      fromKV: EmbeddedAvroRecordInfo[A] => E): DataGenerator[E] = ???
 
   /** Helper method to convert a source config into a json-encoded source
     * data stream.
@@ -175,15 +188,6 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
         }
     }
   }
-
-  def getDataGenerator[E <: ADT: TypeInformation](
-      sourceConfig: GeneratorSourceConfig[ADT]): DataGenerator[E] = ???
-
-  def getAvroDataGenerator[
-      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
-      A <: GenericRecord: TypeInformation](
-      sourceConfig: GeneratorSourceConfig[ADT])(implicit
-      fromKV: EmbeddedAvroRecordInfo[A] => E): DataGenerator[E] = ???
 
   /** Helper method to convert a source config into an avro-encoded source
     * data stream. At the moment this is only supported for kafka sources
@@ -253,6 +257,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     configToSink[E](stream, getSinkConfig(sinkName))
 
   /** Create an avro-encoded stream sink from configuration.
+    *
     * @param stream
     *   the data stream to send to the sink
     * @param sinkName
@@ -278,6 +283,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
 
   /** Usually, we should write to the sink, unless we have a non-empty
     * CheckResults configuration that determines otherwise.
+    *
     * @return
     *   true to write to the sink, false otherwise
     */
