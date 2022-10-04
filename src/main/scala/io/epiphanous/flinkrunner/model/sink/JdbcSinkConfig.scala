@@ -1,7 +1,7 @@
 package io.epiphanous.flinkrunner.model.sink
 
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.model.SupportedDatabase.Snowflake
+import io.epiphanous.flinkrunner.model.SupportedDatabase.{Postgresql, Snowflake}
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.model.sink.JdbcSinkConfig.DEFAULT_CONNECTION_TIMEOUT
 import io.epiphanous.flinkrunner.operator.CreateTableJdbcSinkFunction
@@ -174,6 +174,10 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
         )
     case _             => Seq.empty
   }
+
+  val isTimescale: Boolean = config
+    .getBooleanOpt(pfx("table.isTimescale"))
+    .getOrElse(false)
 
   val sqlBuilder: SqlBuilder = SqlBuilder(product)
 
@@ -460,6 +464,24 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
           stmt.execute(createIndexSql)
         }
       }
+
+    /**
+      * If the sink is a PostgresDB with Timescale extension
+      * creates hypertable, with a time column.
+      */
+    if (product == Postgresql && isTimescale) {
+      val timeColumn: String   = config.getString(pfx("table.timeColumn"))
+      val createHypertable: String = {
+        sqlBuilder
+          .append(s"SELECT create_hypertable('$table', '$timeColumn');")
+          .getSqlAndClear
+      }
+
+      logger.info(
+        s"creating hypertable for [$table] with time column: $timeColumn"
+      )
+      stmt.executeQuery(createHypertable)
+    }
 
     stmt.close()
     conn.commit()

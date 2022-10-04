@@ -10,10 +10,54 @@ import io.epiphanous.flinkrunner.model.{FlinkConfig, MyAvroADT}
 
 class JdbcSinkCreateTableTest extends UnitSpec {
 
-  val mysqlContainer: MySQLContainer       = MySQLContainer()
-  val pgContainer: PostgreSQLContainer     = PostgreSQLContainer()
-  val mssqlContainer: MSSQLServerContainer = MSSQLServerContainer()
+  val mysqlContainer: MySQLContainer            = MySQLContainer()
+  val pgContainer: PostgreSQLContainer          = PostgreSQLContainer()
+  val timescaleDbContainer: PostgreSQLContainer = TimescaleDbContainer()
+  val mssqlContainer: MSSQLServerContainer      = MSSQLServerContainer()
   mssqlContainer.container.acceptLicense()
+
+  def maybeCreateTableTestTimescale(
+     database: String,
+     schema: String,
+     jdbcUrl: String,
+     username: String,
+     password: String): Unit = {
+    val config     = new FlinkConfig(
+      Array.empty[String],
+      Some(s"""
+              |sinks {
+              |  jdbc-test {
+              |    connector = "jdbc"
+              |    connection  = {
+              |      database  = "$database"
+              |      schema    = "$schema"
+              |      url       = "$jdbcUrl"
+              |      username  = "$username"
+              |      password  = "$password"
+              |    }
+              |    table = {
+              |      name = test-table
+              |      isTimescale = true
+              |      timeColumn = "time"
+              |      columns = [
+              |        {
+              |          name = id
+              |          type = CHAR
+              |          precision = 36
+              |        },
+              |        {
+              |          name = time
+              |          type = TIMESTAMP
+              |        }
+              |      ]
+              |    }
+              |  }
+              |}
+              |""".stripMargin)
+    )
+    val sinkConfig = new JdbcSinkConfig[MyAvroADT]("jdbc-test", config)
+    sinkConfig.maybeCreateTable()
+  }
 
   def maybeCreateTableTest(
       database: String,
@@ -91,7 +135,19 @@ class JdbcSinkCreateTableTest extends UnitSpec {
     pgContainer.stop()
   }
 
-  // ignoring this test now since it relies on manually setting up a local postgres container
+  it should "maybeCreateTable in timescale" in {
+    timescaleDbContainer.start()
+    maybeCreateTableTestTimescale(
+      timescaleDbContainer.databaseName,
+      "public",
+      timescaleDbContainer.jdbcUrl,
+      timescaleDbContainer.username,
+      timescaleDbContainer.password
+    )
+    timescaleDbContainer.stop()
+  }
+
+  //ignoring this test now since it relies on manually setting up a local postgres container
   ignore should "maybeCreateTable in postgres local" in {
     maybeCreateTableTest(
       "test",
