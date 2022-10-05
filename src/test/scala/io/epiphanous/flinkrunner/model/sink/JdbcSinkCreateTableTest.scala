@@ -21,7 +21,7 @@ class JdbcSinkCreateTableTest extends UnitSpec {
      schema: String,
      jdbcUrl: String,
      username: String,
-     password: String): Unit = {
+     password: String) = {
     val config     = new FlinkConfig(
       Array.empty[String],
       Some(s"""
