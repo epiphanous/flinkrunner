@@ -60,7 +60,7 @@ case class KafkaSinkConfig[ADT <: FlinkEvent: TypeInformation](
       DeliveryGuarantee.AT_LEAST_ONCE
     case Some("none")          =>
       DeliveryGuarantee.NONE
-    case _                     => DeliveryGuarantee.EXACTLY_ONCE
+    case _                     => DeliveryGuarantee.AT_LEAST_ONCE
   }
 
   /** ensure transaction.timeout.ms is set */
@@ -70,26 +70,10 @@ case class KafkaSinkConfig[ADT <: FlinkEvent: TypeInformation](
     t.toLong
   }
 
-  val schemaRegistryConfig: SchemaRegistryConfig =
+  val schemaRegistryConfig: SchemaRegistryConfig = SchemaRegistryConfig(
     config
       .getObjectOption(pfx("schema.registry"))
-      .map { o =>
-        val c             = o.toConfig
-        val url           = c.getString("url")
-        val cacheCapacity =
-          Try(c.getInt("cache.capacity")).toOption.getOrElse(1000)
-        val headers       =
-          Try(c.getObject("headers")).toOption.asProperties.asJavaMap
-        val props         =
-          Try(c.getObject("props")).toOption.asProperties.asJavaMap
-        SchemaRegistryConfig(
-          url,
-          cacheCapacity,
-          props,
-          headers
-        )
-      }
-      .getOrElse(SchemaRegistryConfig())
+  )
 
   /** Return an confluent avro serialization schema */
   def getAvroSerializationSchema[

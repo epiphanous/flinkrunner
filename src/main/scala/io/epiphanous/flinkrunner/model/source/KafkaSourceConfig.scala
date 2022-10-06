@@ -126,25 +126,10 @@ case class KafkaSourceConfig[ADT <: FlinkEvent](
     .getStringOpt(pfx("group.id"))
     .getOrElse(s"${config.jobName}.$name")
 
-  val schemaRegistryConfig: SchemaRegistryConfig =
-    getFromEither(pfx(), Seq("schema.registry"), config.getObjectOption)
-      .map { o =>
-        val c             = o.toConfig
-        val url           = c.getString("url")
-        val cacheCapacity =
-          Try(c.getInt("cache.capacity")).toOption.getOrElse(1000)
-        val headers       =
-          Try(c.getObject("headers")).toOption.asProperties.asJavaMap
-        val props         =
-          Try(c.getObject("props")).toOption.asProperties.asJavaMap
-        SchemaRegistryConfig(
-          url = url,
-          cacheCapacity = cacheCapacity,
-          headers = headers,
-          props = props
-        )
-      }
-      .getOrElse(SchemaRegistryConfig())
+  val schemaRegistryConfig: SchemaRegistryConfig = SchemaRegistryConfig(
+    config
+      .getObjectOption(pfx("schema.registry"))
+  )
 
   /** Returns a confluent avro registry aware deserialization schema for
     * kafka.
