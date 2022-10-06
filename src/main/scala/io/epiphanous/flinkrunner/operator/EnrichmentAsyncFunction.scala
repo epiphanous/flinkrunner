@@ -8,7 +8,7 @@ import com.typesafe.scalalogging.LazyLogging
 import io.circe.Decoder
 import io.epiphanous.flinkrunner.BuildInfo
 import io.epiphanous.flinkrunner.model.FlinkConfig
-import org.apache.flink.streaming.api.scala.async.{
+import org.apache.flink.streaming.api.functions.async.{
   ResultFuture,
   RichAsyncFunction
 }
@@ -35,6 +35,7 @@ import scala.concurrent.{
   Future
 }
 import scala.util.{Failure, Success, Try}
+import collection.JavaConverters._
 
 /** An abstract asynchronous function to enrich a data stream with
   * non-stream data. This class relies on guava's CacheBuilder to load and
@@ -250,7 +251,7 @@ abstract class EnrichmentAsyncFunction[
           throwable
         )
         collector.completeExceptionally(throwable)
-      case Success(results)   => collector.complete(results)
+      case Success(results)   => collector.complete(results.asJava)
     }
 
   /** A helper method to enable testing of asyncInvoke() without needing to

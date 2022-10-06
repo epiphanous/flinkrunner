@@ -4,7 +4,7 @@ import io.epiphanous.flinkrunner.FlinkRunner
 import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, FlinkEvent}
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.streaming.api.scala.DataStream
+import org.apache.flink.streaming.api.datastream.DataStream
 
 /** A [[StreamJob]] with Avro inputs and outputs
   * @param runner

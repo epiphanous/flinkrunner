@@ -16,8 +16,10 @@ import org.apache.flink.connector.kafka.sink.{
   KafkaRecordSerializationSchema,
   KafkaSink
 }
-import org.apache.flink.streaming.api.datastream.DataStreamSink
-import org.apache.flink.streaming.api.scala.DataStream
+import org.apache.flink.streaming.api.datastream.{
+  DataStream,
+  DataStreamSink
+}
 
 import java.util.Properties
 import scala.util.Try

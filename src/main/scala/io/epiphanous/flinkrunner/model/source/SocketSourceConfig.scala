@@ -12,11 +12,11 @@ import io.epiphanous.flinkrunner.serde.{
   JsonRowDecoder,
   RowDecoder
 }
+import org.apache.flink.api.common.functions.FlatMapFunction
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.streaming.api.scala.{
-  DataStream,
-  StreamExecutionEnvironment
-}
+import org.apache.flink.streaming.api.datastream.DataStream
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
+import org.apache.flink.util.Collector
 
 /** A socket source configuration.
   * @param name
@@ -60,7 +60,12 @@ case class SocketSourceConfig[ADT <: FlinkEvent](
       .socketTextStream(host, port)
       .name(s"raw:$label")
       .uid(s"raw:$label")
-      .flatMap(line => decoder.decode(line))
+      .flatMap(new FlatMapFunction[String, E] {
+        override def flatMap(line: String, out: Collector[E]): Unit =
+          decoder
+            .decode(line)
+            .foreach(out.collect)
+      })
       .uid(label)
       .name(label)
   }

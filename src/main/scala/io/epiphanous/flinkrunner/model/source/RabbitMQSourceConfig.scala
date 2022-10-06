@@ -9,11 +9,9 @@ import io.epiphanous.flinkrunner.model.{
 import io.epiphanous.flinkrunner.serde.JsonRMQDeserializationSchema
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.connector.source.{Source, SourceSplit}
+import org.apache.flink.streaming.api.datastream.DataStream
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 import org.apache.flink.streaming.api.functions.source.SourceFunction
-import org.apache.flink.streaming.api.scala.{
-  DataStream,
-  StreamExecutionEnvironment
-}
 import org.apache.flink.streaming.connectors.rabbitmq.{
   RMQDeserializationSchema,
   RMQSource
@@ -65,7 +63,9 @@ case class RabbitMQSourceConfig[ADT <: FlinkEvent](
     )
 
   override def getSourceStream[E <: ADT: TypeInformation](
-      env: StreamExecutionEnvironment): DataStream[E] =
-    super.getSourceStream(env).setParallelism(1) // to ensure exactly once
+      env: StreamExecutionEnvironment): DataStream[E] = {
+    env.setParallelism(1) // to ensure exactly once
+    super.getSourceStream(env)
+  }
 
 }

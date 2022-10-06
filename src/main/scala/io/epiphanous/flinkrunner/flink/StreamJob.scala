@@ -15,13 +15,31 @@ import io.epiphanous.flinkrunner.model.{
 }
 import io.epiphanous.flinkrunner.util.StreamUtils.Pipe
 import org.apache.avro.generic.GenericRecord
-import org.apache.flink.api.common.state.MapStateDescriptor
+import org.apache.flink.api.common.functions.{
+  FlatMapFunction,
+  RichFilterFunction
+}
+import org.apache.flink.api.common.state.{
+  MapStateDescriptor,
+  ValueState,
+  ValueStateDescriptor
+}
 import org.apache.flink.api.common.typeinfo.{TypeHint, TypeInformation}
-import org.apache.flink.streaming.api.scala._
+import org.apache.flink.api.java.functions.KeySelector
+import org.apache.flink.configuration.Configuration
+import org.apache.flink.streaming.api.datastream.{
+  BroadcastConnectedStream,
+  ConnectedStreams,
+  DataStream,
+  KeyedStream
+}
+import org.apache.flink.streaming.api.functions.co.CoMapFunction
 import org.apache.flink.streaming.api.windowing.time.Time
 import org.apache.flink.streaming.api.windowing.windows.Window
 import org.apache.flink.util.Collector
 import squants.Quantity
+
+import scala.collection.JavaConverters._
 
 /** A streaming job. Implementers must provide a transform method,
   * responsible for transforming inputs into outputs.
@@ -84,8 +102,15 @@ abstract class StreamJob[
       fun2: IN2 => KEY): ConnectedStreams[IN1, IN2] = {
     val source1 = singleSource[IN1](source1Name)
     val source2 = singleSource[IN2](source2Name)
-    source1.connect(source2).keyBy[KEY](fun1, fun2)
+    source1
+      .connect(source2)
+      .keyBy(getKeySelector(fun1), getKeySelector(fun2))
   }
+
+  def getKeySelector[IN, KEY](fun: IN => KEY): KeySelector[IN, KEY] =
+    new KeySelector[IN, KEY] {
+      override def getKey(value: IN): KEY = fun(value)
+    }
 
   /** A specialized connected source that combines a control stream with a
     * data stream. The control stream indicates when the data stream should
@@ -121,6 +146,7 @@ abstract class StreamJob[
       dataName: String,
       fun1: CONTROL => KEY,
       fun2: DATA => KEY): DataStream[DATA] = {
+
     val controlLockoutDuration =
       config.getDuration("control.lockout.duration").toMillis
 
@@ -129,35 +155,47 @@ abstract class StreamJob[
       dataName,
       fun1,
       fun2
-    ).map[Either[CONTROL, DATA]](
-      (c: CONTROL) => Left(c),
-      (d: DATA) => Right(d)
-    ).keyBy[KEY]((cd: Either[CONTROL, DATA]) => cd.fold(fun1, fun2))
-      .filterWithState[(Long, Boolean)] { case (cd, lastControlOpt) =>
-        cd match {
-          case Left(control) =>
-            (
-              false,
-              if (
-                lastControlOpt.forall { case (_, active) =>
-                  control.$active != active
-                }
-              ) Some(control.$timestamp, control.$active)
-              else lastControlOpt
+    ).map(new CoMapFunction[CONTROL, DATA, Either[CONTROL, DATA]] {
+      override def map1(value: CONTROL): Either[CONTROL, DATA] =
+        Left(value)
+      override def map2(value: DATA): Either[CONTROL, DATA]    = Right(value)
+    }).keyBy[KEY]((cd: Either[CONTROL, DATA]) => cd.fold(fun1, fun2))
+      .filter(new RichFilterFunction[Either[CONTROL, DATA]] {
+        case class FilterState(
+            timestamp: Long = 0L,
+            active: Boolean = false)
+
+        var filterState: ValueState[FilterState] = _
+
+        override def open(parameters: Configuration): Unit = {
+          filterState = getRuntimeContext.getState(
+            new ValueStateDescriptor[FilterState](
+              "filter-by-control-state",
+              classOf[FilterState]
             )
-          case Right(data)   =>
-            (
-              lastControlOpt.exists { case (ts, active) =>
-                active && ((data.$timestamp - ts) >= controlLockoutDuration)
-              },
-              lastControlOpt
-            )
+          )
         }
-      }
-      .flatMap[DATA](
-        (cd: Either[CONTROL, DATA], collector: Collector[DATA]) =>
-          cd.foreach(d => collector.collect(d))
-      )
+
+        override def filter(event: Either[CONTROL, DATA]): Boolean = {
+          val currentState =
+            Option(filterState.value()).getOrElse(FilterState())
+          event match {
+            case Left(control) =>
+              if (currentState.active != control.$active)
+                filterState.update(
+                  currentState.copy(control.$timestamp, control.$active)
+                )
+              false
+            case Right(data)   =>
+              currentState.active && (data.$timestamp - currentState.timestamp) >= controlLockoutDuration
+          }
+        }
+      })
+      .flatMap(new FlatMapFunction[Either[CONTROL, DATA], DATA] {
+        override def flatMap(
+            value: Either[CONTROL, DATA],
+            out: Collector[DATA]): Unit = value.foreach(out.collect)
+      })
   }
 
   /** Creates a specialized connected source stream that joins a keyed data
@@ -193,13 +231,18 @@ abstract class StreamJob[
       : BroadcastConnectedStream[IN, BC] = {
     val keyedSource     =
       singleSource[IN](keyedSourceName)
-        .keyBy[KEY](keyedSourceGetKeyFunc)
+        .keyBy[KEY](new KeySelector[IN, KEY] {
+          override def getKey(value: IN): KEY =
+            keyedSourceGetKeyFunc(value)
+        })
     val broadcastSource =
       singleSource[BC](broadcastSourceName).broadcast(
         new MapStateDescriptor[KEY, BC](
           s"$keyedSourceName-$broadcastSourceName-state",
-          createTypeInformation[KEY],
-          createTypeInformation[BC]
+          TypeInformation.of(
+            implicitly[TypeInformation[KEY]].getTypeClass
+          ),
+          TypeInformation.of(implicitly[TypeInformation[BC]].getTypeClass)
         )
       )
     keyedSource.connect(broadcastSource)
@@ -277,7 +320,16 @@ abstract class StreamJob[
       : ConnectedStreams[IN1, IN2] = {
     val source1 = singleAvroSource[IN1, IN1A](source1Name)
     val source2 = singleAvroSource[IN2, IN2A](source2Name)
-    source1.connect(source2).keyBy[KEY](in1GetKeyFunc, in2GetKeyFunc)
+    source1
+      .connect(source2)
+      .keyBy[KEY](
+        new KeySelector[IN1, KEY] {
+          override def getKey(value: IN1): KEY = in1GetKeyFunc(value)
+        },
+        new KeySelector[IN2, KEY] {
+          override def getKey(value: IN2): KEY = in2GetKeyFunc(value)
+        }
+      )
   }
 
   /** A specialized connected avro source that combines an avro control
@@ -343,35 +395,53 @@ abstract class StreamJob[
       dataName,
       controlGetKeyFunc,
       dataGetKeyFunc
-    ).map[Either[CONTROL, DATA]](
-      (c: CONTROL) => Left(c),
-      (d: DATA) => Right(d)
+    ).map(
+      new CoMapFunction[CONTROL, DATA, Either[CONTROL, DATA]] {
+        override def map1(value: CONTROL): Either[CONTROL, DATA] =
+          Left(value)
+
+        override def map2(value: DATA): Either[CONTROL, DATA] =
+          Right(value)
+      }
     ).keyBy[KEY]((cd: Either[CONTROL, DATA]) =>
       cd.fold(controlGetKeyFunc, dataGetKeyFunc)
-    ).filterWithState[(Long, Boolean)] { case (cd, lastControlOpt) =>
-      cd match {
-        case Left(control) =>
-          (
-            false,
-            if (
-              lastControlOpt.forall { case (_, active) =>
-                control.$active != active
-              }
-            ) Some(control.$timestamp, control.$active)
-            else lastControlOpt
+    ).filter(
+      new RichFilterFunction[Either[CONTROL, DATA]] {
+        case class FilterState(
+            timestamp: Long = 0L,
+            active: Boolean = false)
+
+        var filterState: ValueState[FilterState] = _
+
+        override def open(parameters: Configuration): Unit = {
+          filterState = getRuntimeContext.getState(
+            new ValueStateDescriptor[FilterState](
+              "avro-filter-by-control-state",
+              classOf[FilterState]
+            )
           )
-        case Right(data)   =>
-          (
-            lastControlOpt.exists { case (ts, active) =>
-              active && ((data.$timestamp - ts) >= controlLockoutDuration)
-            },
-            lastControlOpt
-          )
+        }
+
+        override def filter(event: Either[CONTROL, DATA]): Boolean = {
+          val currentState =
+            Option(filterState.value()).getOrElse(FilterState())
+          event match {
+            case Left(control) =>
+              if (currentState.active != control.$active)
+                filterState.update(
+                  currentState.copy(control.$timestamp, control.$active)
+                )
+              false
+            case Right(data)   =>
+              currentState.active && (data.$timestamp - currentState.timestamp) >= controlLockoutDuration
+          }
+        }
       }
-    }.flatMap[DATA](
-      (cd: Either[CONTROL, DATA], collector: Collector[DATA]) =>
-        cd.foreach(d => collector.collect(d))
-    )
+    ).flatMap(new FlatMapFunction[Either[CONTROL, DATA], DATA] {
+      override def flatMap(
+          value: Either[CONTROL, DATA],
+          out: Collector[DATA]): Unit = value.foreach(out.collect)
+    })
   }
 
   /** Creates a specialized connected avro source stream that joins a keyed
@@ -428,13 +498,18 @@ abstract class StreamJob[
       : BroadcastConnectedStream[IN, BC] = {
     val keyedSource     =
       singleAvroSource[IN, INA](keyedSourceName)
-        .keyBy[KEY](keyedSourceGetKeyFunc)
+        .keyBy[KEY](new KeySelector[IN, KEY] {
+          override def getKey(value: IN): KEY =
+            keyedSourceGetKeyFunc(value)
+        })
     val broadcastSource =
       singleAvroSource[BC, BCA](broadcastSourceName).broadcast(
         new MapStateDescriptor[KEY, BC](
           s"$keyedSourceName-$broadcastSourceName-state",
-          createTypeInformation[KEY],
-          createTypeInformation[BC]
+          TypeInformation.of(
+            implicitly[TypeInformation[KEY]].getTypeClass
+          ),
+          TypeInformation.of(implicitly[TypeInformation[BC]].getTypeClass)
         )
       )
     keyedSource.connect(broadcastSource)
@@ -481,7 +556,7 @@ abstract class StreamJob[
 
     implicit val accumulatorTypeInfo
         : TypeInformation[AggregateAccumulator[AGG]] =
-      createTypeInformation[AggregateAccumulator[AGG]]
+      TypeInformation.of(classOf[AggregateAccumulator[AGG]])
 
     source
       .window(initializer.windowAssigner)
@@ -532,10 +607,13 @@ abstract class StreamJob[
           s"routing job ${config.jobName} results back through CheckResults<${checkResults.name}>"
         )
         checkResults.checkOutputEvents[OUT](
-          stream.executeAndCollect(
-            config.jobName,
-            checkResults.collectLimit
-          )
+          stream
+            .executeAndCollect(
+              config.jobName,
+              checkResults.collectLimit
+            )
+            .asScala
+            .toList
         )
 
       case _ =>

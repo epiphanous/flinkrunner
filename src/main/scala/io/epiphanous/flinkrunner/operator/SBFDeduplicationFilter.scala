@@ -12,7 +12,6 @@ import org.apache.flink.api.common.state.{
   ValueStateDescriptor
 }
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.api.scala._
 import org.apache.flink.configuration.Configuration
 
 /** A stable bloom filter for deduplicating event streams.
@@ -71,13 +70,13 @@ class SBFDeduplicationFilter[E <: ADT: TypeInformation, ADT <: FlinkEvent](
             bitsPerCell,
             falsePositiveRate
           ),
-          createTypeInformation[StableBloomFilter[CharSequence]]
+          classOf[StableBloomFilter[CharSequence]]
         )
       )
     dupCount = getRuntimeContext.getState(
       new ValueStateDescriptor[Long](
         s"${sourceConfig.label}_DuplicateCount",
-        createTypeInformation[Long]
+        classOf[Long]
       )
     )
   }

@@ -10,18 +10,15 @@ import org.apache.flink.api.common.eventtime.WatermarkStrategy
 import org.apache.flink.api.common.functions.FlatMapFunction
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.connector.source.{Source, SourceSplit}
-import org.apache.flink.api.scala.createTypeInformation
 import org.apache.flink.connector.file.src.FileSource
 import org.apache.flink.connector.file.src.reader.{
   StreamFormat,
   TextLineInputFormat
 }
 import org.apache.flink.core.fs.Path
+import org.apache.flink.streaming.api.datastream.DataStream
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 import org.apache.flink.streaming.api.functions.source.SourceFunction
-import org.apache.flink.streaming.api.scala.{
-  DataStream,
-  StreamExecutionEnvironment
-}
 import org.apache.flink.util.Collector
 
 import java.time.Duration
@@ -177,7 +174,7 @@ case class FileSourceConfig[ADT <: FlinkEvent](
       )
     }
     env
-      .fromSource(
+      .fromSource[String](
         fsb.build(),
         WatermarkStrategy.noWatermarks(),
         rawName
@@ -204,55 +201,6 @@ case class FileSourceConfig[ADT <: FlinkEvent](
       .name(s"wm:$label")
       .uid(s"wm:$label")
   }
-
-//  def flatMapTextAvroStream[
-//      E <: ADT with EmbeddedAvroRecord[A],
-//      A <: GenericRecord](
-//      decoder: EmbeddedAvroRowDecoder[E, A, ADT]): DataStream[E] = {}
-
-  /** Create a FileSource for avro parquet files.
-    * @param fromKV
-    *   a method, available in implicit scope, that creates an instance of
-    *   type E from an avro record of type A
-    * @tparam E
-    *   a type that is a member of the ADT and embeds an avro record of
-    *   type A
-    * @tparam A
-    *   an avro record (should be an instance of SpecificAvroRecord,
-    *   although the type here is looser)
-    * @return
-    */
-//  override def getAvroSource[
-//      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
-//      A <: GenericRecord: TypeInformation](implicit
-//      fromKV: EmbeddedAvroRecordInfo[A] => E)
-//      : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] = {
-//    require(
-//      format != StreamFormatName.Avro,
-//      badFormatAvroMessage
-//    )
-//    if (format == StreamFormatName.Parquet) {
-//      val fsb =
-//        FileSource.forRecordStreamFormat(
-//          new EmbeddedAvroParquetInputFormat[E, A, ADT](genericAvroSchema),
-//          origin
-//        )
-//      Right(
-//        (if (monitorDuration > 0)
-//           fsb.monitorContinuously(Duration.ofSeconds(monitorDuration))
-//         else fsb).build()
-//      )
-//    } else {
-//      val decoder =
-//        if (format == StreamFormatName.Json)
-//          new EmbeddedAvroJsonRowDecoder[E, A, ADT]()
-//        else
-//          new EmbeddedAvroDelimitedRowDecoder[E, A, ADT](delimitedConfig)
-//      flatMapTextStream(getTextFileStream(env))
-//
-//    }
-//
-//  }
 
   def getTextAvroSourceStream[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
