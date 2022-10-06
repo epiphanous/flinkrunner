@@ -138,10 +138,10 @@ case class KafkaSourceConfig[ADT <: FlinkEvent](
         val props         =
           Try(c.getObject("props")).toOption.asProperties.asJavaMap
         SchemaRegistryConfig(
-          url,
-          cacheCapacity,
-          props,
-          headers
+          url = url,
+          cacheCapacity = cacheCapacity,
+          headers = headers,
+          props = props
         )
       }
       .getOrElse(SchemaRegistryConfig())
