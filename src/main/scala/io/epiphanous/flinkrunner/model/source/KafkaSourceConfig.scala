@@ -7,7 +7,6 @@ import io.epiphanous.flinkrunner.serde.{
 }
 import io.epiphanous.flinkrunner.util.ConfigToProps
 import io.epiphanous.flinkrunner.util.ConfigToProps._
-import io.epiphanous.flinkrunner.util.StreamUtils.RichProps
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.connector.source.{Source, SourceSplit}
@@ -17,9 +16,7 @@ import org.apache.flink.connector.kafka.source.reader.deserializer.KafkaRecordDe
 import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.kafka.clients.consumer.OffsetResetStrategy
 
-import java.time.Duration
 import java.util.Properties
-import scala.util.Try
 
 /** A source config for using a kafka as a source for a flink job. For
   * example, the following config can be used to read from a topic in kafka
@@ -133,18 +130,7 @@ case class KafkaSourceConfig[ADT <: FlinkEvent](
       .getObjectOption(pfx("schema.registry"))
   )
 
-  val cacheConcurrencyLevel: Int =
-    config.getIntOpt(pfx("cache.concurrency.level")).getOrElse(4)
-
-  val cacheMaxSize: Long =
-    config.getLongOpt(pfx("cache.max.size")).getOrElse(10000L)
-
-  val cacheExpireAfter: Duration = config
-    .getDurationOpt(pfx("cache.expire.after"))
-    .getOrElse(Duration.ofHours(1))
-
-  val cacheRecordStats: Boolean =
-    config.getBooleanOpt(pfx("cache.record.stats")).getOrElse(true)
+  val schemaOpt: Option[String] = config.getStringOpt(pfx("avro.schema"))
 
   /** Returns a confluent avro registry aware deserialization schema for
     * kafka.
@@ -165,7 +151,7 @@ case class KafkaSourceConfig[ADT <: FlinkEvent](
       fromKV: EmbeddedAvroRecordInfo[A] => E)
       : KafkaRecordDeserializationSchema[E] = {
     new ConfluentAvroRegistryKafkaRecordDeserializationSchema[E, A, ADT](
-      this
+      this, schemaOpt
     )
   }
 

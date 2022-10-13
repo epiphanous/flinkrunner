@@ -5,6 +5,7 @@ import io.epiphanous.flinkrunner.model.{
   EmbeddedAvroRecordInfo,
   FlinkEvent
 }
+import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
 import org.apache.avro.specific.SpecificRecordBase
 
@@ -20,6 +21,26 @@ object AvroUtils {
 
   def instanceOf[A <: GenericRecord](typeClass: Class[A]): A =
     typeClass.getConstructor().newInstance()
+
+  def parseSchemaString(schemaStr: String): Schema =
+    new Schema.Parser().parse(schemaStr)
+
+  def subjectName[A <: GenericRecord](
+      typeClass: Class[A],
+      schemaOpt: Option[Either[String, Schema]] = None,
+      isKey: Boolean = false): Option[String] = {
+    val suffix = if (isKey) "-key" else "-value"
+    val name   =
+      if (isSpecific(typeClass)) Some(typeClass.getCanonicalName)
+      else
+        schemaOpt
+          .map(strOrSchema =>
+            strOrSchema
+              .fold(str => parseSchemaString(str), schema => schema)
+              .getFullName
+          )
+    name.map(_ + suffix)
+  }
 
   /** Converts a generic record into a flink event with an embedded avro
     * record of type A
