@@ -1,5 +1,6 @@
 package io.epiphanous.flinkrunner.serde
 
+import com.google.common.cache.{CacheBuilder, CacheLoader, LoadingCache}
 import com.typesafe.scalalogging.LazyLogging
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
 import io.confluent.kafka.serializers.KafkaAvroDeserializer
@@ -11,10 +12,13 @@ import io.epiphanous.flinkrunner.model.{
   SchemaRegistryConfig
 }
 import io.epiphanous.flinkrunner.util.AvroUtils.toEmbeddedAvroInstance
+import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.serialization.DeserializationSchema
 import org.apache.flink.api.common.typeinfo.{TypeHint, TypeInformation}
 import org.apache.flink.connector.kafka.source.reader.deserializer.KafkaRecordDeserializationSchema
+import org.apache.flink.formats.avro.RegistryAvroDeserializationSchema
+import org.apache.flink.formats.avro.registry.confluent.ConfluentRegistryAvroDeserializationSchema
 import org.apache.flink.util.Collector
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
@@ -26,47 +30,32 @@ import scala.collection.JavaConverters._
   * that also implements the EmbeddedAvroRecord trait.
   * @param sourceConfig
   *   config for the kafka source
-  * @param schemaRegistryClientOpt
-  *   an optional schema registry client
+  * @param preloaded
+  *   an map of schemas to confluent avro deserializers (of type
+  *   ConfluentRegistryAvroDeserializationSchema[GenericRecord]) to preload
+  *   the cache for testing
   */
 class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
     E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
     A <: GenericRecord: TypeInformation,
     ADT <: FlinkEvent
 ](
-    sourceConfig: KafkaSourceConfig[ADT],
-    schemaRegistryClientOpt: Option[SchemaRegistryClient] = None
+    sourceConfig: KafkaSourceConfig[ADT]
 )(implicit fromKV: EmbeddedAvroRecordInfo[A] => E)
     extends KafkaRecordDeserializationSchema[E]
     with LazyLogging {
 
   val avroClass: Class[A] = implicitly[TypeInformation[A]].getTypeClass
 
-  var valueDeserializer: KafkaAvroDeserializer       = _
-  var keyDeserializer: Option[KafkaAvroDeserializer] = _
-
-  override def open(
-      context: DeserializationSchema.InitializationContext): Unit = {
-
-    val schemaRegistryConfig: SchemaRegistryConfig =
-      sourceConfig.schemaRegistryConfig
-
-    val schemaRegistryClient: SchemaRegistryClient =
-      schemaRegistryClientOpt.getOrElse(
-        schemaRegistryConfig.getClient
-      )
-
-    valueDeserializer = new KafkaAvroDeserializer(
-      schemaRegistryClient,
-      schemaRegistryConfig.props
+  @transient lazy val deserializer = new RegistryAvroDeserializationSchema(
+    avroClass,
+    null,
+    new ConfluentSchemaCoderProvider(
+      schemaRegistryUrl = sourceConfig.schemaRegistryConfig.url,
+      schemaRegistryProps = sourceConfig.schemaRegistryConfig.props,
+      subject = Some(s"${avroClass.getCanonicalName}-value")
     )
-
-    keyDeserializer = if (sourceConfig.isKeyed) {
-      val ks = new KafkaAvroDeserializer(schemaRegistryClient)
-      ks.configure(schemaRegistryConfig.props, true)
-      Some(ks)
-    } else None
-  }
+  )
 
   override def deserialize(
       record: ConsumerRecord[Array[Byte], Array[Byte]],
@@ -77,12 +66,10 @@ class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
         (h.key(), new String(h.value(), StandardCharsets.UTF_8))
       }.toMap)
       .getOrElse(Map.empty[String, String])
-    val key     =
-      keyDeserializer.map(ds =>
-        ds.deserialize(topic, record.key()).toString
-      )
-    valueDeserializer
-      .deserialize(topic, record.value()) match {
+    val key     = Option(record.key()).map(keyBytes =>
+      new String(keyBytes, StandardCharsets.UTF_8)
+    )
+    deserializer.deserialize(record.value()) match {
       case a: GenericRecord        =>
         out.collect(
           toEmbeddedAvroInstance[E, A, ADT](a, avroClass, key, headers)

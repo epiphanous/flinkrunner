@@ -17,6 +17,7 @@ import org.apache.flink.connector.kafka.source.reader.deserializer.KafkaRecordDe
 import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.kafka.clients.consumer.OffsetResetStrategy
 
+import java.time.Duration
 import java.util.Properties
 import scala.util.Try
 
@@ -127,9 +128,23 @@ case class KafkaSourceConfig[ADT <: FlinkEvent](
     .getOrElse(s"${config.jobName}.$name")
 
   val schemaRegistryConfig: SchemaRegistryConfig = SchemaRegistryConfig(
+    isDeserializing = false,
     config
       .getObjectOption(pfx("schema.registry"))
   )
+
+  val cacheConcurrencyLevel: Int =
+    config.getIntOpt(pfx("cache.concurrency.level")).getOrElse(4)
+
+  val cacheMaxSize: Long =
+    config.getLongOpt(pfx("cache.max.size")).getOrElse(10000L)
+
+  val cacheExpireAfter: Duration = config
+    .getDurationOpt(pfx("cache.expire.after"))
+    .getOrElse(Duration.ofHours(1))
+
+  val cacheRecordStats: Boolean =
+    config.getBooleanOpt(pfx("cache.record.stats")).getOrElse(true)
 
   /** Returns a confluent avro registry aware deserialization schema for
     * kafka.
