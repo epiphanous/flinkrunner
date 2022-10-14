@@ -89,11 +89,11 @@ abstract class StreamJob[
 
   /** A specialized connected source that combines a control stream with a
     * data stream. The control stream indicates when the data stream should
-    * be considered active (by the control element's $active method). When
-    * the control stream indicates the data stream is active, data elements
-    * are emitted. Otherwise, data elements are ignored. The result is a
-    * stream of active data elements filtered dynamically by the control
-    * stream.
+    * be considered active (by the control element's `\$active` method).
+    * When the control stream indicates the data stream is active, data
+    * elements are emitted. Otherwise, data elements are ignored. The
+    * result is a stream of active data elements filtered dynamically by
+    * the control stream.
     * @param controlName
     *   name of the configured control stream
     * @param dataName
@@ -283,8 +283,8 @@ abstract class StreamJob[
   /** A specialized connected avro source that combines an avro control
     * stream with an avro data stream. The control stream indicates when
     * the data stream should be considered active (by the control element's
-    * $active method). When the control stream indicates the data stream is
-    * active, data elements are emitted. Otherwise, data elements are
+    * `\$active` method). When the control stream indicates the data stream
+    * is active, data elements are emitted. Otherwise, data elements are
     * ignored. The result is a stream of active data elements filtered
     * dynamically by the control stream.
     * @param controlName
