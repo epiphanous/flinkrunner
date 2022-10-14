@@ -151,7 +151,8 @@ case class KafkaSourceConfig[ADT <: FlinkEvent](
       fromKV: EmbeddedAvroRecordInfo[A] => E)
       : KafkaRecordDeserializationSchema[E] = {
     new ConfluentAvroRegistryKafkaRecordDeserializationSchema[E, A, ADT](
-      this, schemaOpt
+      this,
+      schemaOpt
     )
   }
 

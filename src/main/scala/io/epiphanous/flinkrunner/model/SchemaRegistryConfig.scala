@@ -15,8 +15,8 @@ case class SchemaRegistryConfig(
     props: util.HashMap[String, String] = new util.HashMap()) {
   val isSerializing: Boolean = !isDeserializing
   props.put("schema.registry.url", url)
+  props.put("specific.avro.reader", "false") // don't make this true!
   props.putIfAbsent("use.logical.type.converters", "true")
-  props.putIfAbsent("specific.avro.reader", "true")
 }
 object SchemaRegistryConfig {
   def apply(

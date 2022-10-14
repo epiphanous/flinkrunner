@@ -22,6 +22,15 @@ object AvroUtils {
   def instanceOf[A <: GenericRecord](typeClass: Class[A]): A =
     typeClass.getConstructor().newInstance()
 
+  def schemaOf[A <: GenericRecord](
+      typeClass: Class[A],
+      schemaStringOpt: Option[String]): Schema =
+    if (isSpecific(typeClass)) instanceOf(typeClass).getSchema
+    else
+      schemaStringOpt
+        .map(parseSchemaString)
+        .getOrElse(throw new RuntimeException("missing schema"))
+
   def parseSchemaString(schemaStr: String): Schema =
     new Schema.Parser().parse(schemaStr)
 

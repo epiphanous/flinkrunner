@@ -9,14 +9,14 @@ import io.epiphanous.flinkrunner.model.{
 }
 import io.epiphanous.flinkrunner.util.AvroUtils.{
   isSpecific,
-  subjectName,
+  schemaOf,
   toEmbeddedAvroInstance
 }
-import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.{TypeHint, TypeInformation}
 import org.apache.flink.connector.kafka.source.reader.deserializer.KafkaRecordDeserializationSchema
 import org.apache.flink.formats.avro.RegistryAvroDeserializationSchema
+import org.apache.flink.formats.avro.registry.confluent.ConfluentRegistryAvroDeserializationSchema
 import org.apache.flink.util.Collector
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
@@ -43,7 +43,7 @@ class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
     ADT <: FlinkEvent
 ](
     sourceConfig: KafkaSourceConfig[ADT],
-    schemaOpt: Option[String]
+    schemaOpt: Option[String] = None
 )(implicit fromKV: EmbeddedAvroRecordInfo[A] => E)
     extends KafkaRecordDeserializationSchema[E]
     with LazyLogging {
@@ -56,26 +56,13 @@ class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
       " if you want to deserialize into a generic record type"
   )
 
-  val subject: Option[String] =
-    subjectName(avroClass, schemaOpt.map(Left(_)))
-
-  /** We leverage the existing flink formats registry-based avro
-    * deserializer. We don't use the actual
-    * `ConfluentRegistryAvroDeserializationSchema` class because its
-    * exposed constructors are too limiting for the way we implement our
-    * record type here.
-    */
-  @transient lazy val deserializer = new RegistryAvroDeserializationSchema(
-    avroClass,
-    schemaOpt
-      .map(schemaStr => new Schema.Parser().parse(schemaStr))
-      .orNull,
-    ConfluentSchemaCoderProvider(
-      schemaRegistryUrl = sourceConfig.schemaRegistryConfig.url,
-      schemaRegistryProps = sourceConfig.schemaRegistryConfig.props,
-      subject = subject
+  @transient lazy val deserializer
+      : RegistryAvroDeserializationSchema[GenericRecord] =
+    ConfluentRegistryAvroDeserializationSchema.forGeneric(
+      schemaOf(avroClass, schemaOpt),
+      sourceConfig.schemaRegistryConfig.url,
+      sourceConfig.schemaRegistryConfig.props
     )
-  )
 
   override def deserialize(
       record: ConsumerRecord[Array[Byte], Array[Byte]],

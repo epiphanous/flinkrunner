@@ -2,9 +2,8 @@ package io.epiphanous.flinkrunner.model
 
 import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicLong
-import java.util.stream.IntStream
 import java.util.{Properties, Random}
-import collection.JavaConverters._
+import scala.collection.JavaConverters._
 
 /** Configuration for a data generator.
   * @param rowsPerSecond
