@@ -103,16 +103,18 @@ trait SerdeTestFixtures extends PropSpec {
     )
 
   def getSerializerFor[
-      E <: MyAvroADT with EmbeddedAvroRecord[A],
-      A <: GenericRecord] = {
-    val ss = new ConfluentAvroRegistryKafkaRecordSerializationSchema[
-      E,
-      A,
-      MyAvroADT
-    ](
-      kafkaSinkConfig,
-      Some(schemaRegistryClient)
-    )
+      E <: MyAvroADT with EmbeddedAvroRecord[A]: TypeInformation,
+      A <: GenericRecord: TypeInformation] = {
+    val ss = {
+      val avroClass = implicitly[TypeInformation[A]].getTypeClass
+      new ConfluentAvroRegistryKafkaRecordSerializationSchema[
+        E,
+        A,
+        MyAvroADT
+      ](
+        kafkaSinkConfig
+      )
+    }
     ss.open(null, null)
     ss
   }
@@ -126,13 +128,13 @@ trait SerdeTestFixtures extends PropSpec {
       E <: MyAvroADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](implicit
       fromKV: EmbeddedAvroRecordInfo[A] => E) = {
-    val ds = new ConfluentAvroRegistryKafkaRecordDeserializationSchema[
+    val avroClass = implicitly[TypeInformation[A]].getTypeClass
+    val ds        = new ConfluentAvroRegistryKafkaRecordDeserializationSchema[
       E,
       A,
       MyAvroADT
     ](
-      kafkaSourceConfig,
-      Some(schemaRegistryClient)
+      kafkaSourceConfig
     )
     ds.open(null)
     ds

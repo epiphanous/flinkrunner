@@ -2,9 +2,8 @@ package io.epiphanous.flinkrunner.model
 
 import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicLong
-import java.util.stream.IntStream
 import java.util.{Properties, Random}
-import collection.JavaConverters._
+import scala.collection.JavaConverters._
 
 /** Configuration for a data generator.
   * @param rowsPerSecond
@@ -69,7 +68,7 @@ case class GeneratorConfig(
         if (rng.nextDouble() <= probOutOfOrder) -1
         else 1
       val increment      = direction * rng.nextInt(maxTimeStep)
-      increment
+      increment.toLong
     })
 
   /** Return true if next value generated should be null
@@ -112,7 +111,7 @@ case class GeneratorConfig(
     rng
       .ints(48, 123)
       .filter(i => (i <= 57 || i >= 65) && (i <= 90 || i >= 97))
-      .limit(maxLength)
+      .limit(maxLength.toLong)
       .iterator()
       .asScala
       .map(_.toChar)

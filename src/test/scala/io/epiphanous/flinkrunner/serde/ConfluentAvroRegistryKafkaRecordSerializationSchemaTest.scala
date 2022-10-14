@@ -1,6 +1,7 @@
 package io.epiphanous.flinkrunner.serde
 
 import io.epiphanous.flinkrunner.model._
+import org.apache.flink.api.scala.createTypeInformation
 
 import java.time.Instant
 
@@ -16,7 +17,8 @@ class ConfluentAvroRegistryKafkaRecordSerializationSchemaTest
     bSchemaInfo.getSchema shouldEqual BRecord.SCHEMA$.toString
   }
 
-  property("serialize a MyAvroADT instance to a producer record") {
+  // ignore this until we set up testcontainers schema registry testing
+  ignore("serialize a MyAvroADT instance to a producer record") {
     val serializer = getSerializerFor[BWrapper, BRecord]
     val serialized = serializer.serialize(
       bWrapper,
