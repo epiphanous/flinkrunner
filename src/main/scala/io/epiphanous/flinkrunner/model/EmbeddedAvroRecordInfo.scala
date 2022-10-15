@@ -16,5 +16,7 @@ import org.apache.avro.generic.GenericRecord
   */
 case class EmbeddedAvroRecordInfo[A <: GenericRecord](
     record: A,
+    config: FlinkConfig,
     keyOpt: Option[String] = None,
-    headers: Map[String, String] = Map.empty)
+    headers: Map[String, String] = Map.empty
+)

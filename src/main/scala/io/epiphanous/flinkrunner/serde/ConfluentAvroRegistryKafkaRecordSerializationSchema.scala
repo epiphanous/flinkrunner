@@ -68,7 +68,7 @@ case class ConfluentAvroRegistryKafkaRecordSerializationSchema[
       element: E,
       context: KafkaRecordSerializationSchema.KafkaSinkContext,
       timestamp: lang.Long): ProducerRecord[Array[Byte], Array[Byte]] = {
-    val info = element.toKV
+    val info = element.toKV(sinkConfig.config)
 
     val headers = new RecordHeaders()
 

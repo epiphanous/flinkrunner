@@ -23,7 +23,7 @@ import org.apache.flink.formats.avro.AvroInputFormat
 class EmbeddedAvroInputFormat[
     E <: ADT with EmbeddedAvroRecord[A],
     A <: GenericRecord: TypeInformation,
-    ADT <: FlinkEvent](path: Path)(implicit
+    ADT <: FlinkEvent](config: FlinkConfig, path: Path)(implicit
     fromKV: EmbeddedAvroRecordInfo[A] => E)
     extends FileInputFormat[E] {
 
@@ -60,7 +60,8 @@ class EmbeddedAvroInputFormat[
       .map(record =>
         AvroUtils.toEmbeddedAvroInstance[E, A, ADT](
           record,
-          typeClass
+          typeClass,
+          config
         )
       )
       .getOrElse(null.asInstanceOf[E]) // fugly to compile

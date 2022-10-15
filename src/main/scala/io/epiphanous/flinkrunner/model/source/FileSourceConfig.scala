@@ -265,9 +265,12 @@ case class FileSourceConfig[ADT <: FlinkEvent](
     )
     val decoder = format match {
       case StreamFormatName.Json  =>
-        new EmbeddedAvroJsonRowDecoder[E, A, ADT]()
+        new EmbeddedAvroJsonRowDecoder[E, A, ADT](config)
       case fmt if fmt.isDelimited =>
-        new EmbeddedAvroDelimitedRowDecoder[E, A, ADT](delimitedConfig)
+        new EmbeddedAvroDelimitedRowDecoder[E, A, ADT](
+          config,
+          delimitedConfig
+        )
       case _                      =>
         throw new RuntimeException(
           s"getTextAvroSourceStream can't handle text format $format"
@@ -290,6 +293,7 @@ case class FileSourceConfig[ADT <: FlinkEvent](
         val fsb =
           FileSource.forRecordStreamFormat(
             new EmbeddedAvroParquetInputFormat[E, A, ADT](
+              config,
               genericAvroSchema
             ),
             origin
@@ -302,7 +306,9 @@ case class FileSourceConfig[ADT <: FlinkEvent](
           label
         )
       case StreamFormatName.Avro    =>
-        env.createInput(new EmbeddedAvroInputFormat[E, A, ADT](origin))
+        env.createInput(
+          new EmbeddedAvroInputFormat[E, A, ADT](config, origin)
+        )
       case _                        =>
         throw new RuntimeException(
           s"getBulkAvroSourceStream can't handle bulk format $format"

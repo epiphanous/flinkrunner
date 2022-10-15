@@ -9,6 +9,8 @@ class EmbeddedAvroWriterFactoryTest
     extends PropSpec
     with AvroFileTestUtils {
 
+  val config: FlinkConfig = new FlinkConfig(Array("test"))
+
   def doWriteTest(isParquet: Boolean): Unit = {
     val fmt =
       if (isParquet) StreamFormatName.Parquet else StreamFormatName.Avro
@@ -36,7 +38,7 @@ class EmbeddedAvroWriterFactoryTest
       Try {
         val file   = path.toString
         writeFile(file, fmt, pop)
-        val result = readFile(file, isParquet)
+        val result = readFile(file, isParquet, config)
         result shouldEqual pop
       } should be a 'success
       Try(Files.delete(path)) should be a 'success

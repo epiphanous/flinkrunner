@@ -3,6 +3,7 @@ package io.epiphanous.flinkrunner.util
 import io.epiphanous.flinkrunner.model.{
   EmbeddedAvroRecord,
   EmbeddedAvroRecordInfo,
+  FlinkConfig,
   FlinkEvent
 }
 import org.apache.avro.Schema
@@ -74,6 +75,7 @@ object AvroUtils {
       ADT <: FlinkEvent](
       genericRecord: GenericRecord,
       typeClass: Class[A],
+      config: FlinkConfig,
       keyOpt: Option[String] = None,
       headers: Map[String, String] = Map.empty)(implicit
       fromKV: EmbeddedAvroRecordInfo[A] => E): E =
@@ -81,6 +83,7 @@ object AvroUtils {
       fromKV(
         EmbeddedAvroRecordInfo(
           genericRecord.asInstanceOf[A],
+          config,
           keyOpt,
           headers
         )
@@ -89,6 +92,7 @@ object AvroUtils {
       fromKV(
         EmbeddedAvroRecordInfo(
           genericRecord.toSpecific(instanceOf(typeClass)),
+          config,
           keyOpt,
           headers
         )

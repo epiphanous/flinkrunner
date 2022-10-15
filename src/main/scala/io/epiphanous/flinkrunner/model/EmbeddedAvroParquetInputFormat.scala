@@ -25,7 +25,7 @@ import org.apache.flink.formats.parquet.avro.AvroParquetReaders
 class EmbeddedAvroParquetInputFormat[
     E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
     A <: GenericRecord: TypeInformation,
-    ADT <: FlinkEvent](optSchema: Option[Schema] = None)(implicit
+    ADT <: FlinkEvent](config:FlinkConfig, optSchema: Option[Schema] = None)(implicit
     fromKV: EmbeddedAvroRecordInfo[A] => E)
     extends StreamFormat[E] {
 
@@ -93,7 +93,8 @@ class EmbeddedAvroParquetInputFormat[
           .map(record =>
             AvroUtils.toEmbeddedAvroInstance[E, A, ADT](
               record,
-              typeClass
+              typeClass,
+              config
             )
           )
           .getOrElse(null.asInstanceOf[E]) // fugly for compiler
