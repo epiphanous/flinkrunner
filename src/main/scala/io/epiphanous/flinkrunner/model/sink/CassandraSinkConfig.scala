@@ -5,7 +5,7 @@ import io.epiphanous.flinkrunner.model.{
   FlinkConnectorName,
   FlinkEvent
 }
-import org.apache.flink.streaming.api.scala.DataStream
+import org.apache.flink.streaming.api.datastream.DataStream
 import org.apache.flink.streaming.connectors.cassandra.CassandraSink
 
 /** A cassandra sink config.

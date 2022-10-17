@@ -8,9 +8,9 @@ import io.epiphanous.flinkrunner.model.source._
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.JobExecutionResult
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.streaming.api.datastream.DataStreamSink
-import org.apache.flink.streaming.api.scala._
-import org.apache.flink.table.api.bridge.scala.StreamTableEnvironment
+import org.apache.flink.streaming.api.datastream.{DataStream, DataStreamSink}
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
+import org.apache.flink.table.api.bridge.java.StreamTableEnvironment
 
 import scala.collection.JavaConverters._
 
@@ -180,8 +180,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
       .map(c => c.getInputEvents[E](sourceConfig.name))
       .getOrElse(List.empty[E]) match {
       case mockEvents if mockEvents.nonEmpty =>
-        val lbl = s"mock:${sourceConfig.label}"
-        env.fromCollection(mockEvents).name(lbl).uid(lbl)
+        mockEventStream[E](mockEvents, sourceConfig.label)
       case _                                 =>
         sourceConfig match {
           case s: FileSourceConfig[ADT]      => s.getSourceStream[E](env)
@@ -193,6 +192,13 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
           case s: GeneratorSourceConfig[ADT] => s.getSourceStream[E](env)
         }
     }
+  }
+
+  def mockEventStream[E <: ADT](
+      mockEvents: Seq[E],
+      label: String): DataStream[E] = {
+    val lbl = s"mock:$label"
+    env.fromCollection(mockEvents.asJava).name(lbl).uid(lbl)
   }
 
   /** Helper method to convert a source config into an avro-encoded source
@@ -223,8 +229,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
       .map(c => c.getInputEvents[E](sourceConfig.name))
       .getOrElse(Seq.empty[E]) match {
       case mockEvents if mockEvents.nonEmpty =>
-        val lbl = s"mock:${sourceConfig.label}"
-        env.fromCollection(mockEvents).name(lbl).uid(lbl)
+        mockEventStream[E](mockEvents, sourceConfig.label)
       case _                                 =>
         sourceConfig match {
           case s: FileSourceConfig[ADT]      =>

@@ -54,9 +54,6 @@ val V = new {
 
 val flinkDeps =
   Seq(
-    // scala
-    "org.apache.flink" %% "flink-scala"                    % V.flink,
-    "org.apache.flink" %% "flink-streaming-scala"          % V.flink,
     // rocksdb
     "org.apache.flink"  % "flink-statebackend-rocksdb"     % V.flink,
     // queryable state
@@ -77,7 +74,6 @@ val flinkDeps =
     "org.apache.flink"  % "flink-avro"                     % V.flink % Provided, // ds and table avro format
     "org.apache.flink"  % "flink-avro-confluent-registry"  % V.flink % Provided, // ds and table avro registry format
     // table api support
-    "org.apache.flink" %% "flink-table-api-scala-bridge"   % V.flink, // table api scala
     "org.apache.flink"  % "flink-table-planner-loader"     % V.flink % Provided, // table api
     "org.apache.flink"  % "flink-table-runtime"            % V.flink % Provided, // table runtime
     "org.apache.flink"  % "flink-csv"                      % V.flink % Provided, // table api csv format

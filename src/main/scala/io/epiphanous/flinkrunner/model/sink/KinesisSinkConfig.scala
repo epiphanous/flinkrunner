@@ -10,8 +10,10 @@ import io.epiphanous.flinkrunner.serde.JsonSerializationSchema
 import org.apache.flink.api.common.serialization.SerializationSchema
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.connector.kinesis.sink.KinesisStreamsSink
-import org.apache.flink.streaming.api.datastream.DataStreamSink
-import org.apache.flink.streaming.api.scala.DataStream
+import org.apache.flink.streaming.api.datastream.{
+  DataStream,
+  DataStreamSink
+}
 
 /**   - maxBatchSize: the maximum size of a batch of entries that may be
   *     sent to KDS

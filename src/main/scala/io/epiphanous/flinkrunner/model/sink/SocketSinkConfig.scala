@@ -10,9 +10,11 @@ import io.epiphanous.flinkrunner.model.{
 import io.epiphanous.flinkrunner.serde._
 import org.apache.flink.api.common.serialization.SerializationSchema
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.streaming.api.datastream.DataStreamSink
+import org.apache.flink.streaming.api.datastream.{
+  DataStream,
+  DataStreamSink
+}
 import org.apache.flink.streaming.api.functions.sink.SocketClientSink
-import org.apache.flink.streaming.api.scala.DataStream
 
 import java.nio.charset.StandardCharsets
 import scala.util.{Failure, Success}

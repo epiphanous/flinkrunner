@@ -11,7 +11,10 @@ import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.connector.file.sink.FileSink
 import org.apache.flink.core.fs.Path
 import org.apache.flink.core.io.SimpleVersionedSerializer
-import org.apache.flink.streaming.api.datastream.DataStreamSink
+import org.apache.flink.streaming.api.datastream.{
+  DataStream,
+  DataStreamSink
+}
 import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.{
   BasePathBucketAssigner,
   DateTimeBucketAssigner
@@ -24,7 +27,6 @@ import org.apache.flink.streaming.api.functions.sink.filesystem.{
   BucketAssigner,
   OutputFileConfig
 }
-import org.apache.flink.streaming.api.scala.DataStream
 
 import java.nio.charset.StandardCharsets
 import scala.collection.JavaConverters._

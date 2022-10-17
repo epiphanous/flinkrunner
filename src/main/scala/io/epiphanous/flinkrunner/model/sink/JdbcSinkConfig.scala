@@ -17,8 +17,10 @@ import org.apache.flink.connector.jdbc.{
   JdbcExecutionOptions,
   JdbcStatementBuilder
 }
-import org.apache.flink.streaming.api.datastream.DataStreamSink
-import org.apache.flink.streaming.api.scala.DataStream
+import org.apache.flink.streaming.api.datastream.{
+  DataStream,
+  DataStreamSink
+}
 
 import java.sql.{Connection, DriverManager, Timestamp}
 import java.time.Instant
