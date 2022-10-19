@@ -37,8 +37,11 @@ class JdbcSinkCreateTableTest extends UnitSpec {
               |    }
               |    table = {
               |      name = test-table
-              |      isTimescale = true
-              |      timeColumn = "time"
+              |      is.timescale = true
+              |      time.column = time
+              |      chunk.time.interval = "1 hour"
+              |      partitioning.column = device_id
+              |      number.partitions = 4
               |      columns = [
               |        {
               |          name = id
@@ -48,6 +51,13 @@ class JdbcSinkCreateTableTest extends UnitSpec {
               |        {
               |          name = time
               |          type = TIMESTAMP
+              |          primary.key = 1
+              |        },
+              |        {
+              |          name = device_id
+              |          type = VARCHAR
+              |          precision = 100
+              |          primary.key = 1
               |        }
               |      ]
               |    }
