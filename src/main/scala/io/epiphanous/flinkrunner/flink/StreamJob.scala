@@ -2,8 +2,17 @@ package io.epiphanous.flinkrunner.flink
 
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.FlinkRunner
-import io.epiphanous.flinkrunner.model.aggregate.{Aggregate, AggregateAccumulator, WindowedAggregationInitializer}
-import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, EmbeddedAvroRecordInfo, FlinkConfig, FlinkEvent}
+import io.epiphanous.flinkrunner.model.aggregate.{
+  Aggregate,
+  AggregateAccumulator,
+  WindowedAggregationInitializer
+}
+import io.epiphanous.flinkrunner.model.{
+  EmbeddedAvroRecord,
+  EmbeddedAvroRecordInfo,
+  FlinkConfig,
+  FlinkEvent
+}
 import io.epiphanous.flinkrunner.util.StreamUtils.Pipe
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.state.MapStateDescriptor
@@ -11,7 +20,6 @@ import org.apache.flink.api.common.typeinfo.{TypeHint, TypeInformation}
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.streaming.api.windowing.time.Time
 import org.apache.flink.streaming.api.windowing.windows.Window
-import org.apache.flink.table.api.bridge.scala.StreamTableEnvironment
 import org.apache.flink.util.Collector
 import squants.Quantity
 
@@ -29,9 +37,7 @@ abstract class StreamJob[
     ADT <: FlinkEvent: TypeInformation](runner: FlinkRunner[ADT])
     extends LazyLogging {
 
-  val config: FlinkConfig              = runner.config
-  val env: StreamExecutionEnvironment  = runner.env
-  val tableEnv: StreamTableEnvironment = runner.tableEnv
+  val config: FlinkConfig = runner.config
 
   def transform: DataStream[OUT]
 
@@ -83,11 +89,11 @@ abstract class StreamJob[
 
   /** A specialized connected source that combines a control stream with a
     * data stream. The control stream indicates when the data stream should
-    * be considered active (by the control element's $active method). When
-    * the control stream indicates the data stream is active, data elements
-    * are emitted. Otherwise, data elements are ignored. The result is a
-    * stream of active data elements filtered dynamically by the control
-    * stream.
+    * be considered active (by the control element's `\$active` method).
+    * When the control stream indicates the data stream is active, data
+    * elements are emitted. Otherwise, data elements are ignored. The
+    * result is a stream of active data elements filtered dynamically by
+    * the control stream.
     * @param controlName
     *   name of the configured control stream
     * @param dataName
@@ -267,8 +273,8 @@ abstract class StreamJob[
       in1GetKeyFunc: IN1 => KEY,
       in2GetKeyFunc: IN2 => KEY)(implicit
       fromKV1: EmbeddedAvroRecordInfo[IN1A] => IN1,
-      fromKV2: EmbeddedAvroRecordInfo[IN2A] => IN2
-  ): ConnectedStreams[IN1, IN2] = {
+      fromKV2: EmbeddedAvroRecordInfo[IN2A] => IN2)
+      : ConnectedStreams[IN1, IN2] = {
     val source1 = singleAvroSource[IN1, IN1A](source1Name)
     val source2 = singleAvroSource[IN2, IN2A](source2Name)
     source1.connect(source2).keyBy[KEY](in1GetKeyFunc, in2GetKeyFunc)
@@ -277,8 +283,8 @@ abstract class StreamJob[
   /** A specialized connected avro source that combines an avro control
     * stream with an avro data stream. The control stream indicates when
     * the data stream should be considered active (by the control element's
-    * $active method). When the control stream indicates the data stream is
-    * active, data elements are emitted. Otherwise, data elements are
+    * `\$active` method). When the control stream indicates the data stream
+    * is active, data elements are emitted. Otherwise, data elements are
     * ignored. The result is a stream of active data elements filtered
     * dynamically by the control stream.
     * @param controlName
@@ -324,8 +330,8 @@ abstract class StreamJob[
       controlGetKeyFunc: CONTROL => KEY,
       dataGetKeyFunc: DATA => KEY)(implicit
       fromKVControl: EmbeddedAvroRecordInfo[CONTROLA] => CONTROL,
-      fromKVData: EmbeddedAvroRecordInfo[DATAA] => DATA
-  ): DataStream[DATA] = {
+      fromKVData: EmbeddedAvroRecordInfo[DATAA] => DATA)
+      : DataStream[DATA] = {
     val controlLockoutDuration                                          =
       config.getDuration("control.lockout.duration").toMillis
     implicit val eitherTypeInfo: TypeInformation[Either[CONTROL, DATA]] =
@@ -517,7 +523,7 @@ abstract class StreamJob[
     val stream = transform |# maybeSink
 
     if (config.showPlan)
-      logger.info(s"\nPLAN:\n${env.getExecutionPlan}\n")
+      logger.info(s"\nPLAN:\n${runner.getExecutionPlan}\n")
 
     runner.checkResultsOpt match {
 
@@ -533,7 +539,7 @@ abstract class StreamJob[
         )
 
       case _ =>
-        val result = env.execute(config.jobName)
+        val result = runner.execute
         logger.info(result.toString)
     }
   }

@@ -5,6 +5,7 @@ import io.epiphanous.flinkrunner.model.{
   EmbeddedAvroRecordInfo,
   FlinkEvent
 }
+import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
 import org.apache.avro.specific.SpecificRecordBase
 
@@ -20,6 +21,35 @@ object AvroUtils {
 
   def instanceOf[A <: GenericRecord](typeClass: Class[A]): A =
     typeClass.getConstructor().newInstance()
+
+  def schemaOf[A <: GenericRecord](
+      typeClass: Class[A],
+      schemaStringOpt: Option[String]): Schema =
+    if (isSpecific(typeClass)) instanceOf(typeClass).getSchema
+    else
+      schemaStringOpt
+        .map(parseSchemaString)
+        .getOrElse(throw new RuntimeException("missing schema"))
+
+  def parseSchemaString(schemaStr: String): Schema =
+    new Schema.Parser().parse(schemaStr)
+
+  def subjectName[A <: GenericRecord](
+      typeClass: Class[A],
+      schemaOpt: Option[Either[String, Schema]] = None,
+      isKey: Boolean = false): Option[String] = {
+    val suffix = if (isKey) "-key" else "-value"
+    val name   =
+      if (isSpecific(typeClass)) Some(typeClass.getCanonicalName)
+      else
+        schemaOpt
+          .map(strOrSchema =>
+            strOrSchema
+              .fold(str => parseSchemaString(str), schema => schema)
+              .getFullName
+          )
+    name.map(_ + suffix)
+  }
 
   /** Converts a generic record into a flink event with an embedded avro
     * record of type A
@@ -43,14 +73,24 @@ object AvroUtils {
       A <: GenericRecord,
       ADT <: FlinkEvent](
       genericRecord: GenericRecord,
-      typeClass: Class[A])(implicit
+      typeClass: Class[A],
+      keyOpt: Option[String] = None,
+      headers: Map[String, String] = Map.empty)(implicit
       fromKV: EmbeddedAvroRecordInfo[A] => E): E =
     if (isGeneric(typeClass))
-      fromKV(EmbeddedAvroRecordInfo(genericRecord.asInstanceOf[A]))
+      fromKV(
+        EmbeddedAvroRecordInfo(
+          genericRecord.asInstanceOf[A],
+          keyOpt,
+          headers
+        )
+      )
     else
       fromKV(
         EmbeddedAvroRecordInfo(
-          genericRecord.toSpecific(instanceOf(typeClass))
+          genericRecord.toSpecific(instanceOf(typeClass)),
+          keyOpt,
+          headers
         )
       )
 

@@ -5,7 +5,12 @@ import io.epiphanous.flinkrunner.algorithm.membership.StableBloomFilter
 import io.epiphanous.flinkrunner.model.FlinkEvent
 import io.epiphanous.flinkrunner.model.source.SourceConfig
 import org.apache.flink.api.common.functions.RichFilterFunction
-import org.apache.flink.api.common.state.{AggregatingState, AggregatingStateDescriptor, ValueState, ValueStateDescriptor}
+import org.apache.flink.api.common.state.{
+  AggregatingState,
+  AggregatingStateDescriptor,
+  ValueState,
+  ValueStateDescriptor
+}
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.scala._
 import org.apache.flink.configuration.Configuration
@@ -31,7 +36,7 @@ import org.apache.flink.configuration.Configuration
   * @param identifier
   *   a function that creates a unique string from the incoming event to
   *   determine if it exists in the bloom filter (defaults to the event's
-  *   <code>$id</code> member)
+  *   `\$id` member)
   * @tparam E
   *   the event stream type
   * @tparam ADT

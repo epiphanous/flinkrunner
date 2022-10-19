@@ -27,8 +27,7 @@
   <img src="https://img.shields.io/travis/com/epiphanous/flinkrunner.svg" alt="build" />
 </a>
 <!-- coverage -->
-<a href='https://coveralls.io/github/epiphanous/flinkrunner?branch=main'><img 
-src='https://coveralls.io/repos/github/epiphanous/flinkrunner/badge.svg?branch=master' alt='Coverage Status' /></a>
+<a href='https://coveralls.io/github/epiphanous/flinkrunner?branch=main'><img src='https://coveralls.io/repos/github/epiphanous/flinkrunner/badge.svg?branch=main' alt='Coverage Status' /></a>
 </div>
 
 <div align="center">
@@ -258,7 +257,7 @@ Next, write some jobs! This is the fun part.
 ```
 class MyJob1(runner:FlinkRunner[MyEventADT]) extends StreamJob[MyEventA](runner) {
 
-  override def transform:DataStream[MyEventA] = 
+  override def transform:DataStream[MyEventA] =
     singleSource[MyEventA]()
 
 }
@@ -296,9 +295,9 @@ Next, wire up your runner to a main method.
 
   ```
   object Main {
-    def main(args:Array[String]) = 
+    def main(args:Array[String]) =
       new MyRunner(new FlinkConfig(args))
-  } 
+  }
   ```
 
 Finally, assemble an uber jar with all your dependencies, deploy it to your flink cluster,
@@ -318,7 +317,7 @@ flink jobs. If your output event types require avro support, you should instead 
 
 ```
 class StreamJob[
-  OUT <: ADT, 
+  OUT <: ADT,
   ADT <: FlinkEvent](runner:FlinkRunner[ADT])
 ```
 
@@ -426,8 +425,8 @@ graph defined by your `transform` method.
 
 ```
 class AvroStreamJob[
-  OUT <: ADT with EmbeddedAvroRecord[A], 
-  A<:GenericRecord, 
+  OUT <: ADT with EmbeddedAvroRecord[A],
+  A<:GenericRecord,
   ADT <: FlinkEvent](runner:FlinkRunner[ADT])
 ```
 
@@ -440,7 +439,7 @@ encoded sink (kafka or parquet-avro files).
 trait EmbeddedAvroRecord[A <: GenericRecord {
 
   def $recordKey: Option[String] = None
-  
+
   def $record: A
 
   def $recordHeaders: Map[String, String] = Map.empty
@@ -532,36 +531,36 @@ trait SinkConfig[ADT <: FlinkEvent]
 
 ```
 trait Aggregate {
-    
+
     def name:String
-    
+
     // the kind of measurement being aggregated
     def dimension: String
-    
+
     // the preferred unit of measurements being aggregated
     def unit: String
-    
+
     // the current aggregated value
     def value: Double
-    
+
     // the current count of measurements included in this aggregate
     def count: BigInt
-    
+
     // the timestamp of the most recent aggregated event
     def aggregatedLastUpdated: Instant
-    
+
     // the timestamp when this aggregate was last updated
     def lastUpdated: Instant
-    
+
     // other aggregations this aggregation depends on
     def dependentAggregations: Map[String, Aggregate]
-    
+
     // configuration parameters
     def params: Map[String, String]
-    
+
     // a method to update the aggregate with a new value
-    def update(value: Double, unit: String, 
-               aggLU: Instant): Try[Aggregate] 
+    def update(value: Double, unit: String,
+               aggLU: Instant): Try[Aggregate]
 }
 ```
 

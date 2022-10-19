@@ -1,7 +1,10 @@
 package io.epiphanous.flinkrunner.util
 
 import io.epiphanous.flinkrunner.model.FlinkEvent
-import org.apache.flink.api.common.eventtime.{WatermarkGeneratorSupplier, WatermarkStrategy}
+import org.apache.flink.api.common.eventtime.{
+  WatermarkGeneratorSupplier,
+  WatermarkStrategy
+}
 
 class BoundedLatenessWatermarkStrategy[E <: FlinkEvent](
     maxAllowedLateness: Long,

@@ -11,7 +11,7 @@ class FileSinkJobTest extends FlinkRunnerSpec {
   class IdentityJob(runner: FlinkRunner[MySimpleADT], input: Seq[SimpleB])
       extends StreamJob[SimpleB, MySimpleADT](runner) {
     override def transform: DataStream[SimpleB] =
-      env.fromCollection(input)
+      runner.env.fromCollection(input)
   }
 
   class IdentityAvroJob(
@@ -19,7 +19,7 @@ class FileSinkJobTest extends FlinkRunnerSpec {
       input: Seq[BWrapper])
       extends AvroStreamJob[BWrapper, BRecord, MyAvroADT](runner) {
     override def transform: DataStream[BWrapper] =
-      env.fromCollection(input)
+      runner.env.fromCollection(input)
   }
 
   property("write avro json results to sink") {

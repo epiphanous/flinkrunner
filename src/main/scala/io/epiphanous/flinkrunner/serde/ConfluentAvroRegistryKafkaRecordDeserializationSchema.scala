@@ -1,14 +1,22 @@
 package io.epiphanous.flinkrunner.serde
 
 import com.typesafe.scalalogging.LazyLogging
-import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
-import io.confluent.kafka.serializers.KafkaAvroDeserializer
 import io.epiphanous.flinkrunner.model.source.KafkaSourceConfig
-import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, EmbeddedAvroRecordInfo, FlinkEvent, SchemaRegistryConfig}
+import io.epiphanous.flinkrunner.model.{
+  EmbeddedAvroRecord,
+  EmbeddedAvroRecordInfo,
+  FlinkEvent
+}
+import io.epiphanous.flinkrunner.util.AvroUtils.{
+  isSpecific,
+  schemaOf,
+  toEmbeddedAvroInstance
+}
 import org.apache.avro.generic.GenericRecord
-import org.apache.flink.api.common.serialization.DeserializationSchema
 import org.apache.flink.api.common.typeinfo.{TypeHint, TypeInformation}
 import org.apache.flink.connector.kafka.source.reader.deserializer.KafkaRecordDeserializationSchema
+import org.apache.flink.formats.avro.RegistryAvroDeserializationSchema
+import org.apache.flink.formats.avro.registry.confluent.ConfluentRegistryAvroDeserializationSchema
 import org.apache.flink.util.Collector
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
@@ -20,69 +28,61 @@ import scala.collection.JavaConverters._
   * that also implements the EmbeddedAvroRecord trait.
   * @param sourceConfig
   *   config for the kafka source
-  * @param schemaRegistryClientOpt
-  *   an optional schema registry client
+  * @param schemaOpt
+  *   optional avro schema string, which is required if A is GenericRecord
+  * @tparam E
+  *   event type being deserialized, with an embedded avro record
+  * @tparam A
+  *   avro record type embedded within E
+  * @tparam ADT
+  *   flinkrunner algebraic data type
   */
 class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
-    E <: ADT with EmbeddedAvroRecord[A],
-    A <: GenericRecord,
+    E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+    A <: GenericRecord: TypeInformation,
     ADT <: FlinkEvent
 ](
     sourceConfig: KafkaSourceConfig[ADT],
-    schemaRegistryClientOpt: Option[SchemaRegistryClient] = None
+    schemaOpt: Option[String] = None
 )(implicit fromKV: EmbeddedAvroRecordInfo[A] => E)
     extends KafkaRecordDeserializationSchema[E]
     with LazyLogging {
 
-  var valueDeserializer: KafkaAvroDeserializer       = _
-  var keyDeserializer: Option[KafkaAvroDeserializer] = _
+  val avroClass: Class[A] = implicitly[TypeInformation[A]].getTypeClass
 
-  override def open(
-      context: DeserializationSchema.InitializationContext): Unit = {
+  require(
+    isSpecific(avroClass) || schemaOpt.nonEmpty,
+    s"You must provide an avro record schema in the configuration of source `${sourceConfig.name}`" +
+      " if you want to deserialize into a generic record type"
+  )
 
-    val schemaRegistryConfig: SchemaRegistryConfig =
-      sourceConfig.schemaRegistryConfig
-
-    val schemaRegistryClient: SchemaRegistryClient =
-      schemaRegistryClientOpt.getOrElse(
-        schemaRegistryConfig.getClient
-      )
-
-    valueDeserializer = new KafkaAvroDeserializer(
-      schemaRegistryClient,
-      schemaRegistryConfig.props
+  @transient lazy val deserializer
+      : RegistryAvroDeserializationSchema[GenericRecord] =
+    ConfluentRegistryAvroDeserializationSchema.forGeneric(
+      schemaOf(avroClass, schemaOpt),
+      sourceConfig.schemaRegistryConfig.url,
+      sourceConfig.schemaRegistryConfig.props
     )
-
-    keyDeserializer = if (sourceConfig.isKeyed) {
-      val ks = new KafkaAvroDeserializer(schemaRegistryClient)
-      ks.configure(schemaRegistryConfig.props, true)
-      Some(ks)
-    } else None
-  }
 
   override def deserialize(
       record: ConsumerRecord[Array[Byte], Array[Byte]],
       out: Collector[E]): Unit = {
-    val topic   = sourceConfig.topic
+
     val headers = Option(record.headers())
       .map(_.asScala.map { h =>
         (h.key(), new String(h.value(), StandardCharsets.UTF_8))
       }.toMap)
       .getOrElse(Map.empty[String, String])
-    val key     =
-      keyDeserializer.map(ds =>
-        ds.deserialize(topic, record.key()).toString
-      )
-    valueDeserializer
-      .deserialize(topic, record.value()) match {
+
+    val key = Option(record.key()).map(keyBytes =>
+      new String(keyBytes, StandardCharsets.UTF_8)
+    )
+
+    deserializer.deserialize(record.value()) match {
       case a: GenericRecord        =>
-        val obj = fromKV(
-          EmbeddedAvroRecordInfo(a.asInstanceOf[A], key, headers)
+        out.collect(
+          toEmbeddedAvroInstance[E, A, ADT](a, avroClass, key, headers)
         )
-        logger.trace(
-          s"deserializing ${a.getSchema.getFullName} record ${obj.$id} from $topic with key=$key, headers=$headers"
-        )
-        out.collect(obj)
       case c if Option(c).nonEmpty =>
         throw new RuntimeException(
           s"deserialized value is an unexpected type of object: $c"

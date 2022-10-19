@@ -70,9 +70,9 @@ import java.time.Duration
   * @param name
   *   name of the source
   * @param config
-  *   a flink config
+  *   flinkrunner config
   * @tparam ADT
-  *   a flink algebraic data type
+  *   flinkrunner algebraic data type
   */
 case class FileSourceConfig[ADT <: FlinkEvent](
     name: String,
@@ -136,6 +136,7 @@ case class FileSourceConfig[ADT <: FlinkEvent](
       !isAvroFormat,
       badFormatNonAvroMessage
     )
+
     val fsb =
       FileSource.forRecordStreamFormat(getStreamFormat, origin)
     Right(
@@ -156,11 +157,10 @@ case class FileSourceConfig[ADT <: FlinkEvent](
     *   DataStream[E]
     */
   override def getSourceStream[E <: ADT: TypeInformation](
-      env: StreamExecutionEnvironment): DataStream[E] = {
+      env: StreamExecutionEnvironment): DataStream[E] =
     if (format.isText)
       flatMapTextStream(getTextFileStream(env), getRowDecoder[E])
     else super.getSourceStream(env)
-  }
 
   def getTextFileStream(
       env: StreamExecutionEnvironment): DataStream[String] = {
@@ -317,4 +317,5 @@ case class FileSourceConfig[ADT <: FlinkEvent](
       fromKV: EmbeddedAvroRecordInfo[A] => E): DataStream[E] =
     if (format.isBulk) getBulkAvroSourceStream[E, A](env)
     else getTextAvroSourceStream[E, A](env)
+
 }

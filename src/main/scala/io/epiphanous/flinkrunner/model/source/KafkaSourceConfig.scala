@@ -7,7 +7,6 @@ import io.epiphanous.flinkrunner.serde.{
 }
 import io.epiphanous.flinkrunner.util.ConfigToProps
 import io.epiphanous.flinkrunner.util.ConfigToProps._
-import io.epiphanous.flinkrunner.util.StreamUtils.RichProps
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.connector.source.{Source, SourceSplit}
@@ -18,7 +17,6 @@ import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.kafka.clients.consumer.OffsetResetStrategy
 
 import java.util.Properties
-import scala.util.Try
 
 /** A source config for using a kafka as a source for a flink job. For
   * example, the following config can be used to read from a topic in kafka
@@ -59,11 +57,11 @@ import scala.util.Try
   *   - `config`: optional properties to pass to kafka client
   *
   * @param name
-  *   name of the kafka source
+  *   name of the source
   * @param config
   *   flinkrunner config
   * @tparam ADT
-  *   Flinkrunner algebraic data type
+  *   flinkrunner algebraic data type
   */
 case class KafkaSourceConfig[ADT <: FlinkEvent](
     name: String,
@@ -126,25 +124,13 @@ case class KafkaSourceConfig[ADT <: FlinkEvent](
     .getStringOpt(pfx("group.id"))
     .getOrElse(s"${config.jobName}.$name")
 
-  val schemaRegistryConfig: SchemaRegistryConfig =
-    getFromEither(pfx(), Seq("schema.registry"), config.getObjectOption)
-      .map { o =>
-        val c             = o.toConfig
-        val url           = c.getString("url")
-        val cacheCapacity =
-          Try(c.getInt("cache.capacity")).toOption.getOrElse(1000)
-        val headers       =
-          Try(c.getObject("headers")).toOption.asProperties.asJavaMap
-        val props         =
-          Try(c.getObject("props")).toOption.asProperties.asJavaMap
-        SchemaRegistryConfig(
-          url,
-          cacheCapacity,
-          props,
-          headers
-        )
-      }
-      .getOrElse(SchemaRegistryConfig())
+  val schemaRegistryConfig: SchemaRegistryConfig = SchemaRegistryConfig(
+    isDeserializing = false,
+    config
+      .getObjectOption(pfx("schema.registry"))
+  )
+
+  val schemaOpt: Option[String] = config.getStringOpt(pfx("avro.schema"))
 
   /** Returns a confluent avro registry aware deserialization schema for
     * kafka.
@@ -161,10 +147,12 @@ case class KafkaSourceConfig[ADT <: FlinkEvent](
     */
   def getAvroDeserializationSchema[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
-      A <: GenericRecord](implicit fromKV: EmbeddedAvroRecordInfo[A] => E)
+      A <: GenericRecord: TypeInformation](implicit
+      fromKV: EmbeddedAvroRecordInfo[A] => E)
       : KafkaRecordDeserializationSchema[E] = {
     new ConfluentAvroRegistryKafkaRecordDeserializationSchema[E, A, ADT](
-      this
+      this,
+      schemaOpt
     )
   }
 

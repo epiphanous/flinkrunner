@@ -7,13 +7,7 @@ import io.epiphanous.flinkrunner.model.{
   FlinkEvent,
   StreamFormatName
 }
-import io.epiphanous.flinkrunner.serde.{
-  DelimitedConfig,
-  DelimitedRowEncoder,
-  JsonConfig,
-  JsonRowEncoder,
-  RowEncoder
-}
+import io.epiphanous.flinkrunner.serde._
 import org.apache.flink.api.common.serialization.SerializationSchema
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.datastream.DataStreamSink

@@ -7,8 +7,6 @@ import io.epiphanous.flinkrunner.serde.{
   JsonKafkaRecordSerializationSchema
 }
 import io.epiphanous.flinkrunner.util.ConfigToProps
-import io.epiphanous.flinkrunner.util.ConfigToProps._
-import io.epiphanous.flinkrunner.util.StreamUtils.RichProps
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.connector.base.DeliveryGuarantee
@@ -19,8 +17,8 @@ import org.apache.flink.connector.kafka.sink.{
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
 
+import java.time.Duration
 import java.util.Properties
-import scala.util.Try
 
 /** Kafka sink config.
   *
@@ -56,11 +54,11 @@ case class KafkaSinkConfig[ADT <: FlinkEvent: TypeInformation](
   def deliveryGuarantee: DeliveryGuarantee = config
     .getStringOpt(pfx("delivery.guarantee"))
     .map(s => s.toLowerCase.replaceAll("[^a-z]+", "-")) match {
-    case Some("at-least-once") =>
-      DeliveryGuarantee.AT_LEAST_ONCE
-    case Some("none")          =>
+    case Some("exactly-once") =>
+      DeliveryGuarantee.EXACTLY_ONCE
+    case Some("none")         =>
       DeliveryGuarantee.NONE
-    case _                     => DeliveryGuarantee.EXACTLY_ONCE
+    case _                    => DeliveryGuarantee.AT_LEAST_ONCE
   }
 
   /** ensure transaction.timeout.ms is set */
@@ -70,26 +68,24 @@ case class KafkaSinkConfig[ADT <: FlinkEvent: TypeInformation](
     t.toLong
   }
 
-  val schemaRegistryConfig: SchemaRegistryConfig =
+  val schemaRegistryConfig: SchemaRegistryConfig = SchemaRegistryConfig(
+    isDeserializing = false,
     config
       .getObjectOption(pfx("schema.registry"))
-      .map { o =>
-        val c             = o.toConfig
-        val url           = c.getString("url")
-        val cacheCapacity =
-          Try(c.getInt("cache.capacity")).toOption.getOrElse(1000)
-        val headers       =
-          Try(c.getObject("headers")).toOption.asProperties.asJavaMap
-        val props         =
-          Try(c.getObject("props")).toOption.asProperties.asJavaMap
-        SchemaRegistryConfig(
-          url,
-          cacheCapacity,
-          props,
-          headers
-        )
-      }
-      .getOrElse(SchemaRegistryConfig())
+  )
+
+  val cacheConcurrencyLevel: Int =
+    config.getIntOpt(pfx("cache.concurrency.level")).getOrElse(4)
+
+  val cacheMaxSize: Long =
+    config.getLongOpt(pfx("cache.max.size")).getOrElse(10000L)
+
+  val cacheExpireAfter: Duration = config
+    .getDurationOpt(pfx("cache.expire.after"))
+    .getOrElse(Duration.ofHours(1))
+
+  val cacheRecordStats: Boolean =
+    config.getBooleanOpt(pfx("cache.record.stats")).getOrElse(true)
 
   /** Return an confluent avro serialization schema */
   def getAvroSerializationSchema[
