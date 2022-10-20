@@ -178,8 +178,23 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
   }
 
   val isTimescale: Boolean = config
-    .getBooleanOpt(pfx("table.is.timescale"))
-    .getOrElse(false)
+    .getObjectOption(pfx("table.timescale"))
+    .nonEmpty
+
+  val timescaleTimeColumn: Option[String]   = config
+    .getStringOpt(pfx("table.timescale.time.column"))
+
+  val timescaleChunkTimeInterval: String = config
+    .getStringOpt(pfx("table.timescale.chunk.time.interval"))
+    .getOrElse(DEFAULT_TIMESCALE_CHUNK_TIME_INTERVAL)
+
+  val timescalePartitioningColumn: String = config
+    .getStringOpt(pfx("table.timescale.partitioning.column"))
+    .getOrElse("_no_partitioning_column_")
+
+  val timescaleNumberPartitions: Int = config
+    .getIntOpt(pfx("table.timescale.number.partitions"))
+    .getOrElse(DEFAULT_TIMESCALE_NUMBER_PARTITIONS)
 
   val sqlBuilder: SqlBuilder = SqlBuilder(product)
 
@@ -472,28 +487,19 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
       * creates hypertable, with a partitioning column.
       */
     if (product == Postgresql && isTimescale) {
-      val timeColumn: String   = config.getString(pfx("table.time.column"))
-      val chunkTimeInterval: String = config
-        .getStringOpt(pfx("table.chunk.time.interval"))
-        .getOrElse(DEFAULT_TIMESCALE_CHUNK_TIME_INTERVAL)
-
-      val partitioningColumn: String = config
-        .getStringOpt(pfx("table.partitioning.column"))
-        .getOrElse("_no_partitioning_column_")
-
-      val numberPartitions: Int = config
-        .getIntOpt(pfx("table.number.partitions"))
-        .getOrElse(DEFAULT_TIMESCALE_NUMBER_PARTITIONS)
-
       val createHypertableDml: String = {
-        sqlBuilder
-          .append(s"SELECT create_hypertable('$table', '$timeColumn'")
-          .append(s", chunk_time_interval => INTERVAL '$chunkTimeInterval'")
+        timescaleTimeColumn match {
+          case Some(timeColumn) => sqlBuilder.append(s"SELECT create_hypertable('$table', '$timeColumn'")
+          case None             => throw new RuntimeException(s"timescale.time.column must be present in config")
+        }
 
-        if (partitioningColumn != "_no_partitioning_column_")  {
+        sqlBuilder
+          .append(s", chunk_time_interval => INTERVAL '$timescaleChunkTimeInterval'")
+
+        if (timescalePartitioningColumn != "_no_partitioning_column_")  {
           sqlBuilder
-            .append(s", partitioning_column => '$partitioningColumn'")
-            .append(s", number_partitions => $numberPartitions")
+            .append(s", partitioning_column => '$timescalePartitioningColumn'")
+            .append(s", number_partitions => $timescaleNumberPartitions")
         }
 
         sqlBuilder.append(");")
