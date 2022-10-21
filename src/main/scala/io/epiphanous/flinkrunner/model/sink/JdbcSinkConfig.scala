@@ -34,6 +34,7 @@ import scala.util.{Failure, Success, Try}
   *   - postgres
   *   - sql server
   *   - snowflake
+  *   - timescale
   *
   * Sink specific configuration values include:
   *
@@ -56,6 +57,12 @@ import scala.util.{Failure, Success, Try}
   *   - `table`: required object defining the structure of the database
   *     table data is inserted into
   *     - `name`: name of the table (required)
+  *     - `timescale`: optional object defining timescale specific parameters
+  *       - `time.column`: name of the time partitioning column ( required )
+  *       - `chunk.time.interval`: interval in which chunks are aggregated
+  *         ( optional ) default 7 days
+  *       - `partitioning.column`: name of second partitioning column ( optional )
+  *       - `number.partitions`: > 0 ( required if partitioning.column is set )
   *     - `recreate.objects.if.same`: optional boolean (defaults to false)
   *       that, if true, will drop and recreate objects (tables or indexes)
   *       that exist in the database even if they are the same as their
@@ -188,9 +195,8 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
     .getStringOpt(pfx("table.timescale.chunk.time.interval"))
     .getOrElse(DEFAULT_TIMESCALE_CHUNK_TIME_INTERVAL)
 
-  val timescalePartitioningColumn: String = config
+  val timescalePartitioningColumn: Option[String] = config
     .getStringOpt(pfx("table.timescale.partitioning.column"))
-    .getOrElse("_no_partitioning_column_")
 
   val timescaleNumberPartitions: Int = config
     .getIntOpt(pfx("table.timescale.number.partitions"))
@@ -488,17 +494,17 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
       */
     if (product == Postgresql && isTimescale) {
       val createHypertableDml: String = {
-        timescaleTimeColumn match {
-          case Some(timeColumn) => sqlBuilder.append(s"SELECT create_hypertable('$table', '$timeColumn'")
-          case None             => throw new RuntimeException(s"timescale.time.column must be present in config")
+        if (timescaleTimeColumn.isEmpty) {
+          throw new RuntimeException(s"timescale.time.column must be present in timescale config block")
         }
 
         sqlBuilder
+          .append(s"SELECT create_hypertable('$table', '${timescaleTimeColumn.get}'")
           .append(s", chunk_time_interval => INTERVAL '$timescaleChunkTimeInterval'")
 
-        if (timescalePartitioningColumn != "_no_partitioning_column_")  {
+        if (timescalePartitioningColumn.isDefined) {
           sqlBuilder
-            .append(s", partitioning_column => '$timescalePartitioningColumn'")
+            .append(s", partitioning_column => '${timescalePartitioningColumn.get}'")
             .append(s", number_partitions => $timescaleNumberPartitions")
         }
 
@@ -608,6 +614,6 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
 
 object JdbcSinkConfig {
   final val DEFAULT_CONNECTION_TIMEOUT = 5
-  final val DEFAULT_TIMESCALE_CHUNK_TIME_INTERVAL = "1 day"
+  final val DEFAULT_TIMESCALE_CHUNK_TIME_INTERVAL = "7 days"
   final val DEFAULT_TIMESCALE_NUMBER_PARTITIONS = 4
 }
