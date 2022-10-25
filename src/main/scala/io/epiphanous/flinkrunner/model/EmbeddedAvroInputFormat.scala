@@ -1,5 +1,6 @@
 package io.epiphanous.flinkrunner.model
 
+import io.epiphanous.flinkrunner.model.source.FileSourceConfig
 import io.epiphanous.flinkrunner.util.AvroUtils
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.io.FileInputFormat
@@ -23,12 +24,13 @@ import org.apache.flink.formats.avro.AvroInputFormat
 class EmbeddedAvroInputFormat[
     E <: ADT with EmbeddedAvroRecord[A],
     A <: GenericRecord: TypeInformation,
-    ADT <: FlinkEvent](config: FlinkConfig, path: Path)(implicit
+    ADT <: FlinkEvent](sourceConfig: FileSourceConfig[ADT])(implicit
     fromKV: EmbeddedAvroRecordInfo[A] => E)
     extends FileInputFormat[E] {
 
-  setFilePath(path)
+  setFilePath(sourceConfig.origin)
   setNestedFileEnumeration(true)
+  if (sourceConfig.wantsFiltering) setFilesFilter(sourceConfig.fileFilter)
 
   @transient
   lazy val typeClass: Class[A] =
@@ -36,22 +38,20 @@ class EmbeddedAvroInputFormat[
 
   val avroInputFormat: AvroInputFormat[GenericRecord] = {
     val inputFormat = new AvroInputFormat(
-      path,
+      sourceConfig.origin,
       classOf[GenericRecord]
     )
-    inputFormat.setNestedFileEnumeration(true)
+//    inputFormat.setNestedFileEnumeration(true)
     inputFormat
   }
 
-  override def open(fileSplit: FileInputSplit): Unit = {
-    super.open(fileSplit)
+  override def open(fileSplit: FileInputSplit): Unit =
+//    super.open(fileSplit)
     avroInputFormat.open(fileSplit)
-  }
 
-  override def close(): Unit = {
-    super.close()
+  override def close(): Unit =
+//    super.close()
     avroInputFormat.close()
-  }
 
   override def reachedEnd(): Boolean = avroInputFormat.reachedEnd()
 
@@ -61,7 +61,7 @@ class EmbeddedAvroInputFormat[
         AvroUtils.toEmbeddedAvroInstance[E, A, ADT](
           record,
           typeClass,
-          config
+          sourceConfig.config
         )
       )
       .getOrElse(null.asInstanceOf[E]) // fugly to compile
