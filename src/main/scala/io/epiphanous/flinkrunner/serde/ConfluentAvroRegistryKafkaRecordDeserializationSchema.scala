@@ -81,7 +81,13 @@ class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
     deserializer.deserialize(record.value()) match {
       case a: GenericRecord        =>
         out.collect(
-          toEmbeddedAvroInstance[E, A, ADT](a, avroClass, key, headers)
+          toEmbeddedAvroInstance[E, A, ADT](
+            a,
+            avroClass,
+            sourceConfig.config,
+            key,
+            headers
+          )
         )
       case c if Option(c).nonEmpty =>
         throw new RuntimeException(

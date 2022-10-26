@@ -1,5 +1,6 @@
 package io.epiphanous.flinkrunner.model
 
+import io.epiphanous.flinkrunner.model.source.FileSourceConfig
 import io.epiphanous.flinkrunner.util.AvroUtils
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
@@ -25,7 +26,9 @@ import org.apache.flink.formats.parquet.avro.AvroParquetReaders
 class EmbeddedAvroParquetInputFormat[
     E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
     A <: GenericRecord: TypeInformation,
-    ADT <: FlinkEvent](optSchema: Option[Schema] = None)(implicit
+    ADT <: FlinkEvent](
+    sourceConfig: FileSourceConfig[ADT],
+    optSchema: Option[Schema] = None)(implicit
     fromKV: EmbeddedAvroRecordInfo[A] => E)
     extends StreamFormat[E] {
 
@@ -93,7 +96,8 @@ class EmbeddedAvroParquetInputFormat[
           .map(record =>
             AvroUtils.toEmbeddedAvroInstance[E, A, ADT](
               record,
-              typeClass
+              typeClass,
+              sourceConfig.config
             )
           )
           .getOrElse(null.asInstanceOf[E]) // fugly for compiler

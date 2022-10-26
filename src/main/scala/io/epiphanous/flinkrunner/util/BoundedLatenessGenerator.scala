@@ -48,7 +48,7 @@ class BoundedLatenessGenerator[E <: FlinkEvent](
     val timestamp = event.$timestamp
     if (firstTimestamp == 0) {
       _firstTimestamp = timestamp
-      logger.debug(
+      logger.trace(
         s"$streamID first event seen has $firstTimestamp millis"
       )
     }
@@ -60,7 +60,7 @@ class BoundedLatenessGenerator[E <: FlinkEvent](
     if (gap > largestGap) {
       _largestGap = gap
 
-      logger.debug(
+      logger.trace(
         s"$streamID largest gap since last event is $largestGap millis"
       )
     }
@@ -98,13 +98,14 @@ class BoundedLatenessGenerator[E <: FlinkEvent](
   }
 
   override def onPeriodicEmit(output: WatermarkOutput): Unit = {
-    val watermarkTime =
-      Math.max(0L, mostRecentTimestamp - maxAllowedLateness - 1)
-    logger.debug(
-      s"$streamID WATERMARK $watermarkTime ${Instant.ofEpochMilli(watermarkTime)}"
-    )
-    _watermark = new Watermark(watermarkTime)
-    output.emitWatermark(watermark)
+    val watermarkTime = mostRecentTimestamp - maxAllowedLateness - 1
+    if (watermarkTime > 0) {
+      logger.trace(
+        s"$streamID WATERMARK $watermarkTime ${Instant.ofEpochMilli(watermarkTime)}"
+      )
+      _watermark = new Watermark(watermarkTime)
+      output.emitWatermark(watermark)
+    }
   }
 
 }

@@ -1,7 +1,12 @@
 package io.epiphanous.flinkrunner.util
 
 import io.epiphanous.flinkrunner.PropSpec
-import io.epiphanous.flinkrunner.model.{BRecord, BWrapper, MyAvroADT}
+import io.epiphanous.flinkrunner.model.{
+  BRecord,
+  BWrapper,
+  FlinkConfig,
+  MyAvroADT
+}
 import io.epiphanous.flinkrunner.util.AvroUtils.GenericToSpecific
 import org.apache.avro.generic.{GenericRecord, GenericRecordBuilder}
 
@@ -45,12 +50,14 @@ class AvroUtilsTest extends PropSpec {
   }
 
   property("toEmbeddedAvroInstance property") {
-    val bw = genOne[BWrapper]
-    val g  = fromSpec(bw.$record)
-    val ea =
+    val bw     = genOne[BWrapper]
+    val g      = fromSpec(bw.$record)
+    val config = new FlinkConfig(Array("test"))
+    val ea     =
       AvroUtils.toEmbeddedAvroInstance[BWrapper, BRecord, MyAvroADT](
         g,
-        classOf[BRecord]
+        classOf[BRecord],
+        config
       )
     ea shouldEqual bw
   }

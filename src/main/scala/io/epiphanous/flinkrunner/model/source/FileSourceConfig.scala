@@ -17,7 +17,11 @@ import org.apache.flink.connector.file.src.reader.{
   TextLineInputFormat
 }
 import org.apache.flink.core.fs.Path
-import org.apache.flink.streaming.api.functions.source.SourceFunction
+import org.apache.flink.formats.avro.AvroInputFormat
+import org.apache.flink.streaming.api.functions.source.{
+  FileProcessingMode,
+  SourceFunction
+}
 import org.apache.flink.streaming.api.scala.{
   DataStream,
   StreamExecutionEnvironment
@@ -107,6 +111,20 @@ case class FileSourceConfig[ADT <: FlinkEvent](
     config.getDurationOpt
   ).map(_.toSeconds).getOrElse(0)
 
+  val includePaths: List[String] =
+    config.getStringListOpt(pfx("paths.to.include"))
+  val excludePaths: List[String] =
+    config.getStringListOpt(pfx("paths.to.exclude"))
+
+  val wantsFiltering: Boolean =
+    includePaths.nonEmpty || excludePaths.nonEmpty
+
+  val fileFilter: FileSourcePathFilter[ADT]                     = FileSourcePathFilter(this)
+  val fileEnumeratorProvider: FileSourceEnumeratorProvider[ADT] =
+    FileSourceEnumeratorProvider(
+      this
+    )
+
   val delimitedConfig: DelimitedConfig =
     DelimitedConfig.get(format, pfx(), config)
 
@@ -139,6 +157,9 @@ case class FileSourceConfig[ADT <: FlinkEvent](
 
     val fsb =
       FileSource.forRecordStreamFormat(getStreamFormat, origin)
+    if (wantsFiltering) {
+      fsb.setFileEnumerator(fileEnumeratorProvider)
+    }
     Right(
       (if (monitorDuration > 0)
          fsb.monitorContinuously(Duration.ofSeconds(monitorDuration))
@@ -171,6 +192,8 @@ case class FileSourceConfig[ADT <: FlinkEvent](
           new TextLineInputFormat(),
           origin
         )
+    if (wantsFiltering)
+      fsb.setFileEnumerator(fileEnumeratorProvider)
     if (monitorDuration > 0) {
       fsb.monitorContinuously(
         Duration.ofSeconds(monitorDuration)
@@ -185,17 +208,10 @@ case class FileSourceConfig[ADT <: FlinkEvent](
       .uid(rawName)
   }
 
-  def flatMapTextStream[E <: ADT: TypeInformation](
-      textStream: DataStream[String],
-      decoder: RowDecoder[E]): DataStream[E] = {
-    textStream
-      .flatMap[E](new FlatMapFunction[String, E] {
-        override def flatMap(line: String, out: Collector[E]): Unit =
-          decoder.decode(line).foreach { e =>
-            println(s"decoded event from $line")
-            out.collect(e)
-          }
-      })
+  def nameAndWatermark[E <: ADT: TypeInformation](
+      stream: DataStream[E],
+      label: String): DataStream[E] = {
+    stream
       .name(label)
       .uid(label)
       .assignTimestampsAndWatermarks(
@@ -205,54 +221,21 @@ case class FileSourceConfig[ADT <: FlinkEvent](
       .uid(s"wm:$label")
   }
 
-//  def flatMapTextAvroStream[
-//      E <: ADT with EmbeddedAvroRecord[A],
-//      A <: GenericRecord](
-//      decoder: EmbeddedAvroRowDecoder[E, A, ADT]): DataStream[E] = {}
-
-  /** Create a FileSource for avro parquet files.
-    * @param fromKV
-    *   a method, available in implicit scope, that creates an instance of
-    *   type E from an avro record of type A
-    * @tparam E
-    *   a type that is a member of the ADT and embeds an avro record of
-    *   type A
-    * @tparam A
-    *   an avro record (should be an instance of SpecificAvroRecord,
-    *   although the type here is looser)
-    * @return
-    */
-//  override def getAvroSource[
-//      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
-//      A <: GenericRecord: TypeInformation](implicit
-//      fromKV: EmbeddedAvroRecordInfo[A] => E)
-//      : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] = {
-//    require(
-//      format != StreamFormatName.Avro,
-//      badFormatAvroMessage
-//    )
-//    if (format == StreamFormatName.Parquet) {
-//      val fsb =
-//        FileSource.forRecordStreamFormat(
-//          new EmbeddedAvroParquetInputFormat[E, A, ADT](genericAvroSchema),
-//          origin
-//        )
-//      Right(
-//        (if (monitorDuration > 0)
-//           fsb.monitorContinuously(Duration.ofSeconds(monitorDuration))
-//         else fsb).build()
-//      )
-//    } else {
-//      val decoder =
-//        if (format == StreamFormatName.Json)
-//          new EmbeddedAvroJsonRowDecoder[E, A, ADT]()
-//        else
-//          new EmbeddedAvroDelimitedRowDecoder[E, A, ADT](delimitedConfig)
-//      flatMapTextStream(getTextFileStream(env))
-//
-//    }
-//
-//  }
+  def flatMapTextStream[E <: ADT: TypeInformation](
+      textStream: DataStream[String],
+      decoder: RowDecoder[E]): DataStream[E] = {
+    nameAndWatermark(
+      textStream
+        .flatMap[E](new FlatMapFunction[String, E] {
+          override def flatMap(line: String, out: Collector[E]): Unit =
+            decoder.decode(line).foreach { e =>
+              println(s"decoded event from $line")
+              out.collect(e)
+            }
+        }),
+      label
+    )
+  }
 
   def getTextAvroSourceStream[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
@@ -265,9 +248,12 @@ case class FileSourceConfig[ADT <: FlinkEvent](
     )
     val decoder = format match {
       case StreamFormatName.Json  =>
-        new EmbeddedAvroJsonRowDecoder[E, A, ADT]()
+        new EmbeddedAvroJsonRowDecoder[E, A, ADT](config)
       case fmt if fmt.isDelimited =>
-        new EmbeddedAvroDelimitedRowDecoder[E, A, ADT](delimitedConfig)
+        new EmbeddedAvroDelimitedRowDecoder[E, A, ADT](
+          config,
+          delimitedConfig
+        )
       case _                      =>
         throw new RuntimeException(
           s"getTextAvroSourceStream can't handle text format $format"
@@ -290,19 +276,43 @@ case class FileSourceConfig[ADT <: FlinkEvent](
         val fsb =
           FileSource.forRecordStreamFormat(
             new EmbeddedAvroParquetInputFormat[E, A, ADT](
+              this,
               genericAvroSchema
             ),
             origin
           )
-        env.fromSource(
-          (if (monitorDuration > 0)
-             fsb.monitorContinuously(Duration.ofSeconds(monitorDuration))
-           else fsb).build(),
-          getWatermarkStrategy,
+        if (wantsFiltering)
+          fsb.setFileEnumerator(fileEnumeratorProvider)
+        env
+          .fromSource(
+            (if (monitorDuration > 0)
+               fsb.monitorContinuously(Duration.ofSeconds(monitorDuration))
+             else fsb).build(),
+            getWatermarkStrategy,
+            label
+          )
+      case StreamFormatName.Avro    =>
+        val avroInputFormat = new AvroInputFormat(
+          origin,
+          implicitly[TypeInformation[A]].getTypeClass
+        )
+        avroInputFormat.setNestedFileEnumeration(true)
+        if (wantsFiltering) avroInputFormat.setFilesFilter(fileFilter)
+        nameAndWatermark(
+          env
+            .readFile[A](
+              avroInputFormat,
+              path,
+              if (monitorDuration > 0)
+                FileProcessingMode.PROCESS_CONTINUOUSLY
+              else FileProcessingMode.PROCESS_ONCE,
+              monitorDuration
+            )
+            .uid(s"avro:$label")
+            .name(s"avro:$label")
+            .map((a: A) => fromKV(EmbeddedAvroRecordInfo(a, config))),
           label
         )
-      case StreamFormatName.Avro    =>
-        env.createInput(new EmbeddedAvroInputFormat[E, A, ADT](origin))
       case _                        =>
         throw new RuntimeException(
           s"getBulkAvroSourceStream can't handle bulk format $format"

@@ -45,6 +45,6 @@ trait EmbeddedAvroRecord[A <: GenericRecord] {
     * @return
     *   EmbeddedAvroRecordInfo[A]
     */
-  def toKV: EmbeddedAvroRecordInfo[A] =
-    EmbeddedAvroRecordInfo($record, $recordKey, $recordHeaders)
+  def toKV(config: FlinkConfig): EmbeddedAvroRecordInfo[A] =
+    EmbeddedAvroRecordInfo($record, config, $recordKey, $recordHeaders)
 }

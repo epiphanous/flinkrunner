@@ -32,10 +32,10 @@ val V = new {
   val flink               = "1.15.2"
   val logback             = "1.2.11"
   val scalaLogging        = "3.9.5"
-  val scalaTest           = "3.2.13"
-  val scalaTestPlus       = "3.2.13.0"
-  val scalaCheck          = "1.16.0"
-  val testContainersScala = "0.40.10"
+  val scalaTest           = "3.2.14"
+  val scalaTestPlus       = "3.2.14.0"
+  val scalaCheck          = "1.17.0"
+  val testContainersScala = "0.40.11"
   val jackson             = "2.13.4"
   val circe               = "0.14.2"
   val http4s              = "0.23.12"
@@ -45,11 +45,12 @@ val V = new {
   val squants             = "1.8.3"
   val confluentAvroSerde  = "7.1.1"
   val parquet             = "1.12.3"
-  val awsSdk              = "1.12.307"
+  val awsSdk              = "1.12.315"
   val jdbcMysql           = "8.0.30"
   val jdbcPg              = "42.5.0"
   val jdbcMssql           = "11.2.0.jre11"
   val hadoop              = "3.3.2"
+  val jna                 = "5.12.1" // needed for testcontainers in some jvms
 }
 
 val flinkDeps =
@@ -116,7 +117,7 @@ val otherDeps = Seq(
   "org.typelevel"                   %% "squants"                          % V.squants,
   "org.scalactic"                   %% "scalactic"                        % V.scalaTest,
   "org.scalatest"                   %% "scalatest"                        % V.scalaTest           % Test,
-  "org.scalatestplus"               %% "scalacheck-1-16"                  % V.scalaTestPlus       % Test,
+  "org.scalatestplus"               %% "scalacheck-1-17"                  % V.scalaTestPlus       % Test,
   "org.scalacheck"                  %% "scalacheck"                       % V.scalaCheck,
   "com.fasterxml.jackson.module"    %% "jackson-module-scala"             % V.jackson,
   "com.github.pjfanning"            %% "jackson-scala-reflect-extensions" % V.jackson,
@@ -128,6 +129,7 @@ val otherDeps = Seq(
   "com.dimafeng"                    %% "testcontainers-scala-postgresql"  % V.testContainersScala % Test,
   "org.postgresql"                   % "postgresql"                       % V.jdbcPg              % Provided,
   "com.dimafeng"                    %% "testcontainers-scala-mssqlserver" % V.testContainersScala % Test,
+  "net.java.dev.jna"                 % "jna"                              % V.jna                 % Test,
   "com.microsoft.sqlserver"          % "mssql-jdbc"                       % V.jdbcMssql           % Provided
 ) ++
   Seq("org.apache.parquet" % "parquet-avro" % V.parquet % Provided).map(

@@ -1,11 +1,17 @@
 package io.epiphanous.flinkrunner.model
 
+import io.epiphanous.flinkrunner.model.source.{
+  FileSourceConfig,
+  SourceConfig
+}
 import io.epiphanous.flinkrunner.serde.{
   DelimitedConfig,
   EmbeddedAvroDelimitedFileEncoder,
   EmbeddedAvroJsonFileEncoder,
   JsonConfig
 }
+import io.epiphanous.flinkrunner.util.AvroUtils.toEmbeddedAvroInstance
+import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.serialization.BulkWriter
 import org.apache.flink.api.scala.createTypeInformation
 import org.apache.flink.configuration.Configuration
@@ -16,6 +22,7 @@ import org.apache.flink.core.fs.{
   FileSystem,
   Path
 }
+import org.apache.flink.formats.avro.AvroInputFormat
 import org.apache.flink.testutils.TestFileSystem
 
 import java.io.File
@@ -38,32 +45,63 @@ trait AvroFileTestUtils {
     ).create(getStream(path))
   }
 
-  def readFile(path: String, isParquet: Boolean): List[BWrapper] =
-    if (isParquet) readParquetFile(path) else readAvroFile(path)
+  def readFile(path: String, isParquet: Boolean): List[BWrapper] = {
+    val config                                 = new FlinkConfig(
+      Array("test-read-file"),
+      Some(s"""
+        |sources {
+        |  test-read-file-source {
+        |    path = "$path"
+        |    format = ${if (isParquet) "parquet" else "avro"}
+        |  }
+        |}
+        |""".stripMargin)
+    )
+    val srcConfig: FileSourceConfig[MyAvroADT] =
+      SourceConfig[MyAvroADT]("test-read-file-source", config)
+        .asInstanceOf[FileSourceConfig[MyAvroADT]]
+    if (isParquet) readParquetFile(srcConfig)
+    else readAvroFile(srcConfig)
+  }
 
-  def readAvroFile(file: String): List[BWrapper] = {
-    val fileSize                   = getFileInfoView(Paths.get(file)).readAttributes().size()
-    val path                       = new Path(file)
+  def readAvroFile(
+      srcConfig: FileSourceConfig[MyAvroADT]): List[BWrapper] = {
+    val fileSize                   =
+      getFileInfoView(Paths.get(srcConfig.path)).readAttributes().size()
     val inputFormat                =
-      new EmbeddedAvroInputFormat[BWrapper, BRecord, MyAvroADT](path)
-    inputFormat.open(new FileInputSplit(1, path, 0L, fileSize, null))
-    val reuse: BWrapper            = BWrapper(new BRecord())
+      new AvroInputFormat[GenericRecord](
+        srcConfig.origin,
+        classOf[GenericRecord]
+      )
+    inputFormat.open(
+      new FileInputSplit(1, srcConfig.origin, 0L, fileSize, null)
+    )
+    val reuse: BRecord             = new BRecord()
     val pop: ArrayBuffer[BWrapper] = ArrayBuffer.empty
     var done                       = false
     while (!done) {
       val b = inputFormat.nextRecord(reuse)
       done = b == null
-      if (!done) pop += b
+      if (!done)
+        pop += toEmbeddedAvroInstance[BWrapper, BRecord, MyAvroADT](
+          b,
+          classOf[BRecord],
+          srcConfig.config
+        )
     }
     inputFormat.close()
     pop.toList
   }
 
-  def readParquetFile(file: String): List[BWrapper] = {
-    val fileSize                   = getFileInfoView(Paths.get(file)).readAttributes().size()
+  def readParquetFile(
+      srcConfig: FileSourceConfig[MyAvroADT]): List[BWrapper] = {
+    val fileSize                   =
+      getFileInfoView(Paths.get(srcConfig.path)).readAttributes().size()
     val inputFormat                =
-      new EmbeddedAvroParquetInputFormat[BWrapper, BRecord, MyAvroADT]()
-    val input                      = new LocalDataInputStream(new File(file))
+      new EmbeddedAvroParquetInputFormat[BWrapper, BRecord, MyAvroADT](
+        srcConfig
+      )
+    val input                      = new LocalDataInputStream(new File(srcConfig.path))
     val reader                     = inputFormat.createReader(
       new Configuration(),
       input,
