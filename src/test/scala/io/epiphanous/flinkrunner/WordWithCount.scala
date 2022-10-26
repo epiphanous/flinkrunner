@@ -33,8 +33,8 @@ object WordCountMain extends LazyLogging {
     val env = StreamExecutionEnvironment.createLocalEnvironment(1)
 
     // config
-    val host           = "localhost"
-    val port           = 9999
+//    val host           = "localhost"
+//    val port           = 9999
     val windowDuration = 5 // seconds
 
     // source: run `nc -l 9999` in a terminal
@@ -83,6 +83,7 @@ object WordCountMain extends LazyLogging {
     // nothing happens until we execute the job graph
     logger.debug("starting job")
     env.execute()
+    ()
   }
 
   /** Count the number of syllables in a word. This is basically the number

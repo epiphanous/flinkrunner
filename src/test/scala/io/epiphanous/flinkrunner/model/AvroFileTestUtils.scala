@@ -10,6 +10,8 @@ import io.epiphanous.flinkrunner.serde.{
   EmbeddedAvroJsonFileEncoder,
   JsonConfig
 }
+import io.epiphanous.flinkrunner.util.AvroUtils.toEmbeddedAvroInstance
+import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.serialization.BulkWriter
 import org.apache.flink.api.scala.createTypeInformation
 import org.apache.flink.configuration.Configuration
@@ -20,6 +22,7 @@ import org.apache.flink.core.fs.{
   FileSystem,
   Path
 }
+import org.apache.flink.formats.avro.AvroInputFormat
 import org.apache.flink.testutils.TestFileSystem
 
 import java.io.File
@@ -66,19 +69,25 @@ trait AvroFileTestUtils {
     val fileSize                   =
       getFileInfoView(Paths.get(srcConfig.path)).readAttributes().size()
     val inputFormat                =
-      new EmbeddedAvroInputFormat[BWrapper, BRecord, MyAvroADT](
-        srcConfig
+      new AvroInputFormat[GenericRecord](
+        srcConfig.origin,
+        classOf[GenericRecord]
       )
     inputFormat.open(
       new FileInputSplit(1, srcConfig.origin, 0L, fileSize, null)
     )
-    val reuse: BWrapper            = BWrapper(new BRecord())
+    val reuse: BRecord             = new BRecord()
     val pop: ArrayBuffer[BWrapper] = ArrayBuffer.empty
     var done                       = false
     while (!done) {
       val b = inputFormat.nextRecord(reuse)
       done = b == null
-      if (!done) pop += b
+      if (!done)
+        pop += toEmbeddedAvroInstance[BWrapper, BRecord, MyAvroADT](
+          b,
+          classOf[BRecord],
+          srcConfig.config
+        )
     }
     inputFormat.close()
     pop.toList

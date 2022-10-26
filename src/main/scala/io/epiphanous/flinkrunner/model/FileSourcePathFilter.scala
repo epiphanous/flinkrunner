@@ -5,8 +5,6 @@ import io.epiphanous.flinkrunner.model.source.FileSourceConfig
 import org.apache.flink.api.common.io.{FilePathFilter, GlobFilePathFilter}
 import org.apache.flink.core.fs.Path
 
-import java.io.File
-import java.nio.file.FileSystem
 import java.util
 import java.util.function.Predicate
 import scala.collection.JavaConverters._
@@ -27,7 +25,7 @@ case class FileSourcePathFilter[ADT <: FlinkEvent](
       .foldLeft(ArrayBuffer.empty[String]) {
         (out: ArrayBuffer[String], path: String) =>
           out ++ (path zip path.view.tail).zipWithIndex
-            .filter { case ((c0, c1), i) => c0 != '*' && c1 == '/' }
+            .filter { case ((c0, c1), _) => c0 != '*' && c1 == '/' }
             .map(_._2 + 1)
             .foldLeft(ArrayBuffer.empty[String]) { case (b, i) =>
               val prefix = path.substring(0, i)

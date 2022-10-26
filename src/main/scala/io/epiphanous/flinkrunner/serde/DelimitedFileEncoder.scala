@@ -1,9 +1,9 @@
 package io.epiphanous.flinkrunner.serde
-import com.nimbusds.jose.util.StandardCharset
 import org.apache.flink.api.common.serialization.Encoder
 import org.apache.flink.api.common.typeinfo.TypeInformation
 
 import java.io.OutputStream
+import java.nio.charset.StandardCharsets
 
 /** Encoder for writing an element to a delimited text file output stream
   *
@@ -36,7 +36,7 @@ class DelimitedFileEncoder[E: TypeInformation](
             s"failed to delimited-encode $element",
             err
           ),
-        line => stream.write(line.getBytes(StandardCharset.UTF_8))
+        line => stream.write(line.getBytes(StandardCharsets.UTF_8))
       )
   }
 }
