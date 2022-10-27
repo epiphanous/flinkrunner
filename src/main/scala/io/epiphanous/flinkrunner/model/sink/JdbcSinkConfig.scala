@@ -1,9 +1,13 @@
 package io.epiphanous.flinkrunner.model.sink
 
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.model.SupportedDatabase.Snowflake
+import io.epiphanous.flinkrunner.model.SupportedDatabase.{Postgresql, Snowflake}
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.model.sink.JdbcSinkConfig.DEFAULT_CONNECTION_TIMEOUT
+import io.epiphanous.flinkrunner.model.sink.JdbcSinkConfig.{
+  DEFAULT_CONNECTION_TIMEOUT,
+  DEFAULT_TIMESCALE_CHUNK_TIME_INTERVAL,
+  DEFAULT_TIMESCALE_NUMBER_PARTITIONS
+}
 import io.epiphanous.flinkrunner.operator.CreateTableJdbcSinkFunction
 import io.epiphanous.flinkrunner.util.SqlBuilder
 import org.apache.flink.api.common.functions.RuntimeContext
@@ -12,11 +16,7 @@ import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat
 import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat.StatementExecutorFactory
 import org.apache.flink.connector.jdbc.internal.connection.SimpleJdbcConnectionProvider
 import org.apache.flink.connector.jdbc.internal.executor.JdbcBatchStatementExecutor
-import org.apache.flink.connector.jdbc.{
-  JdbcConnectionOptions,
-  JdbcExecutionOptions,
-  JdbcStatementBuilder
-}
+import org.apache.flink.connector.jdbc.{JdbcConnectionOptions, JdbcExecutionOptions, JdbcStatementBuilder}
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
 
@@ -34,6 +34,7 @@ import scala.util.{Failure, Success, Try}
   *   - postgres
   *   - sql server
   *   - snowflake
+  *   - timescale
   *
   * Sink specific configuration values include:
   *
@@ -56,6 +57,12 @@ import scala.util.{Failure, Success, Try}
   *   - `table`: required object defining the structure of the database
   *     table data is inserted into
   *     - `name`: name of the table (required)
+  *     - `timescale`: optional object defining timescale specific parameters
+  *       - `time.column`: name of the time partitioning column ( required )
+  *       - `chunk.time.interval`: interval in which chunks are aggregated
+  *         ( optional ) default 7 days
+  *       - `partitioning.column`: name of second partitioning column ( optional )
+  *       - `number.partitions`: > 0 ( required if partitioning.column is set )
   *     - `recreate.objects.if.same`: optional boolean (defaults to false)
   *       that, if true, will drop and recreate objects (tables or indexes)
   *       that exist in the database even if they are the same as their
@@ -176,6 +183,24 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
         )
     case _             => Seq.empty
   }
+
+  val isTimescale: Boolean = config
+    .getObjectOption(pfx("table.timescale"))
+    .nonEmpty
+
+  val timescaleTimeColumn: Option[String]   = config
+    .getStringOpt(pfx("table.timescale.time.column"))
+
+  val timescaleChunkTimeInterval: String = config
+    .getStringOpt(pfx("table.timescale.chunk.time.interval"))
+    .getOrElse(DEFAULT_TIMESCALE_CHUNK_TIME_INTERVAL)
+
+  val timescalePartitioningColumn: Option[String] = config
+    .getStringOpt(pfx("table.timescale.partitioning.column"))
+
+  val timescaleNumberPartitions: Int = config
+    .getIntOpt(pfx("table.timescale.number.partitions"))
+    .getOrElse(DEFAULT_TIMESCALE_NUMBER_PARTITIONS)
 
   val sqlBuilder: SqlBuilder = SqlBuilder(product)
 
@@ -463,6 +488,37 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
         }
       }
 
+    /**
+      * If the sink is a PostgresDB with Timescale extension
+      * creates hypertable, with a partitioning column.
+      */
+    if (product == Postgresql && isTimescale) {
+      val createHypertableDml: String = {
+        if (timescaleTimeColumn.isEmpty) {
+          throw new RuntimeException(s"timescale.time.column must be present in timescale config block")
+        }
+
+        sqlBuilder
+          .append(s"SELECT create_hypertable('$table', '${timescaleTimeColumn.get}'")
+          .append(s", chunk_time_interval => INTERVAL '$timescaleChunkTimeInterval'")
+
+        if (timescalePartitioningColumn.isDefined) {
+          sqlBuilder
+            .append(s", partitioning_column => '${timescalePartitioningColumn.get}'")
+            .append(s", number_partitions => $timescaleNumberPartitions")
+        }
+
+        sqlBuilder.append(");")
+          .getSqlAndClear
+      }
+
+      logger.info(
+        s"creating hypertable for [$table]: \n====\n$createHypertableDml\n====\n"
+      )
+
+      stmt.executeQuery(createHypertableDml)
+    }
+
     stmt.close()
     conn.commit()
     conn.close()
@@ -558,4 +614,6 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
 
 object JdbcSinkConfig {
   final val DEFAULT_CONNECTION_TIMEOUT = 5
+  final val DEFAULT_TIMESCALE_CHUNK_TIME_INTERVAL = "7 days"
+  final val DEFAULT_TIMESCALE_NUMBER_PARTITIONS = 4
 }
