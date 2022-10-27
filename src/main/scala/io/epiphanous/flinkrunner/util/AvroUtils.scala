@@ -20,6 +20,11 @@ object AvroUtils {
   def isSpecific[A <: GenericRecord](typeClass: Class[A]): Boolean =
     classOf[SpecificRecordBase].isAssignableFrom(typeClass)
 
+  def isGenericInstance[A <: GenericRecord](instance: A): Boolean  =
+    !isSpecificInstance(instance)
+  def isSpecificInstance[A <: GenericRecord](instance: A): Boolean =
+    isSpecific(instance.getClass)
+
   def instanceOf[A <: GenericRecord](typeClass: Class[A]): A =
     typeClass.getConstructor().newInstance()
 
@@ -79,7 +84,7 @@ object AvroUtils {
       keyOpt: Option[String] = None,
       headers: Map[String, String] = Map.empty)(implicit
       fromKV: EmbeddedAvroRecordInfo[A] => E): E =
-    if (isGeneric(typeClass))
+    if (isGeneric(typeClass) || isSpecificInstance(genericRecord))
       fromKV(
         EmbeddedAvroRecordInfo(
           genericRecord.asInstanceOf[A],
