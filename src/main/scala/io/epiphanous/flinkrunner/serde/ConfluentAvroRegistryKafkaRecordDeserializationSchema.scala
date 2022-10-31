@@ -93,6 +93,7 @@ class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
         throw new RuntimeException(
           s"deserialized value is an unexpected type of object: $c"
         )
+      case _                       => logger.trace(s"ignoring tombstone record $record")
     }
   }
 
