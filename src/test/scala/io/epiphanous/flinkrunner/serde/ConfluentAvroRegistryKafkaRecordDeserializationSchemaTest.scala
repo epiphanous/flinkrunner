@@ -43,4 +43,6 @@ class ConfluentAvroRegistryKafkaRecordDeserializationSchemaTest
     collected.head shouldEqual aWrapper
   }
 
+
+
 }
