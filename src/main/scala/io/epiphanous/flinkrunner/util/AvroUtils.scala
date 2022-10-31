@@ -11,6 +11,7 @@ import org.apache.avro.generic.GenericRecord
 import org.apache.avro.specific.SpecificRecordBase
 
 import scala.collection.JavaConverters._
+import scala.util.Try
 
 object AvroUtils {
 
@@ -106,9 +107,20 @@ object AvroUtils {
   implicit class GenericToSpecific(genericRecord: GenericRecord) {
     def toSpecific[A <: GenericRecord](instance: A): A = {
       genericRecord.getSchema.getFields.asScala
-        .map(_.name())
-        .foldLeft(instance) { (a, f) =>
-          a.put(f, genericRecord.get(f))
+        .foldLeft(instance) { (a, field) =>
+          val f = field.name()
+          genericRecord.get(f) match {
+            case rec: GenericRecord =>
+              if (isGenericInstance(rec)) {
+                Try(
+                  Class
+                    .forName(s"${rec.getSchema.getFullName}")
+                    .getDeclaredConstructor()
+                    .newInstance()
+                ).foreach(gi => a.put(f, rec.toSpecific(gi)))
+              } else a.put(f, rec)
+            case v                  => a.put(f, v)
+          }
           a
         }
     }
