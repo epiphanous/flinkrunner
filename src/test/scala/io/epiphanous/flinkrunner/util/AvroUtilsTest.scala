@@ -1,12 +1,7 @@
 package io.epiphanous.flinkrunner.util
 
 import io.epiphanous.flinkrunner.PropSpec
-import io.epiphanous.flinkrunner.model.{
-  BRecord,
-  BWrapper,
-  FlinkConfig,
-  MyAvroADT
-}
+import io.epiphanous.flinkrunner.model.{BRecord, BWrapper, CRecord, FlinkConfig, MyAvroADT}
 import io.epiphanous.flinkrunner.util.AvroUtils.GenericToSpecific
 import org.apache.avro.SchemaBuilder
 import org.apache.avro.generic.{GenericRecord, GenericRecordBuilder}
@@ -21,6 +16,15 @@ class AvroUtilsTest extends PropSpec {
       .set("b1", spec.b1.getOrElse(null)) // orNull won't work here
       .set("b2", spec.b2.getOrElse(null)) // orNull won't work here
       .set("b3", spec.b3.toEpochMilli)
+      .build()
+
+  def fromSpecCRecord(spec: CRecord): GenericRecord =
+    new GenericRecordBuilder(CRecord.SCHEMA$)
+      .set("id", spec.id)
+      .set("cOptInt", spec.cOptInt.getOrElse(null))
+      .set("cOptDouble", spec.cOptDouble.getOrElse(null))
+      .set("bRecord", spec.bRecord.getOrElse(null))
+      .set("ts", spec.ts.toEpochMilli)
       .build()
 
   property("isGeneric property") {
@@ -39,6 +43,24 @@ class AvroUtilsTest extends PropSpec {
       val s = g.toSpecific(new BRecord())
       s shouldEqual b
     }
+  }
+
+  property("GenericToSpecific embedded Avro") {
+    forAll { c: CRecord =>
+      val v = fromSpecCRecord(c)
+      val s = v.toSpecific(new CRecord())
+      print(s)
+      s shouldEqual c
+    }
+  }
+
+  property("instanceOf property embedded avro") {
+    val x = AvroUtils.instanceOf(classOf[CRecord])
+    val y = new CRecord()
+    x.id shouldEqual y.id
+    x.cOptInt shouldEqual y.cOptInt
+    x.cOptDouble shouldEqual y.cOptDouble
+    x.bRecord shouldEqual y.bRecord
   }
 
   property("instanceOf property") {
