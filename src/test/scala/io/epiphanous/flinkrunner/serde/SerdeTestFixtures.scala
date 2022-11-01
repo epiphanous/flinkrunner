@@ -106,7 +106,6 @@ trait SerdeTestFixtures extends PropSpec {
       E <: MyAvroADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation] = {
     val ss = {
-      val avroClass = implicitly[TypeInformation[A]].getTypeClass
       new ConfluentAvroRegistryKafkaRecordSerializationSchema[
         E,
         A,

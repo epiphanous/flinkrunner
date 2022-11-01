@@ -20,7 +20,6 @@ import org.apache.flink.streaming.api.scala.DataStream
 
 import java.time.Duration
 import java.util.Properties
-import scala.util.Random
 
 /** Kafka sink config.
   *

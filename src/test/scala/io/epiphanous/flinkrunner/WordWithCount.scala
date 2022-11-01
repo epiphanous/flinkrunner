@@ -35,7 +35,7 @@ object WordCountMain extends LazyLogging {
     // config
 //    val host           = "localhost"
 //    val port           = 9999
-    val windowDuration = 5 // seconds
+    val windowDuration = 5L // seconds
 
     // source: run `nc -l 9999` in a terminal
 //    val text = env.socketTextStream(host, port, '\n')

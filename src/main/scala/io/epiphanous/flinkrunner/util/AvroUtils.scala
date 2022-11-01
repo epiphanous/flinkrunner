@@ -1,5 +1,6 @@
 package io.epiphanous.flinkrunner.util
 
+import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.{
   EmbeddedAvroRecord,
   EmbeddedAvroRecordInfo,
@@ -13,7 +14,7 @@ import org.apache.avro.specific.SpecificRecordBase
 import scala.collection.JavaConverters._
 import scala.util.Try
 
-object AvroUtils {
+object AvroUtils extends LazyLogging {
 
   def isGeneric[A <: GenericRecord](typeClass: Class[A]): Boolean =
     !isSpecific(typeClass)
@@ -111,14 +112,23 @@ object AvroUtils {
           val f = field.name()
           genericRecord.get(f) match {
             case rec: GenericRecord =>
-              if (isGenericInstance(rec)) {
-                Try(
-                  Class
-                    .forName(s"${rec.getSchema.getFullName}")
-                    .getDeclaredConstructor()
-                    .newInstance()
-                ).foreach(gi => a.put(f, rec.toSpecific(gi)))
-              } else a.put(f, rec)
+              val fieldClassName = rec.getSchema.getFullName
+              Try(Class.forName(fieldClassName)).fold(
+                error =>
+                  logger.error(
+                    s"can't convert embedded generic record to a $fieldClassName",
+                    error
+                  ),
+                klass => {
+                  if (isGenericInstance(rec)) {
+                    val k = klass
+                      .getDeclaredConstructor()
+                      .newInstance()
+                      .asInstanceOf[GenericRecord]
+                    a.put(f, rec.toSpecific(k))
+                  } else a.put(f, rec)
+                }
+              )
             case v                  => a.put(f, v)
           }
           a
