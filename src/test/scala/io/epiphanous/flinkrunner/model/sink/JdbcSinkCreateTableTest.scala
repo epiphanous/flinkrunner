@@ -18,11 +18,11 @@ class JdbcSinkCreateTableTest extends UnitSpec {
   mssqlContainer.container.acceptLicense()
 
   def maybeCreateTableTestTimescale(
-     database: String,
-     schema: String,
-     jdbcUrl: String,
-     username: String,
-     password: String) = {
+      database: String,
+      schema: String,
+      jdbcUrl: String,
+      username: String,
+      password: String) = {
     val runner     = getRunner[MyAvroADT](
       Array.empty[String],
       Some(s"""
@@ -161,7 +161,7 @@ class JdbcSinkCreateTableTest extends UnitSpec {
     timescaleDbContainer.stop()
   }
 
-  //ignoring this test now since it relies on manually setting up a local postgres container
+  // ignoring this test now since it relies on manually setting up a local postgres container
   ignore should "maybeCreateTable in postgres local" in {
     maybeCreateTableTest(
       "test",

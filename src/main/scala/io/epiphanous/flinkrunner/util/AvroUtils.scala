@@ -1,5 +1,6 @@
 package io.epiphanous.flinkrunner.util
 
+import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.{
   EmbeddedAvroRecord,
   EmbeddedAvroRecordInfo,
@@ -11,14 +12,20 @@ import org.apache.avro.generic.GenericRecord
 import org.apache.avro.specific.SpecificRecordBase
 
 import scala.collection.JavaConverters._
+import scala.util.Try
 
-object AvroUtils {
+object AvroUtils extends LazyLogging {
 
   def isGeneric[A <: GenericRecord](typeClass: Class[A]): Boolean =
     !isSpecific(typeClass)
 
   def isSpecific[A <: GenericRecord](typeClass: Class[A]): Boolean =
     classOf[SpecificRecordBase].isAssignableFrom(typeClass)
+
+  def isGenericInstance[A <: GenericRecord](instance: A): Boolean  =
+    !isSpecificInstance(instance)
+  def isSpecificInstance[A <: GenericRecord](instance: A): Boolean =
+    isSpecific(instance.getClass)
 
   def instanceOf[A <: GenericRecord](typeClass: Class[A]): A =
     typeClass.getConstructor().newInstance()
@@ -79,7 +86,7 @@ object AvroUtils {
       keyOpt: Option[String] = None,
       headers: Map[String, String] = Map.empty)(implicit
       fromKV: EmbeddedAvroRecordInfo[A] => E): E =
-    if (isGeneric(typeClass))
+    if (isGeneric(typeClass) || isSpecificInstance(genericRecord))
       fromKV(
         EmbeddedAvroRecordInfo(
           genericRecord.asInstanceOf[A],
@@ -101,9 +108,29 @@ object AvroUtils {
   implicit class GenericToSpecific(genericRecord: GenericRecord) {
     def toSpecific[A <: GenericRecord](instance: A): A = {
       genericRecord.getSchema.getFields.asScala
-        .map(_.name())
-        .foldLeft(instance) { (a, f) =>
-          a.put(f, genericRecord.get(f))
+        .foldLeft(instance) { (a, field) =>
+          val f = field.name()
+          genericRecord.get(f) match {
+            case rec: GenericRecord =>
+              val fieldClassName = rec.getSchema.getFullName
+              Try(Class.forName(fieldClassName)).fold(
+                error =>
+                  logger.error(
+                    s"can't convert embedded generic record to a $fieldClassName",
+                    error
+                  ),
+                klass => {
+                  if (isGenericInstance(rec)) {
+                    val k = klass
+                      .getDeclaredConstructor()
+                      .newInstance()
+                      .asInstanceOf[GenericRecord]
+                    a.put(f, rec.toSpecific(k))
+                  } else a.put(f, rec)
+                }
+              )
+            case v                  => a.put(f, v)
+          }
           a
         }
     }

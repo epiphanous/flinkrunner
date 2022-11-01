@@ -7,6 +7,7 @@ import io.epiphanous.flinkrunner.serde.{
   JsonKafkaRecordSerializationSchema
 }
 import io.epiphanous.flinkrunner.util.ConfigToProps
+import io.epiphanous.flinkrunner.util.ConfigToProps.getFromEither
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.connector.base.DeliveryGuarantee
@@ -47,9 +48,13 @@ case class KafkaSinkConfig[ADT <: FlinkEvent: TypeInformation](
   val bootstrapServers: String        =
     properties.getProperty("bootstrap.servers")
 
-  val topic: String    = config.getString(pfx("topic"))
-  val isKeyed: Boolean =
-    config.getBooleanOpt(pfx("is.keyed")).getOrElse(true)
+  val topic: String = config.getString(pfx("topic"))
+
+  val isKeyed: Boolean = getFromEither(
+    pfx(),
+    Seq("keyed", "is.keyed"),
+    config.getBooleanOpt
+  ).getOrElse(false)
 
   def deliveryGuarantee: DeliveryGuarantee = config
     .getStringOpt(pfx("delivery.guarantee"))
@@ -63,10 +68,39 @@ case class KafkaSinkConfig[ADT <: FlinkEvent: TypeInformation](
 
   /** ensure transaction.timeout.ms is set */
   val transactionTimeoutMs: Long = {
-    val t = properties.getProperty("transaction.timeout.ms", "60000")
-    properties.setProperty("transaction.timeout.ms", t)
-    t.toLong
+    val tms = getFromEither(
+      pfx(),
+      Seq("transaction.timeout.ms", "tx.timeout.ms"),
+      config.getLongOpt
+    )
+    val td  = getFromEither(
+      pfx(),
+      Seq("transaction.timeout", "tx.timeout"),
+      config.getDurationOpt
+    )
+    val t   = tms.getOrElse(td.getOrElse(Duration.ofHours(2)).toMillis)
+    properties.setProperty("transaction.timeout.ms", t.toString)
+    t
   }
+
+  val transactionalIdPrefix: String =
+    getFromEither(
+      pfx(),
+      Seq(
+        "transactional.id.prefix",
+        "transactional.prefix",
+        "transactional.id",
+        "transaction.id.prefix",
+        "transaction.prefix",
+        "transaction.id",
+        "tx.id.prefix",
+        "tx.prefix",
+        "tx.id"
+      ),
+      config.getStringOpt
+    ).getOrElse(
+      s"${config.jobName}.$name.tx.id"
+    )
 
   val schemaRegistryConfig: SchemaRegistryConfig = SchemaRegistryConfig(
     isDeserializing = false,
@@ -117,7 +151,7 @@ case class KafkaSinkConfig[ADT <: FlinkEvent: TypeInformation](
       .builder()
       .setBootstrapServers(bootstrapServers)
       .setDeliverGuarantee(deliveryGuarantee)
-      .setTransactionalIdPrefix(name)
+      .setTransactionalIdPrefix(transactionalIdPrefix)
       .setKafkaProducerConfig(properties)
       .setRecordSerializer(serializer)
       .build()

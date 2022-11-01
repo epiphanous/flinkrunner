@@ -1,13 +1,9 @@
 package io.epiphanous.flinkrunner.util
 
 import io.epiphanous.flinkrunner.PropSpec
-import io.epiphanous.flinkrunner.model.{
-  BRecord,
-  BWrapper,
-  FlinkConfig,
-  MyAvroADT
-}
+import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.util.AvroUtils.GenericToSpecific
+import org.apache.avro.SchemaBuilder
 import org.apache.avro.generic.{GenericRecord, GenericRecordBuilder}
 
 import java.time.Duration
@@ -20,6 +16,15 @@ class AvroUtilsTest extends PropSpec {
       .set("b1", spec.b1.getOrElse(null)) // orNull won't work here
       .set("b2", spec.b2.getOrElse(null)) // orNull won't work here
       .set("b3", spec.b3.toEpochMilli)
+      .build()
+
+  def fromSpecCRecord(spec: CRecord): GenericRecord =
+    new GenericRecordBuilder(CRecord.SCHEMA$)
+      .set("id", spec.id)
+      .set("cOptInt", spec.cOptInt.getOrElse(null))
+      .set("cOptDouble", spec.cOptDouble.getOrElse(null))
+      .set("bRecord", spec.bRecord.getOrElse(null))
+      .set("ts", spec.ts.toEpochMilli)
       .build()
 
   property("isGeneric property") {
@@ -38,6 +43,24 @@ class AvroUtilsTest extends PropSpec {
       val s = g.toSpecific(new BRecord())
       s shouldEqual b
     }
+  }
+
+  property("GenericToSpecific embedded Avro") {
+    forAll { c: CRecord =>
+      val v = fromSpecCRecord(c)
+      val s = v.toSpecific(new CRecord())
+      print(s)
+      s shouldEqual c
+    }
+  }
+
+  property("instanceOf property embedded avro") {
+    val x = AvroUtils.instanceOf(classOf[CRecord])
+    val y = new CRecord()
+    x.id shouldEqual y.id
+    x.cOptInt shouldEqual y.cOptInt
+    x.cOptDouble shouldEqual y.cOptDouble
+    x.bRecord shouldEqual y.bRecord
   }
 
   property("instanceOf property") {
@@ -60,6 +83,33 @@ class AvroUtilsTest extends PropSpec {
         config
       )
     ea shouldEqual bw
+  }
+
+  property("isGenericInstance property") {
+    val b      = AvroUtils.instanceOf(classOf[BRecord])
+    AvroUtils.isGenericInstance(b) shouldBe false
+    val schema = SchemaBuilder
+      .record("testrec")
+      .fields()
+      .requiredInt("int")
+      .endRecord()
+    val g      = new GenericRecordBuilder(schema).set("int", 17).build()
+    AvroUtils.isGenericInstance(g) shouldBe true
+  }
+
+  property("isSpecificInstance property") {
+    val b                       = AvroUtils.instanceOf(classOf[BRecord])
+    AvroUtils.isSpecificInstance(b) shouldBe true
+    def check(g: GenericRecord) =
+      AvroUtils.isSpecificInstance(g)
+    check(b) shouldBe true
+    val schema                  = SchemaBuilder
+      .record("testrec")
+      .fields()
+      .requiredInt("int")
+      .endRecord()
+    val g                       = new GenericRecordBuilder(schema).set("int", 17).build()
+    check(g) shouldBe false
   }
 
 }
