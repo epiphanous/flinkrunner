@@ -293,11 +293,13 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
     sqlBuilder.append(")")
     product match {
       case SupportedDatabase.Postgresql =>
-        sqlBuilder
-          .append("\nON CONFLICT ON CONSTRAINT ")
-          .identifier(pkIndex)
-          .append(" DO UPDATE SET\n")
-        buildColumnList(nonPkCols, Some("=EXCLUDED."))
+        if (!isTimescale) {
+          sqlBuilder
+            .append("\nON CONFLICT ON CONSTRAINT ")
+            .identifier(pkIndex)
+            .append(" DO UPDATE SET\n")
+          buildColumnList(nonPkCols, Some("=EXCLUDED."))
+        }
 
       case SupportedDatabase.Mysql =>
         sqlBuilder.append("\nON DUPLICATE KEY UPDATE\n")
