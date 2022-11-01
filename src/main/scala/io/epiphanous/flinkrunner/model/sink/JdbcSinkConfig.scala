@@ -3,11 +3,7 @@ package io.epiphanous.flinkrunner.model.sink
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.SupportedDatabase.{Postgresql, Snowflake}
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.model.sink.JdbcSinkConfig.{
-  DEFAULT_CONNECTION_TIMEOUT,
-  DEFAULT_TIMESCALE_CHUNK_TIME_INTERVAL,
-  DEFAULT_TIMESCALE_NUMBER_PARTITIONS
-}
+import io.epiphanous.flinkrunner.model.sink.JdbcSinkConfig.{DEFAULT_CONNECTION_TIMEOUT, DEFAULT_TIMESCALE_CHUNK_TIME_INTERVAL, DEFAULT_TIMESCALE_NUMBER_PARTITIONS}
 import io.epiphanous.flinkrunner.operator.CreateTableJdbcSinkFunction
 import io.epiphanous.flinkrunner.util.SqlBuilder
 import org.apache.flink.api.common.functions.RuntimeContext
@@ -282,11 +278,13 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
     sqlBuilder.append(")")
     product match {
       case SupportedDatabase.Postgresql =>
-        sqlBuilder
-          .append("\nON CONFLICT ON CONSTRAINT ")
-          .identifier(pkIndex)
-          .append(" DO UPDATE SET\n")
-        buildColumnList(nonPkCols, Some("=EXCLUDED."))
+        if (!isTimescale) {
+          sqlBuilder
+            .append("\nON CONFLICT ON CONSTRAINT ")
+            .identifier(pkIndex)
+            .append(" DO UPDATE SET\n")
+          buildColumnList(nonPkCols, Some("=EXCLUDED."))
+        }
 
       case SupportedDatabase.Mysql =>
         sqlBuilder.append("\nON DUPLICATE KEY UPDATE\n")
