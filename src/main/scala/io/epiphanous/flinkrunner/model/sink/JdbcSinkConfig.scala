@@ -531,11 +531,12 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
         sqlBuilder.append(");").getSqlAndClear
       }
 
-      logger.info(
-        s"creating hypertable for [$table]: \n====\n$createHypertableDml\n====\n"
-      )
-
-      stmt.executeQuery(createHypertableDml)
+      if (createTable) {
+        logger.info(
+          s"creating hypertable for [$table]: \n====\n$createHypertableDml\n====\n"
+        )
+        stmt.executeQuery(createHypertableDml)
+      }
     }
 
     stmt.close()
