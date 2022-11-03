@@ -204,13 +204,24 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
     if (checkpointInterval > 0) {
       env.enableCheckpointing(checkpointInterval)
 
-      env.getCheckpointConfig.setMinPauseBetweenCheckpoints(
+      val checkpointConfig = env.getCheckpointConfig
+
+      checkpointConfig.setMinPauseBetweenCheckpoints(
         checkpointMinPause.toMillis
       )
 
-      env.getCheckpointConfig.setMaxConcurrentCheckpoints(
+      checkpointConfig.setMaxConcurrentCheckpoints(
         checkpointMaxConcurrent
       )
+
+      checkpointConfig.setCheckpointTimeout(checkpointTimeout.toMillis)
+
+      if (checkpointEnableUnaligned) {
+        checkpointConfig.enableUnalignedCheckpoints()
+        checkpointAlignedTimeout.foreach(
+          checkpointConfig.setAlignedCheckpointTimeout
+        )
+      }
 
       env.setStateBackend(stateBackend.toLowerCase match {
         case b if b.startsWith("rocks") =>
@@ -218,7 +229,7 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
         case b if b.startsWith("hash")  => new HashMapStateBackend()
         case b                          => throw new RuntimeException(s"unknown state backend $b")
       })
-      env.getCheckpointConfig.setCheckpointStorage(checkpointUrl)
+      checkpointConfig.setCheckpointStorage(checkpointUrl)
     }
 
     env.setRuntimeMode(executionRuntimeMode)
@@ -255,6 +266,13 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
   lazy val checkpointInterval: Long                   = getLong("checkpoint.interval")
   lazy val checkpointMinPause: Duration               = getDuration(
     "checkpoint.min.pause"
+  )
+  lazy val checkpointTimeout: Duration                = getDuration("checkpoint.timeout")
+  lazy val checkpointEnableUnaligned: Boolean         = getBoolean(
+    "checkpoint.enable.unaligned"
+  )
+  lazy val checkpointAlignedTimeout: Option[Duration] = getDurationOpt(
+    "checkpoint.aligned.timeout"
   )
   lazy val checkpointMaxConcurrent: Int               = getInt(
     "checkpoint.max.concurrent"
