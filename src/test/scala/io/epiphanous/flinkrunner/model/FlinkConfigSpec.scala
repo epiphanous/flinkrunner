@@ -3,6 +3,8 @@ package io.epiphanous.flinkrunner.model
 import io.epiphanous.flinkrunner.{FlinkRunner, PropSpec}
 import org.apache.flink.api.common.RuntimeExecutionMode
 import org.apache.flink.api.scala.createTypeInformation
+import org.apache.flink.streaming.api.CheckpointingMode
+import org.apache.flink.streaming.api.environment.CheckpointConfig
 
 import java.time.Duration
 import scala.collection.JavaConverters.mapAsScalaMapConverter
@@ -42,7 +44,6 @@ class FlinkConfigSpec extends PropSpec {
       |max.idleness = 14 minutes
       |show.plan = false
       |environment = dev
-      |mock.edges = true
       |""".stripMargin)
   )
   val config2: FlinkConfig             = runner2.config
@@ -247,11 +248,17 @@ class FlinkConfigSpec extends PropSpec {
   property("globalParallelism") {
     config2.globalParallelism shouldEqual 1
   }
+  property("checkpointMode") {
+    config2.checkpointMode shouldEqual CheckpointConfig.DEFAULT_MODE
+  }
   property("checkpointInterval") {
     config2.checkpointInterval shouldEqual Duration.ofSeconds(30).toMillis
   }
   property("checkpointMinPause") {
-    config2.checkpointMinPause shouldEqual Duration.ofSeconds(10)
+    config2.checkpointMinPause.toMillis shouldEqual CheckpointConfig.DEFAULT_MIN_PAUSE_BETWEEN_CHECKPOINTS
+  }
+  property("checkpointTimeout") {
+    config2.checkpointTimeout.toMillis shouldEqual CheckpointConfig.DEFAULT_TIMEOUT
   }
   property("checkpointMaxConcurrent") {
     config2.checkpointMaxConcurrent shouldEqual 1
@@ -259,11 +266,17 @@ class FlinkConfigSpec extends PropSpec {
   property("checkpointUrl") {
     config2.checkpointUrl shouldEqual "file:///tmp/checkpoint"
   }
-  property("checkpointFlash") {
-    config2.checkpointFlash shouldEqual false
-  }
   property("checkpointIncremental") {
     config2.checkpointIncremental shouldEqual true
+  }
+  property("checkpointMaxFailures") {
+    config2.checkpointMaxFailures shouldEqual 0
+  }
+  property("checkpointEnableUnaligned") {
+    config2.checkpointEnableUnaligned shouldEqual false
+  }
+  property("checkpointAlignedTimeout") {
+    config2.checkpointAlignedTimeout.toMillis shouldEqual 0
   }
   property("showPlan") {
     config2.showPlan shouldEqual false

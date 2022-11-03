@@ -1,0 +1,32 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="FlinkConfigSpec.config env variable" type="ScalaTestRunConfiguration" factoryName="ScalaTest" nameIsGenerated="true" show_console_on_std_err="false" show_console_on_std_out="false">
+    <module name="flinkrunner" />
+    <extension name="net.ashald.envfile">
+      <option name="IS_ENABLED" value="false" />
+      <option name="IS_SUBST" value="false" />
+      <option name="IS_PATH_MACRO_SUPPORTED" value="false" />
+      <option name="IS_IGNORE_MISSING_FILES" value="false" />
+      <option name="IS_ENABLE_EXPERIMENTAL_INTEGRATIONS" value="false" />
+      <ENTRIES>
+        <ENTRY IS_ENABLED="true" PARSER="runconfig" />
+      </ENTRIES>
+    </extension>
+    <option name="allowRunningInParallel" value="false" />
+    <option name="projectPathOnTarget" />
+    <option name="selectedOptions">
+      <list />
+    </option>
+    <option name="testKind" value="Test name" />
+    <option name="envs">
+      <map>
+        <entry key="TEST_ENV_EXISTS" value="exists" />
+      </map>
+    </option>
+    <option name="shortenClasspath" value="NONE" />
+    <option name="testClassPath" value="io.epiphanous.flinkrunner.model.FlinkConfigSpec" />
+    <option name="testName" value="config env variable" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
