@@ -13,6 +13,7 @@ import org.apache.flink.api.common.RuntimeExecutionMode
 import org.apache.flink.api.java.utils.ParameterTool
 import org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackend
 import org.apache.flink.runtime.state.hashmap.HashMapStateBackend
+import org.apache.flink.streaming.api.CheckpointingMode
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 
 import java.io.File
@@ -206,6 +207,8 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
 
       val checkpointConfig = env.getCheckpointConfig
 
+      checkpointConfig.setCheckpointingMode(checkpointMode)
+
       checkpointConfig.setMinPauseBetweenCheckpoints(
         checkpointMinPause.toMillis
       )
@@ -223,11 +226,16 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
         )
       }
 
+      checkpointConfig.setTolerableCheckpointFailureNumber(
+        checkpointMaxFailures
+      )
+
       env.setStateBackend(stateBackend.toLowerCase match {
-        case b if b.startsWith("rocks") =>
+        case b if b.startsWith("rocks")                      =>
           new EmbeddedRocksDBStateBackend(checkpointIncremental)
-        case b if b.startsWith("hash")  => new HashMapStateBackend()
-        case b                          => throw new RuntimeException(s"unknown state backend $b")
+        case b if b.startsWith("hash") | b.startsWith("mem") =>
+          new HashMapStateBackend()
+        case b                                               => throw new RuntimeException(s"unknown state backend $b")
       })
       checkpointConfig.setCheckpointStorage(checkpointUrl)
     }
@@ -264,6 +272,16 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
   lazy val jobDescription: String                     = getString("description")
   lazy val globalParallelism: Int                     = getInt("global.parallelism")
   lazy val checkpointInterval: Long                   = getLong("checkpoint.interval")
+  lazy val checkpointMode: CheckpointingMode          = getString(
+    "checkpoint.mode"
+  ).toLowerCase.replaceAll("[^a-z]", "") match {
+    case "exactlyonce" => CheckpointingMode.EXACTLY_ONCE
+    case "atleastonce" => CheckpointingMode.AT_LEAST_ONCE
+    case mode          =>
+      throw new RuntimeException(
+        s"invalid checkpoint.mode '$mode'. Should be 'exactly once' or 'at least once'."
+      )
+  }
   lazy val checkpointMinPause: Duration               = getDuration(
     "checkpoint.min.pause"
   )
@@ -278,7 +296,7 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
     "checkpoint.max.concurrent"
   )
   lazy val checkpointUrl: String                      = getString("checkpoint.url")
-  lazy val checkpointFlash: Boolean                   = getBoolean("checkpoint.flash")
+  lazy val checkpointMaxFailures: Int                 = getInt("checkpoint.max.failures")
   lazy val stateBackend: String                       = getString(
     "checkpoint.backend"
   ).toLowerCase
