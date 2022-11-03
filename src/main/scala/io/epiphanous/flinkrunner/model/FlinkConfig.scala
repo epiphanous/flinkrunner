@@ -221,8 +221,8 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
 
       if (checkpointEnableUnaligned) {
         checkpointConfig.enableUnalignedCheckpoints()
-        checkpointAlignedTimeout.foreach(
-          checkpointConfig.setAlignedCheckpointTimeout
+        checkpointConfig.setAlignedCheckpointTimeout(
+          checkpointAlignedTimeout
         )
       }
 
@@ -289,7 +289,7 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
   lazy val checkpointEnableUnaligned: Boolean         = getBoolean(
     "checkpoint.enable.unaligned"
   )
-  lazy val checkpointAlignedTimeout: Option[Duration] = getDurationOpt(
+  lazy val checkpointAlignedTimeout: Duration         = getDuration(
     "checkpoint.aligned.timeout"
   )
   lazy val checkpointMaxConcurrent: Int               = getInt(

@@ -276,7 +276,7 @@ class FlinkConfigSpec extends PropSpec {
     config2.checkpointEnableUnaligned shouldEqual false
   }
   property("checkpointAlignedTimeout") {
-    config2.checkpointAlignedTimeout shouldEqual None
+    config2.checkpointAlignedTimeout.toMillis shouldEqual 0
   }
   property("showPlan") {
     config2.showPlan shouldEqual false
