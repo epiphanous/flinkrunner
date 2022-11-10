@@ -1,29 +1,19 @@
 package io.epiphanous.flinkrunner.model.sink
 
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.model.SupportedDatabase.{
-  Postgresql,
-  Snowflake
-}
+import io.epiphanous.flinkrunner.model.SupportedDatabase.{Postgresql, Snowflake}
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.model.sink.JdbcSinkConfig.{
-  DEFAULT_CONNECTION_TIMEOUT,
-  DEFAULT_TIMESCALE_CHUNK_TIME_INTERVAL,
-  DEFAULT_TIMESCALE_NUMBER_PARTITIONS
-}
+import io.epiphanous.flinkrunner.model.sink.JdbcSinkConfig.{DEFAULT_CONNECTION_TIMEOUT, DEFAULT_TIMESCALE_CHUNK_TIME_INTERVAL, DEFAULT_TIMESCALE_NUMBER_PARTITIONS}
 import io.epiphanous.flinkrunner.operator.CreateTableJdbcSinkFunction
 import io.epiphanous.flinkrunner.util.SqlBuilder
+import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.functions.RuntimeContext
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat
 import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat.StatementExecutorFactory
 import org.apache.flink.connector.jdbc.internal.connection.SimpleJdbcConnectionProvider
 import org.apache.flink.connector.jdbc.internal.executor.JdbcBatchStatementExecutor
-import org.apache.flink.connector.jdbc.{
-  JdbcConnectionOptions,
-  JdbcExecutionOptions,
-  JdbcStatementBuilder
-}
+import org.apache.flink.connector.jdbc.{JdbcConnectionOptions, JdbcExecutionOptions, JdbcStatementBuilder}
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
 
@@ -598,6 +588,35 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
       }
   }
 
+  def getAvroStatementBuilder[
+    E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+    A <: GenericRecord: TypeInformation]: JdbcStatementBuilder[E] = {
+    case (statement, element) =>
+      val data = element.$record.getClass.getDeclaredFields
+        .map(_.getName)
+        .zip(element.productIterator.toIndexedSeq)
+        .toMap
+        .filterKeys(f => columns.exists(_.name.equalsIgnoreCase(f)))
+      columns.zipWithIndex.map(x => (x._1, x._2 + 1)).foreach {
+        case (column, i) =>
+          data.get(column.name) match {
+            case Some(v) =>
+              val value = v match {
+                case ts: Instant       => Timestamp.from(ts)
+                case Some(ts: Instant) => Timestamp.from(ts)
+                case Some(x)           => x
+                case None              => null
+                case _                 => v
+              }
+              statement.setObject(i, value, column.dataType.jdbcType)
+            case None    =>
+              throw new RuntimeException(
+                s"value for field ${column.name} is not in $element"
+              )
+          }
+      }
+  }
+
   def getSink[E <: ADT: TypeInformation](
       dataStream: DataStream[E]): DataStreamSink[E] = {
     val jdbcOutputFormat =
@@ -617,6 +636,38 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
             JdbcBatchStatementExecutor.simple(
               queryDml,
               getStatementBuilder[E],
+              JavaFunction.identity[E]
+            )
+          }
+        },
+        JdbcOutputFormat.RecordExtractor.identity[E]
+      )
+    dataStream
+      .addSink(
+        new CreateTableJdbcSinkFunction[E, ADT](this, jdbcOutputFormat)
+      )
+      .uid(label)
+      .name(label)
+  }
+
+  def getAvroSink[E <: ADT with EmbeddedAvroRecord[A]: TypeInformation, A <: GenericRecord: TypeInformation](dataStream: DataStream[E]): DataStreamSink[E] = {
+    val jdbcOutputFormat =
+      new JdbcOutputFormat[E, E, JdbcBatchStatementExecutor[E]](
+        new SimpleJdbcConnectionProvider(
+          getJdbcConnectionOptions
+        ),
+        getJdbcExecutionOptions,
+        // =================================
+        // NOTE: following line should NOT be converted to a Single Abstract Method
+        // in order to prevent flink's closure container from complaining about
+        // serialization.
+        // ==================================
+        new StatementExecutorFactory[JdbcBatchStatementExecutor[E]] {
+          override def apply(
+                              t: RuntimeContext): JdbcBatchStatementExecutor[E] = {
+            JdbcBatchStatementExecutor.simple(
+              queryDml,
+              getAvroStatementBuilder[E, A],
               JavaFunction.identity[E]
             )
           }

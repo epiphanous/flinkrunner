@@ -319,6 +319,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     sinkConfig match {
       case s: KafkaSinkConfig[ADT] => s.getAvroSink[E, A](stream)
       case s: FileSinkConfig[ADT]  => s.getAvroSink[E, A](stream)
+      case s: JdbcSinkConfig[ADT]  => s.getAvroSink[E, A](stream)
       case s                       =>
         throw new RuntimeException(
           s"Avro serialization not supported for ${s.connector} sinks"
