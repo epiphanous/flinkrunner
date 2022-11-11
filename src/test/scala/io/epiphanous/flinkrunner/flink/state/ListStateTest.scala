@@ -7,9 +7,10 @@ import org.apache.flink.test.util.MiniClusterWithClientResource
 import org.scalatest.BeforeAndAfter
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+
 import java.util
 import java.util.Collections
-import org.apache.flink.api.common.state.ListStateDescriptor
+import org.apache.flink.api.common.state.{ListState, ListStateDescriptor}
 import org.apache.flink.api.java.functions.KeySelector
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.streaming.api.datastream.DataStreamSource
@@ -17,6 +18,7 @@ import org.apache.flink.streaming.api.functions.ProcessFunction
 import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.flink.streaming.api.scala.createTypeInformation
 import org.apache.flink.util.Collector
+import RichStateUtils._
 
 class ListStateTest extends AnyFlatSpec with Matchers with BeforeAndAfter {
 
@@ -59,12 +61,13 @@ class ListStateTest extends AnyFlatSpec with Matchers with BeforeAndAfter {
       }
     }).process(new ProcessFunction[Integer, Integer] {
 
-      val listState = new ListState[Integer]()
+      var listState: org.apache.flink.api.common.state.ListState[Integer] = _
+
       override def open(parameters: Configuration): Unit = {
-        this.listState(getRuntimeContext.getListState(new ListStateDescriptor[Integer](
+        this.listState = getRuntimeContext.getListState(new ListStateDescriptor[Integer](
           "foo",
           createTypeInformation[Integer]
-        )))
+        ))
       }
       override def processElement(value: Integer, ctx: ProcessFunction[Integer, Integer]#Context, out: Collector[Integer]): Unit = {
 
