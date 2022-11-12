@@ -2,11 +2,16 @@ package io.epiphanous.flinkrunner.model.sink
 
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.{
+  EmbeddedAvroRecord,
   FlinkConfig,
   FlinkConnectorName,
   FlinkEvent
 }
-import io.epiphanous.flinkrunner.serde.JsonSerializationSchema
+import io.epiphanous.flinkrunner.serde.{
+  EmbeddedAvroJsonSerializationSchema,
+  JsonSerializationSchema
+}
+import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.serialization.SerializationSchema
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.connector.kinesis.sink.KinesisStreamsSink
@@ -44,15 +49,16 @@ case class KinesisSinkConfig[ADT <: FlinkEvent: TypeInformation](
 
   val stream: String = config.getString(pfx("stream"))
 
-  def getSink[E <: ADT: TypeInformation](
-      dataStream: DataStream[E]): DataStreamSink[E] = {
+  def _getSink[E <: ADT: TypeInformation](
+      dataStream: DataStream[E],
+      serializationSchema: SerializationSchema[E]): DataStreamSink[E] = {
     dataStream
       .sinkTo(
         KinesisStreamsSink
           .builder[E]
           .setStreamName(stream)
           .setFailOnError(true)
-          .setSerializationSchema(getSerializationSchema[E])
+          .setSerializationSchema(serializationSchema)
           .setKinesisClientProperties(properties)
           .build()
       )
@@ -60,7 +66,23 @@ case class KinesisSinkConfig[ADT <: FlinkEvent: TypeInformation](
       .name(label)
   }
 
+  override def getSink[E <: ADT: TypeInformation](
+      dataStream: DataStream[E]): DataStreamSink[E] =
+    _getSink[E](dataStream, getSerializationSchema[E])
+
+  override def getAvroSink[
+      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+      A <: GenericRecord: TypeInformation](
+      dataStream: DataStream[E]): DataStreamSink[E] =
+    _getSink[E](dataStream, getAvroSerializationSchema[E, A])
+
   def getSerializationSchema[E <: ADT: TypeInformation]
       : SerializationSchema[E] =
     new JsonSerializationSchema[E, ADT](this)
+
+  def getAvroSerializationSchema[
+      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+      A <: GenericRecord: TypeInformation] =
+    new EmbeddedAvroJsonSerializationSchema[E, A, ADT](this)
+
 }

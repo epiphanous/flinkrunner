@@ -1,12 +1,18 @@
 package io.epiphanous.flinkrunner.model.sink
 
+import com.datastax.driver.core.Cluster
 import io.epiphanous.flinkrunner.model.{
+  EmbeddedAvroRecord,
   FlinkConfig,
   FlinkConnectorName,
   FlinkEvent
 }
+import io.epiphanous.flinkrunner.util.AvroUtils.RichGenericRecord
+import org.apache.avro.generic.GenericRecord
+import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
-import org.apache.flink.streaming.connectors.cassandra.CassandraSink
+import org.apache.flink.streaming.connectors.cassandra._
 
 /** A cassandra sink config.
   *
@@ -33,12 +39,40 @@ case class CassandraSinkConfig[ADT <: FlinkEvent](
   val host: String  = config.getString(pfx("host"))
   val query: String = config.getString(pfx("query"))
 
-  def getSink[E <: ADT](stream: DataStream[E]): CassandraSink[E] =
-    CassandraSink
-      .addSink(stream)
-      .setHost(host)
-      .setQuery(query)
-      .build()
+  /** Don't convert to single abstract method...flink will complain
+    */
+  val clusterBuilder: ClusterBuilder = new ClusterBuilder {
+    override def buildCluster(builder: Cluster.Builder): Cluster =
+      builder
+        .addContactPoint(host)
+        .build()
+  }
+
+  def getSink[E <: ADT: TypeInformation](
+      stream: DataStream[E]): DataStreamSink[E] = {
+    stream
+      .addSink(new CassandraScalaProductSink[E](query, clusterBuilder))
       .uid(label)
       .name(label)
+  }
+
+  override def getAvroSink[
+      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+      A <: GenericRecord: TypeInformation](
+      stream: DataStream[E]): DataStreamSink[E] =
+    stream
+      .addSink(
+        new AbstractCassandraTupleSink[E](
+          query,
+          clusterBuilder,
+          CassandraSinkBaseConfig.newBuilder().build(),
+          new NoOpCassandraFailureHandler()
+        ) {
+          override def extract(record: E): Array[AnyRef] =
+            record.$record.getDataAsSeq.toArray
+        }
+      )
+      .uid(label)
+      .name(label)
+
 }

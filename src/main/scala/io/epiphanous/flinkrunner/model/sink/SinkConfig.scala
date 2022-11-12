@@ -4,7 +4,10 @@ import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.FlinkConnectorName._
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.util.StreamUtils._
+import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.streaming.api.datastream.DataStreamSink
+import org.apache.flink.streaming.api.scala.DataStream
 
 import java.util
 import java.util.Properties
@@ -44,6 +47,14 @@ trait SinkConfig[ADT <: FlinkEvent] extends LazyLogging {
     properties.asJavaMap
 
   lazy val label: String = s"${connector.entryName.toLowerCase}/$name"
+
+  def getSink[E <: ADT: TypeInformation](
+      dataStream: DataStream[E]): DataStreamSink[E]
+
+  def getAvroSink[
+      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+      A <: GenericRecord: TypeInformation](
+      dataStream: DataStream[E]): DataStreamSink[E]
 
 }
 
