@@ -11,10 +11,8 @@ import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.connector.source.{Source, SourceSplit}
 import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.flink.streaming.connectors.kinesis.FlinkKinesisConsumer
-import org.apache.flink.streaming.connectors.kinesis.config.ConsumerConfigConstants
 import org.apache.flink.streaming.connectors.kinesis.serialization.KinesisDeserializationSchema
 
-import java.util.Properties
 import scala.util.Try
 
 /** A source config for kinesis streams. For example, the following config
@@ -81,29 +79,33 @@ case class KinesisSourceConfig[ADT <: FlinkEvent](
     s => s
   )
 
-  val startPos: String = getFromEither(
-    pfx(),
-    Seq(
-      "starting.position",
-      "starting.pos",
-      "start.position",
-      "start.pos",
-      "flink.stream.initpos"
-    ),
-    config.getStringOpt
-  ).getOrElse("TRIM_HORIZON").toUpperCase
+  val startPos: String = {
+    val pos = getFromEither(
+      pfx(),
+      Seq(
+        "starting.position",
+        "starting.pos",
+        "start.position",
+        "start.pos",
+        "flink.stream.initpos"
+      ),
+      config.getStringOpt
+    ).getOrElse("TRIM_HORIZON").toUpperCase
 
-  val validStartingPositions: Seq[String] = Seq(
-    "LATEST",
-    "TRIM_HORIZON",
-    "AT_TIMESTAMP",
-    "AT_SEQUENCE_NUMBER",
-    "AFTER_SEQUENCE_NUMBER"
-  )
-  if (!validStartingPositions.contains(startPos))
-    throw new RuntimeException(
-      s"Invalid starting position value <$startPos>. Should be one of ${validStartingPositions.mkString(", ")}"
+    val validStartingPositions: Seq[String] = Seq(
+      "LATEST",
+      "TRIM_HORIZON",
+      "AT_TIMESTAMP",
+      "AT_SEQUENCE_NUMBER",
+      "AFTER_SEQUENCE_NUMBER"
     )
+    if (!validStartingPositions.contains(pos))
+      throw new RuntimeException(
+        s"Invalid starting position value <$pos>. Should be one of ${validStartingPositions.mkString(", ")}"
+      )
+
+    pos
+  }
 
   val startTimestampOpt: Option[String] = getFromEither(
     pfx(),

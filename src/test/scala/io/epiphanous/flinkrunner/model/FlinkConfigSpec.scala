@@ -3,7 +3,6 @@ package io.epiphanous.flinkrunner.model
 import io.epiphanous.flinkrunner.{FlinkRunner, PropSpec}
 import org.apache.flink.api.common.RuntimeExecutionMode
 import org.apache.flink.api.scala.createTypeInformation
-import org.apache.flink.streaming.api.CheckpointingMode
 import org.apache.flink.streaming.api.environment.CheckpointConfig
 
 import java.time.Duration
