@@ -45,13 +45,13 @@ class KinesisSourceConfigSpec extends PropSpec {
   )
 
   property("default startPos property") {
-    defaultConfig.startPos shouldEqual "TRIM_HORIZON"
+    defaultConfig.startPos shouldEqual "LATEST"
   }
 
   property("bad startPos property") {
     the[Exception] thrownBy defaultConfigPlus(
       "start.pos = BAD_START_POS"
-    ) should have message "Invalid starting position value <BAD_START_POS>. Should be one of LATEST, TRIM_HORIZON, AT_TIMESTAMP, AT_SEQUENCE_NUMBER, AFTER_SEQUENCE_NUMBER"
+    ) should have message "Kinesis source kinesis-test has invalid `starting.position` <BAD_START_POS>. Instead, use one of TRIM_HORIZON, LATEST, AT_TIMESTAMP"
   }
 
   property("trim horizon starting.position property") {
@@ -72,22 +72,6 @@ class KinesisSourceConfigSpec extends PropSpec {
                            |start.pos = AT_TIMESTAMP
                            |""".stripMargin)
     } should have message "kinesis sink kinesis-test set starting.position to AT_TIMESTAMP but provided no starting.timestamp"
-  }
-
-  property("start.pos=at_sequence property") {
-    the[Exception] thrownBy {
-      defaultConfigPlus("""
-          |start.pos = AT_SEQUENCE_NUMBER
-          |""".stripMargin)
-    } should have message "kinesis sink kinesis-test set starting.position to AT_SEQUENCE_NUMBER but provided no starting.sequence"
-  }
-
-  property("start.pos=after_sequence property") {
-    the[Exception] thrownBy {
-      defaultConfigPlus("""
-          |start.pos = AFTER_SEQUENCE_NUMBER
-          |""".stripMargin)
-    } should have message "kinesis sink kinesis-test set starting.position to AFTER_SEQUENCE_NUMBER but provided no starting.sequence"
   }
 
   property("efoConsumer property") {
@@ -111,7 +95,7 @@ class KinesisSourceConfigSpec extends PropSpec {
   }
 
   property("missing stream property") {
-    the[Exception] thrownBy noProvidedConfig should have message "kinesis source kinesis-test configuration is missing a 'stream' property"
+    the[Exception] thrownBy noProvidedConfig should have message "kinesis source kinesis-test is missing required 'stream' property"
   }
 
 }
