@@ -6,15 +6,16 @@ import io.epiphanous.flinkrunner.model.{
   FlinkEvent
 }
 import io.epiphanous.flinkrunner.serde.JsonKinesisDeserializationSchema
-import io.epiphanous.flinkrunner.util.ConfigToProps
 import io.epiphanous.flinkrunner.util.ConfigToProps.getFromEither
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.connector.source.{Source, SourceSplit}
 import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.flink.streaming.connectors.kinesis.FlinkKinesisConsumer
+import org.apache.flink.streaming.connectors.kinesis.config.ConsumerConfigConstants
 import org.apache.flink.streaming.connectors.kinesis.serialization.KinesisDeserializationSchema
 
 import java.util.Properties
+import scala.util.Try
 
 /** A source config for kinesis streams. For example, the following config
   * can be used to read from a topic in kafka that contains confluent avro
@@ -43,8 +44,11 @@ import java.util.Properties
   *     - `LATEST`: the position after the most recent data in a shard
   *   - `starting.sequence`: a sequence number in a shard
   *   - `starting.timestamp`: a timestamp as fractional epoch seconds
+  *     (format: `yyyy-MM-dd'T'HH:mm:ss.SSSXXX`)
   *   - `use.efo`: if true, turn on enhanced fan-out to read the stream
   *     faster (defaults to true, may cost more money)
+  *   - `efo.consumer`: name of the efo consumer (defaults to
+  *     `jobName`.`sourceName`)
   *   - `aws.region`: AWS region of your kinesis endpoint
   *   - `config`: optional config to pass to kinesis client
   *
@@ -62,29 +66,64 @@ case class KinesisSourceConfig[ADT <: FlinkEvent](
 
   override val connector: FlinkConnectorName = FlinkConnectorName.Kinesis
 
-  override val properties: Properties = ConfigToProps.normalizeProps(
-    config,
-    pfx(),
-    List("aws.region")
-  )
+  val awsRegion: String =
+    getFromEither(pfx(), Seq("aws.region"), config.getStringOpt).getOrElse(
+      "us-east-1"
+    )
+  properties.setProperty("aws.region", awsRegion)
 
-  val stream: String = config.getString(pfx("stream"))
+  val stream: String = Try(config.getString(pfx("stream"))).fold(
+    t =>
+      throw new RuntimeException(
+        s"kinesis source $name configuration is missing a 'stream' property",
+        t
+      ),
+    s => s
+  )
 
   val startPos: String = getFromEither(
     pfx(),
-    Seq("starting.position", "flink.stream.initpos"),
+    Seq(
+      "starting.position",
+      "starting.pos",
+      "start.position",
+      "start.pos",
+      "flink.stream.initpos"
+    ),
     config.getStringOpt
-  ).getOrElse("TRIM_HORIZON")
+  ).getOrElse("TRIM_HORIZON").toUpperCase
+
+  val validStartingPositions: Seq[String] = Seq(
+    "LATEST",
+    "TRIM_HORIZON",
+    "AT_TIMESTAMP",
+    "AT_SEQUENCE_NUMBER",
+    "AFTER_SEQUENCE_NUMBER"
+  )
+  if (!validStartingPositions.contains(startPos))
+    throw new RuntimeException(
+      s"Invalid starting position value <$startPos>. Should be one of ${validStartingPositions.mkString(", ")}"
+    )
 
   val startTimestampOpt: Option[String] = getFromEither(
     pfx(),
-    Seq("starting.timestamp", "starting.ts"),
+    Seq(
+      "starting.timestamp",
+      "starting.ts",
+      "start.timestamp",
+      "start.ts"
+    ),
     config.getStringOpt
   )
 
   val startSeqNoOpt: Option[String] = getFromEither(
     pfx(),
-    Seq("starting.sequence", "starting.seq"),
+    Seq(
+      "starting.sequence",
+      "starting.seq",
+      "start.sequence",
+      "start.seq"
+    ),
     config.getStringOpt
   )
 
@@ -114,15 +153,27 @@ case class KinesisSourceConfig[ADT <: FlinkEvent](
   }
 
   val useEfo: Boolean =
-    getFromEither(pfx(), Seq("use.efo"), config.getBooleanOpt).getOrElse(
-      true
+    getFromEither(
+      pfx(),
+      Seq("use.efo", "efo.enabled"),
+      config.getBooleanOpt
+    ).getOrElse(
+      properties
+        .getProperty("flink.stream.recordpublisher", "EFO")
+        .equalsIgnoreCase("EFO")
     )
+
+  val efoConsumer: String = getFromEither(
+    pfx(),
+    Seq("efo.consumer", "flink.stream.efo.consumer"),
+    config.getStringOpt
+  ).getOrElse(s"${config.jobName}.$name")
 
   if (useEfo) {
     properties.setProperty("flink.stream.recordpublisher", "EFO")
     properties.setProperty(
       "flink.stream.efo.consumer",
-      s"${config.jobName}.$name"
+      efoConsumer
     )
   }
 
