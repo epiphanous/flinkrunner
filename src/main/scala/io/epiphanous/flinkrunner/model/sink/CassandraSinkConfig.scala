@@ -1,6 +1,6 @@
 package io.epiphanous.flinkrunner.model.sink
 
-import com.datastax.driver.core.Cluster
+import com.datastax.driver.core.{Cluster, CodecRegistry}
 import io.epiphanous.flinkrunner.model.{
   EmbeddedAvroRecord,
   FlinkConfig,
@@ -13,6 +13,7 @@ import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
 import org.apache.flink.streaming.connectors.cassandra._
+import com.datastax.driver.extras.codecs.jdk8.InstantCodec
 
 /** A cassandra sink config.
   *
@@ -34,9 +35,11 @@ case class CassandraSinkConfig[ADT <: FlinkEvent](
 ) extends SinkConfig[ADT] {
 
   override val connector: FlinkConnectorName =
-    FlinkConnectorName.CassandraSink
+    FlinkConnectorName.Cassandra
 
-  val host: String  = config.getString(pfx("host"))
+  val host: String  =
+    config.getStringOpt(pfx("host")).getOrElse("localhost")
+  val port: Int     = config.getIntOpt(pfx("port")).getOrElse(9042)
   val query: String = config.getString(pfx("query"))
 
   /** Don't convert to single abstract method...flink will complain
@@ -45,6 +48,11 @@ case class CassandraSinkConfig[ADT <: FlinkEvent](
     override def buildCluster(builder: Cluster.Builder): Cluster =
       builder
         .addContactPoint(host)
+        .withPort(port)
+        .withoutJMXReporting()
+        .withCodecRegistry(
+          new CodecRegistry().register(InstantCodec.instance)
+        )
         .build()
   }
 

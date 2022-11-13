@@ -52,7 +52,7 @@ case class ElasticsearchSinkConfig[ADT <: FlinkEvent](
     with LazyLogging {
 
   override val connector: FlinkConnectorName =
-    FlinkConnectorName.ElasticsearchSink
+    FlinkConnectorName.Elasticsearch
 
   val index: String              = config.getString(pfx("index"))
   val transports: List[HttpHost] =

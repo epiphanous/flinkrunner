@@ -120,7 +120,7 @@ class JdbcSinkJobTest extends FlinkRunnerSpec {
 //      }
 
     val factory = (runner: FlinkRunner[MySimpleADT]) =>
-      new IdentityJob[SimpleB](runner)
+      new SimpleIdentityJob[SimpleB](runner)
     testStreamJob(configStr, factory)
     val conn    = DriverManager.getConnection(
       pgContainer.jdbcUrl,
@@ -142,17 +142,5 @@ class JdbcSinkJobTest extends FlinkRunnerSpec {
     stmt.close()
     conn.close()
     //    pgContainer.stop()
-  }
-}
-
-class IdentityJob[E <: MySimpleADT: TypeInformation](
-    runner: FlinkRunner[MySimpleADT])
-    extends StreamJob[E, MySimpleADT](runner) {
-
-  override def transform: DataStream[E] = {
-    singleSource[E]().map { e: E =>
-      println(e.toString)
-      e
-    }
   }
 }

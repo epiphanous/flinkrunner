@@ -19,14 +19,15 @@ import java.util.Properties
   *
   *   - `name`: the sink name
   *   - `connector`: one of
-  *     - [[FlinkConnectorName.CassandraSink]]
-  *     - [[FlinkConnectorName.ElasticsearchSink]]
+  *     - [[FlinkConnectorName.Cassandra]]
+  *     - [[FlinkConnectorName.Elasticsearch]]
   *     - [[FlinkConnectorName.File]]
   *     - [[FlinkConnectorName.Jdbc]]
   *     - [[FlinkConnectorName.Kafka]]
   *     - [[FlinkConnectorName.Kinesis]]
   *     - [[FlinkConnectorName.RabbitMQ]]
   *     - [[FlinkConnectorName.Socket]]
+  *
   * @tparam ADT
   *   the flinkrunner algebraic data type
   */
@@ -74,9 +75,9 @@ object SinkConfig {
       case File              => FileSinkConfig(name, config)
       case Socket            => SocketSinkConfig(name, config)
       case Jdbc              => JdbcSinkConfig(name, config)
-      case CassandraSink     =>
+      case Cassandra     =>
         CassandraSinkConfig(name, config)
-      case ElasticsearchSink =>
+      case Elasticsearch =>
         ElasticsearchSinkConfig(name, config)
       case RabbitMQ          => RabbitMQSinkConfig(name, config)
       case connector         =>

@@ -20,9 +20,9 @@ object FlinkConnectorName extends Enum[FlinkConnectorName] {
 
   case object Socket extends FlinkConnectorName
 
-  case object CassandraSink extends FlinkConnectorName
+  case object Cassandra extends FlinkConnectorName
 
-  case object ElasticsearchSink extends FlinkConnectorName
+  case object Elasticsearch extends FlinkConnectorName
 
   case object Jdbc extends FlinkConnectorName
 
@@ -31,7 +31,7 @@ object FlinkConnectorName extends Enum[FlinkConnectorName] {
   case object Generator extends FlinkConnectorName
 
   val sources: immutable.Seq[FlinkConnectorName] =
-    values diff IndexedSeq(CassandraSink, ElasticsearchSink)
+    values diff IndexedSeq(Cassandra, Elasticsearch)
   val sinks: immutable.Seq[FlinkConnectorName]   =
     values diff IndexedSeq(Hybrid, Generator)
 
