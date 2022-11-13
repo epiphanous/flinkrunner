@@ -12,7 +12,7 @@ import scala.collection.JavaConverters._
 class CassandraJobTest extends FlinkRunnerSpec {
   val cassandra = new CassandraContainer()
 
-  property("sink works") {
+  ignore("sink works") {
     cassandra.start()
     val c       = cassandra.container
     val session = c.getCluster.newSession()
