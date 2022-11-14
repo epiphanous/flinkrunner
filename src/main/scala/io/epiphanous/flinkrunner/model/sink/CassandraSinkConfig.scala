@@ -1,6 +1,7 @@
 package io.epiphanous.flinkrunner.model.sink
 
 import com.datastax.driver.core.{Cluster, CodecRegistry}
+import com.datastax.driver.extras.codecs.jdk8.InstantCodec
 import io.epiphanous.flinkrunner.model.{
   EmbeddedAvroRecord,
   FlinkConfig,
@@ -13,7 +14,6 @@ import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
 import org.apache.flink.streaming.connectors.cassandra._
-import com.datastax.driver.extras.codecs.jdk8.InstantCodec
 
 /** A cassandra sink config.
   *

@@ -70,17 +70,17 @@ object SinkConfig {
         config.jobName,
         config.getStringOpt(s"sinks.$name.connector")
       ) match {
-      case Kafka             => KafkaSinkConfig(name, config)
-      case Kinesis           => KinesisSinkConfig(name, config)
-      case File              => FileSinkConfig(name, config)
-      case Socket            => SocketSinkConfig(name, config)
-      case Jdbc              => JdbcSinkConfig(name, config)
+      case Kafka         => KafkaSinkConfig(name, config)
+      case Kinesis       => KinesisSinkConfig(name, config)
+      case File          => FileSinkConfig(name, config)
+      case Socket        => SocketSinkConfig(name, config)
+      case Jdbc          => JdbcSinkConfig(name, config)
       case Cassandra     =>
         CassandraSinkConfig(name, config)
       case Elasticsearch =>
         ElasticsearchSinkConfig(name, config)
-      case RabbitMQ          => RabbitMQSinkConfig(name, config)
-      case connector         =>
+      case RabbitMQ      => RabbitMQSinkConfig(name, config)
+      case connector     =>
         throw new RuntimeException(
           s"Don't know how to configure ${connector.entryName} sink connector $name (job ${config.jobName}"
         )

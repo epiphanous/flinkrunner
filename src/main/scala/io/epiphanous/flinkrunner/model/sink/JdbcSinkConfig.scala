@@ -572,31 +572,38 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
     * @return
     *   JdbcStatementBuilder[E]
     */
-  def getStatementBuilder[E <: ADT]: JdbcStatementBuilder[E] = {
-    case (statement, element) =>
-      _fillInStatement(
-        element.getClass.getDeclaredFields
-          .map(_.getName)
-          .zip(element.productIterator.toIndexedSeq)
-          .toMap,
-        statement,
-        element
-      )
+  def getStatementBuilder[E <: ADT]: JdbcStatementBuilder[E] =
+    new JdbcStatementBuilder[E] {
+      override def accept(statement: PreparedStatement, element: E): Unit =
+        _fillInStatement(
+          fieldValuesOf(element),
+          statement,
+          element
+        )
+    }
+
+  def fieldValuesOf[T <: Product](product: T): Map[String, Any] = {
+    product.getClass.getDeclaredFields
+      .map(_.getName)
+      .zip(product.productIterator.toIndexedSeq)
+      .toMap
   }
 
   def getAvroStatementBuilder[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
-      A <: GenericRecord: TypeInformation]: JdbcStatementBuilder[E] = {
-    case (statement, element) =>
-      _fillInStatement[E](
-        element.$record.getSchema.getFields.asScala
-          .map(_.name)
-          .map(f => (f, element.$record.get(f)))
-          .toMap,
-        statement,
-        element
-      )
-  }
+      A <: GenericRecord: TypeInformation]: JdbcStatementBuilder[E] =
+    new JdbcStatementBuilder[E] {
+      override def accept(
+          statement: PreparedStatement,
+          element: E): Unit = {
+        println(s"XXX: $element")
+        _fillInStatement[E](
+          fieldValuesOf(element.$record.asInstanceOf[Product]),
+          statement,
+          element
+        )
+      }
+    }
 
   def _fillInStatement[E <: ADT](
       data: Map[String, Any],

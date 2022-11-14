@@ -5,9 +5,11 @@ import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.model.sink._
 import io.epiphanous.flinkrunner.model.source._
+import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.JobExecutionResult
 import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.formats.avro.utils.AvroKryoSerializerUtils.AvroSchemaSerializer
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.table.api.bridge.scala.StreamTableEnvironment
@@ -41,6 +43,11 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     config.getStreamExecutionEnvironment
 
   val tableEnv: StreamTableEnvironment = StreamTableEnvironment.create(env)
+
+  env.getConfig.addDefaultKryoSerializer(
+    classOf[Schema],
+    classOf[AvroSchemaSerializer]
+  )
 
   /** Gets (and returns as string) the execution plan for the job from the
     * StreamExecutionEnvironment.

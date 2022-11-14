@@ -1,134 +1,77 @@
 package io.epiphanous.flinkrunner.model.sink
 
-import io.epiphanous.flinkrunner.flink.StreamJob
-import io.epiphanous.flinkrunner.model.{MySimpleADT, SimpleB}
-import io.epiphanous.flinkrunner.{FlinkRunner, FlinkRunnerSpec}
-import org.apache.flink.api.common.typeinfo.TypeInformation
+import com.dimafeng.testcontainers.PostgreSQLContainer
+import io.epiphanous.flinkrunner.model.{
+  BRecord,
+  BWrapper,
+  SimpleB,
+  StreamFormatName
+}
 import org.apache.flink.api.scala.createTypeInformation
-import org.apache.flink.streaming.api.scala.DataStream
 
-import java.sql.DriverManager
+import java.time.Instant
+import java.util.Properties
 
-class JdbcSinkJobTest extends FlinkRunnerSpec {
+class JdbcSinkJobTest extends SinkSpec {
 
-//  val pgContainer: PostgreSQLContainer = PostgreSQLContainer()
-  val pgContainer = new Object() {
-    val databaseName = "test"
-    val schema       = "public"
-    val jdbcUrl      = "jdbc:postgresql://localhost:5432/test"
-    val username     = "test"
-    val password     = "test"
-  }
+  val pgContainer: PostgreSQLContainer = PostgreSQLContainer()
 
-  // ignore since it's manual
-  ignore("write job results to sink") {
-//    pgContainer.start()
-    val configStr =
+  property("jdbc sink works") {
+    pgContainer.start()
+    testJob[SimpleB](
       s"""
-        |sinks {
-        |  jdbc-test {
-        |    connection  = {
-        |      database  = "${pgContainer.databaseName}"
-        |      schema    = "${pgContainer.schema}"
-        |      url       = "${pgContainer.jdbcUrl}"
-        |      username  = "${pgContainer.username}"
-        |      password  = "${pgContainer.password}"
-        |    }
-        |    table {
-        |      name = "sample_b"
-        |      columns = [
-        |        {
-        |          name = id
-        |          type = VARCHAR
-        |          precision = 36
-        |          primary.key = 1
-        |        }
-        |        {
-        |          name = b0
-        |          type = VARCHAR
-        |          precision = 255
-        |          nullable = false
-        |        }
-        |        {
-        |          name = b1
-        |          type = DOUBLE
-        |          nullable = false
-        |        }
-        |        {
-        |          name = b2
-        |          type = INTEGER
-        |        }
-        |        {
-        |          name = ts
-        |          type = TIMESTAMP
-        |          nullable = false
-        |        }
-        |      ]
-        |    }
-        |  }
-        |}
-        |sources {
-        |  test-file {
-        |    path = "resource://SampleB.csv"
-        |    format = csv
-        |  }
-        |}
-        |jobs {
-        |  testJob {
-        |    show.plan = true
-        |  }
-        |}
-        |execution.runtime-mode = batch
-        |""".stripMargin
-//    val checkResults: CheckResults[MySimpleADT] =
-//      new CheckResults[MySimpleADT] {
-//        override val name        = "check postgresql table"
-//        override val writeToSink = false
-//        override def getInputEvents[IN <: MySimpleADT: TypeInformation](
-//            sourceConfig: SourceConfig[MySimpleADT]): List[IN] =
-//          genPop[SimpleB]().asInstanceOf[List[IN]]
-//
-//        override def checkOutputEvents[
-//            OUT <: MySimpleADT: TypeInformation](
-//            sinkConfig: SinkConfig[MySimpleADT],
-//            out: List[OUT]): Unit = {
-//          logger.debug(out.mkString("\n"))
-//          sinkConfig match {
-//            case sc: JdbcSinkConfig[MySimpleADT] =>
-//              sc.getConnection
-//                .fold(
-//                  t =>
-//                    throw new RuntimeException(
-//                      "failed to connect to test database",
-//                      t
-//                    ),
-//                  conn => {
-//                    val rs = conn
-//                      .createStatement()
-//                      .executeQuery(s"select * from ${sc.table}")
-//                    while (rs.next()) {
-//                      val row = rs.getRow
-//                      logger.debug(
-//                        s"$row - ${Range(1, 6).map(i => rs.getString(i)).mkString("|")}"
-//                      )
-//                    }
-//                  }
-//                )
-//            case _                               => logger.debug("Oops")
-//          }
-//        }
-//      }
-
-    val factory = (runner: FlinkRunner[MySimpleADT]) =>
-      new SimpleIdentityJob[SimpleB](runner)
-    testStreamJob(configStr, factory)
-    val conn    = DriverManager.getConnection(
-      pgContainer.jdbcUrl,
-      pgContainer.username,
-      pgContainer.password
+         |  jdbc-test {
+         |    connection  = {
+         |      database  = "${pgContainer.databaseName}"
+         |      schema    = public
+         |      url       = "${pgContainer.jdbcUrl}"
+         |      username  = "${pgContainer.username}"
+         |      password  = "${pgContainer.password}"
+         |    }
+         |    table {
+         |      name = "sample_b"
+         |      columns = [
+         |        {
+         |          name = id
+         |          type = VARCHAR
+         |          precision = 36
+         |          primary.key = 1
+         |        }
+         |        {
+         |          name = b0
+         |          type = VARCHAR
+         |          precision = 255
+         |          nullable = false
+         |        }
+         |        {
+         |          name = b1
+         |          type = DOUBLE
+         |          nullable = false
+         |        }
+         |        {
+         |          name = b2
+         |          type = INTEGER
+         |        }
+         |        {
+         |          name = ts
+         |          type = TIMESTAMP
+         |          nullable = false
+         |        }
+         |      ]
+         |    }
+         |  }
+         |""".stripMargin,
+      "resource://SampleB.csv",
+      otherJobConfig = "show.plan = true"
     )
-    val stmt    = conn.createStatement()
-    val rs      = stmt.executeQuery("select * from sample_b")
+
+    val props = new Properties()
+    props.put("user", pgContainer.username)
+    props.put("password", pgContainer.password)
+    val conn  =
+      pgContainer.jdbcDriverInstance.connect(pgContainer.jdbcUrl, props)
+    val stmt  = conn.createStatement()
+    val rs    = stmt.executeQuery("select * from sample_b")
     while (rs.next()) {
       println(
         rs.getRow + "|" + rs.getString("id").trim() + "|" + rs.getString(
@@ -141,6 +84,79 @@ class JdbcSinkJobTest extends FlinkRunnerSpec {
     }
     stmt.close()
     conn.close()
-    //    pgContainer.stop()
+    pgContainer.stop()
+  }
+
+  property("jdbc avro sink works") {
+    pgContainer.start()
+    val pop      = genPop[BWrapper](10)
+    pop.foreach(println)
+    val database = pgContainer.databaseName
+    val url      = pgContainer.jdbcUrl
+    val user     = pgContainer.username
+    val pw       = pgContainer.password
+    getTempFile(StreamFormatName.Avro).map { path =>
+      val avroFile = path.toString
+      writeFile(avroFile, StreamFormatName.Avro, pop)
+      testAvroJob[BWrapper, BRecord](
+        s"""
+           |  jdbc-test {
+           |    connection  = {
+           |      database  = "$database"
+           |      schema    = public
+           |      url       = "$url"
+           |      username  = "$user"
+           |      password  = "$pw"
+           |    }
+           |    table {
+           |      name = "b_record"
+           |      columns = [
+           |        {
+           |          name = b0
+           |          type = VARCHAR
+           |          precision = 36
+           |          primary.key = 1
+           |        }
+           |        {
+           |          name = b1
+           |          type = INTEGER
+           |          nullable = true
+           |        }
+           |        {
+           |          name = b2
+           |          type = DOUBLE
+           |          nullable = true
+           |        }
+           |        {
+           |          name = b3
+           |          type = TIMESTAMP
+           |          nullable = false
+           |        }
+           |      ]
+           |    }
+           |  }
+           |""".stripMargin,
+        sourceFile = avroFile,
+        sourceFormat = "avro"
+      )
+      val props    = new Properties()
+      props.put("user", user)
+      props.put("password", pw)
+      val conn     =
+        pgContainer.jdbcDriverInstance.connect(url, props)
+      val stmt     = conn.createStatement()
+      val rs       = stmt.executeQuery("select * from b_record")
+      while (rs.next()) {
+        val row = rs.getRow
+        val b0  = rs.getString("b0").trim()
+        val b1  = Option(rs.getInt("b1"))
+        val b2  = Option(rs.getDouble("b2"))
+        val b3  = Instant.ofEpochMilli(rs.getTimestamp("b3").getTime)
+        println(row -> BRecord(b0, b1, b2, b3))
+      }
+      stmt.close()
+      conn.close()
+    }
+    pgContainer.stop()
   }
 }
