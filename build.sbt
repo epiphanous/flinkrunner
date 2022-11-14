@@ -36,7 +36,7 @@ val V = new {
   val scalaTestPlus       = "3.2.14.0"
   val scalaCheck          = "1.17.0"
   val testContainersScala = "0.40.11"
-  val jackson             = "2.13.4"
+  val jackson             = "2.14.0"
   val circe               = "0.14.2"
   val http4s              = "0.23.12"
   val enumeratum          = "1.7.0"
@@ -50,6 +50,7 @@ val V = new {
   val jdbcPg              = "42.5.0"
   val jdbcMssql           = "11.2.0.jre11"
   val hadoop              = "3.3.2"
+  val cassandraDriver     = "3.11.3"
   val jna                 = "5.12.1" // needed for testcontainers in some jvms
 }
 
@@ -130,7 +131,9 @@ val otherDeps = Seq(
   "org.postgresql"                   % "postgresql"                       % V.jdbcPg              % Provided,
   "com.dimafeng"                    %% "testcontainers-scala-mssqlserver" % V.testContainersScala % Test,
   "net.java.dev.jna"                 % "jna"                              % V.jna                 % Test,
-  "com.microsoft.sqlserver"          % "mssql-jdbc"                       % V.jdbcMssql           % Provided
+  "com.microsoft.sqlserver"          % "mssql-jdbc"                       % V.jdbcMssql           % Provided,
+  "com.dimafeng"                    %% "testcontainers-scala-cassandra"   % V.testContainersScala % Test,
+  "com.datastax.cassandra"           % "cassandra-driver-extras"          % V.cassandraDriver     % Provided
 ) ++
   Seq("org.apache.parquet" % "parquet-avro" % V.parquet % Provided).map(
     m =>

@@ -23,7 +23,7 @@ import org.apache.flink.api.common.typeinfo.TypeInformation
 class EmbeddedAvroJsonSerializationSchema[
     E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
     A <: GenericRecord: TypeInformation,
-    ADT <: FlinkEvent: TypeInformation](sinkConfig: SinkConfig[ADT])
+    ADT <: FlinkEvent](sinkConfig: SinkConfig[ADT])
     extends JsonSerializationSchema[E, ADT](sinkConfig) {
 
   val avroJsonEncoder = new EmbeddedAvroJsonFileEncoder[E, A, ADT]

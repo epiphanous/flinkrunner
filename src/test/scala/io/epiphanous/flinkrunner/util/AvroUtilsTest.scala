@@ -2,7 +2,7 @@ package io.epiphanous.flinkrunner.util
 
 import io.epiphanous.flinkrunner.PropSpec
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.util.AvroUtils.GenericToSpecific
+import io.epiphanous.flinkrunner.util.AvroUtils.RichGenericRecord
 import org.apache.avro.SchemaBuilder
 import org.apache.avro.generic.{GenericRecord, GenericRecordBuilder}
 

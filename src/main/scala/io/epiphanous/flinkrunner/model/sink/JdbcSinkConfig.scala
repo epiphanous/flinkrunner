@@ -13,6 +13,7 @@ import io.epiphanous.flinkrunner.model.sink.JdbcSinkConfig.{
 }
 import io.epiphanous.flinkrunner.operator.CreateTableJdbcSinkFunction
 import io.epiphanous.flinkrunner.util.SqlBuilder
+import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.functions.RuntimeContext
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat
@@ -27,7 +28,7 @@ import org.apache.flink.connector.jdbc.{
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
 
-import java.sql.{Connection, DriverManager, Timestamp}
+import java.sql.{Connection, DriverManager, PreparedStatement, Timestamp}
 import java.time.Instant
 import java.util.function.{Function => JavaFunction}
 import scala.collection.JavaConverters._
@@ -571,35 +572,66 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
     * @return
     *   JdbcStatementBuilder[E]
     */
-  def getStatementBuilder[E <: ADT]: JdbcStatementBuilder[E] = {
-    case (statement, element) =>
-      val data = element.getClass.getDeclaredFields
-        .map(_.getName)
-        .zip(element.productIterator.toIndexedSeq)
-        .toMap
-        .filterKeys(f => columns.exists(_.name.equalsIgnoreCase(f)))
-      columns.zipWithIndex.map(x => (x._1, x._2 + 1)).foreach {
-        case (column, i) =>
-          data.get(column.name) match {
-            case Some(v) =>
-              val value = v match {
-                case ts: Instant       => Timestamp.from(ts)
-                case Some(ts: Instant) => Timestamp.from(ts)
-                case Some(x)           => x
-                case None              => null
-                case _                 => v
-              }
-              statement.setObject(i, value, column.dataType.jdbcType)
-            case None    =>
-              throw new RuntimeException(
-                s"value for field ${column.name} is not in $element"
-              )
-          }
-      }
+  def getStatementBuilder[E <: ADT]: JdbcStatementBuilder[E] =
+    new JdbcStatementBuilder[E] {
+      override def accept(statement: PreparedStatement, element: E): Unit =
+        _fillInStatement(
+          fieldValuesOf(element),
+          statement,
+          element
+        )
+    }
+
+  def fieldValuesOf[T <: Product](product: T): Map[String, Any] = {
+    product.getClass.getDeclaredFields
+      .map(_.getName)
+      .zip(product.productIterator.toIndexedSeq)
+      .toMap
   }
 
-  def getSink[E <: ADT: TypeInformation](
-      dataStream: DataStream[E]): DataStreamSink[E] = {
+  def getAvroStatementBuilder[
+      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+      A <: GenericRecord: TypeInformation]: JdbcStatementBuilder[E] =
+    new JdbcStatementBuilder[E] {
+      override def accept(
+          statement: PreparedStatement,
+          element: E): Unit = {
+        println(s"XXX: $element")
+        _fillInStatement[E](
+          fieldValuesOf(element.$record.asInstanceOf[Product]),
+          statement,
+          element
+        )
+      }
+    }
+
+  def _fillInStatement[E <: ADT](
+      data: Map[String, Any],
+      statement: PreparedStatement,
+      element: E): Unit = {
+    columns.zipWithIndex.map(x => (x._1, x._2 + 1)).foreach {
+      case (column, i) =>
+        data.get(column.name) match {
+          case Some(v) =>
+            val value = v match {
+              case ts: Instant       => Timestamp.from(ts)
+              case Some(ts: Instant) => Timestamp.from(ts)
+              case Some(x)           => x
+              case None              => null
+              case _                 => v
+            }
+            statement.setObject(i, value, column.dataType.jdbcType)
+          case None    =>
+            throw new RuntimeException(
+              s"value for field ${column.name} is not in $element"
+            )
+        }
+    }
+  }
+
+  def _getSink[E <: ADT: TypeInformation](
+      dataStream: DataStream[E],
+      statementBuilder: JdbcStatementBuilder[E]): DataStreamSink[E] = {
     val jdbcOutputFormat =
       new JdbcOutputFormat[E, E, JdbcBatchStatementExecutor[E]](
         new SimpleJdbcConnectionProvider(
@@ -616,7 +648,7 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
               t: RuntimeContext): JdbcBatchStatementExecutor[E] = {
             JdbcBatchStatementExecutor.simple(
               queryDml,
-              getStatementBuilder[E],
+              statementBuilder,
               JavaFunction.identity[E]
             )
           }
@@ -630,6 +662,16 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
       .uid(label)
       .name(label)
   }
+
+  override def getSink[E <: ADT: TypeInformation](
+      dataStream: DataStream[E]): DataStreamSink[E] =
+    _getSink(dataStream, getStatementBuilder[E])
+
+  override def getAvroSink[
+      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+      A <: GenericRecord: TypeInformation](
+      dataStream: DataStream[E]): DataStreamSink[E] =
+    _getSink(dataStream, getAvroStatementBuilder[E, A])
 }
 
 object JdbcSinkConfig {
