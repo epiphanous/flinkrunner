@@ -5,12 +5,11 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 import org.apache.flink.streaming.api.functions.sink.SinkFunction
 import org.apache.flink.test.util.MiniClusterWithClientResource
 import org.scalatest.BeforeAndAfter
-import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.util
 import java.util.Collections
-import org.apache.flink.api.common.state.{ListStateDescriptor}
+import org.apache.flink.api.common.state.ListStateDescriptor
 import org.apache.flink.api.java.functions.KeySelector
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.streaming.api.datastream.DataStreamSource
@@ -18,9 +17,10 @@ import org.apache.flink.streaming.api.functions.ProcessFunction
 import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.flink.streaming.api.scala.createTypeInformation
 import org.apache.flink.util.Collector
-import RichStateUtils._
+import io.epiphanous.flinkrunner.UnitSpec
 
-class RichStateUtilsTests extends AnyFlatSpec with Matchers with BeforeAndAfter {
+import RichStateUtils._
+class RichStateUtilsTests extends UnitSpec with Matchers with BeforeAndAfter {
 
   val flinkCluster = new MiniClusterWithClientResource(new MiniClusterResourceConfiguration.Builder()
     .setNumberSlotsPerTaskManager(2)
