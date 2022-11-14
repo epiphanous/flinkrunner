@@ -10,7 +10,7 @@ import org.scalatest.matchers.should.Matchers
 
 import java.util
 import java.util.Collections
-import org.apache.flink.api.common.state.{ListState, ListStateDescriptor}
+import org.apache.flink.api.common.state.{ListStateDescriptor}
 import org.apache.flink.api.java.functions.KeySelector
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.streaming.api.datastream.DataStreamSource
@@ -20,7 +20,7 @@ import org.apache.flink.streaming.api.scala.createTypeInformation
 import org.apache.flink.util.Collector
 import RichStateUtils._
 
-class ListStateTest extends AnyFlatSpec with Matchers with BeforeAndAfter {
+class RichStateUtilsTests extends AnyFlatSpec with Matchers with BeforeAndAfter {
 
   val flinkCluster = new MiniClusterWithClientResource(new MiniClusterResourceConfiguration.Builder()
     .setNumberSlotsPerTaskManager(2)
@@ -36,7 +36,7 @@ class ListStateTest extends AnyFlatSpec with Matchers with BeforeAndAfter {
   }
 
 
-  "ListStateTest1 pipeline" should "group correctly" in {
+  "RichListStateTest1 pipeline" should "implement all members" in {
 
     CollectSink.values.clear()
 
@@ -71,28 +71,39 @@ class ListStateTest extends AnyFlatSpec with Matchers with BeforeAndAfter {
       }
       override def processElement(value: Integer, ctx: ProcessFunction[Integer, Integer]#Context, out: Collector[Integer]): Unit = {
 
-        if(this.listState.isEmpty) {
-          println(s"State is empty for element [$value]!")
-        }
+        // These groups of related functions should yield functionality equivalent results
+        assert(
+          (this.listState.isEmpty && this.listState.length <= 0)
+          ||
+          (!this.listState.isEmpty && this.listState.length > 0)
+        )
 
-        if(this.listState.contains(value)) {
-          println(s"State contains $value")
-          out.collect(value + 10)
+        assert(
+          (this.listState.contains(value) && this.listState.find(value).get.equals(value))
+          ||
+          (!this.listState.contains(value) && this.listState.find(value).isEmpty)
+        )
+
+        if(!this.listState.isEmpty && this.listState.contains(value)) {
+          // collects (2, 4, 6, 8) [ yields 4 elements ]
+          out.collect(value * 2)
+          // collects (1, 2, 3, 4) [ yields 4 elements ]
+          out.collect(this.listState.find(value).get)
         }
         listState.add(value)
       }
     }).addSink(new CollectSink())
 
     env.execute("ListStateTestLocalJob")
-    CollectSink.values should contain allOf(11, 12, 13, 14)
+    CollectSink.values should contain allOf(1, 2, 3, 4, 6, 8)
   }
 }
 
-class CollectSink extends SinkFunction[Integer] {
+private class CollectSink extends SinkFunction[Integer] {
   override def invoke(value: Integer, context: SinkFunction.Context): Unit = {
     CollectSink.values.add(value)
   }
 }
-object CollectSink {
+private object CollectSink {
   val values: util.List[Integer] = Collections.synchronizedList(new util.ArrayList())
 }
