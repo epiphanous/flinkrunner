@@ -2,10 +2,14 @@ package io.epiphanous.flinkrunner.model.sink
 
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.{
+  EmbeddedAvroRecord,
   FlinkConfig,
   FlinkConnectorName,
   FlinkEvent
 }
+import io.epiphanous.flinkrunner.util.AvroUtils.RichGenericRecord
+import org.apache.avro.generic.GenericRecord
+import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.connector.sink2.SinkWriter
 import org.apache.flink.connector.elasticsearch.sink
 import org.apache.flink.connector.elasticsearch.sink.{
@@ -19,7 +23,7 @@ import org.apache.http.HttpHost
 import org.elasticsearch.client.Requests
 
 import java.net.URL
-import scala.collection.JavaConverters.mapAsJavaMap
+import scala.collection.JavaConverters._
 
 /** Elasticsearch sink config
   *
@@ -48,7 +52,7 @@ case class ElasticsearchSinkConfig[ADT <: FlinkEvent](
     with LazyLogging {
 
   override val connector: FlinkConnectorName =
-    FlinkConnectorName.ElasticsearchSink
+    FlinkConnectorName.Elasticsearch
 
   val index: String              = config.getString(pfx("index"))
   val transports: List[HttpHost] =
@@ -75,11 +79,13 @@ case class ElasticsearchSinkConfig[ADT <: FlinkEvent](
   val bulkFlushIntervalMs: Option[Long] =
     Option(properties.getProperty("bulk.flush.interval.ms")).map(_.toLong)
 
-  def getSink[E <: ADT](dataStream: DataStream[E]): DataStreamSink[E] = {
+  def _getSink[E <: ADT: TypeInformation](
+      dataStream: DataStream[E],
+      emitter: ElasticsearchEmitter[E]): DataStreamSink[E] = {
     val esb =
       new Elasticsearch7SinkBuilder[E]
         .setHosts(transports: _*)
-        .setEmitter[E](getEmitter[E])
+        .setEmitter[E](emitter)
         .setBulkFlushBackoffStrategy(
           bulkFlushBackoffType,
           bulkFlushBackoffRetries,
@@ -91,13 +97,37 @@ case class ElasticsearchSinkConfig[ADT <: FlinkEvent](
     dataStream.sinkTo(esb.build()).uid(label).name(label)
   }
 
-  def getEmitter[E <: ADT]: ElasticsearchEmitter[E] =
+  override def getSink[E <: ADT: TypeInformation](
+      dataStream: DataStream[E]): DataStreamSink[E] =
+    _getSink(dataStream, getEmitter[E])
+
+  override def getAvroSink[
+      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+      A <: GenericRecord: TypeInformation](
+      dataStream: DataStream[E]): DataStreamSink[E] =
+    _getSink(dataStream, getAvroEmitter[E, A])
+
+  def _getEmitter[E <: ADT](
+      getData: E => AnyRef): ElasticsearchEmitter[E] =
     (element: E, _: SinkWriter.Context, indexer: sink.RequestIndexer) =>
       indexer.add(
         Requests.indexRequest
           .index(index)
           .source(
-            mapAsJavaMap(Map("data" -> element.asInstanceOf[AnyRef]))
+            Map("data" -> getData(element)).asJava
           )
       )
+
+  def getEmitter[E <: ADT]: ElasticsearchEmitter[E] = _getEmitter { e =>
+    val values = e.productIterator
+    e.getClass.getDeclaredFields
+      .map(_.getName -> values.next())
+      .toMap
+      .asJava
+  }
+  def getAvroEmitter[
+      E <: ADT with EmbeddedAvroRecord[A],
+      A <: GenericRecord]: ElasticsearchEmitter[E] = _getEmitter(
+    _.$record.getDataAsMap.asJava
+  )
 }

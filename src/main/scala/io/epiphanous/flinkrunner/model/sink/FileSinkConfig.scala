@@ -110,7 +110,7 @@ case class FileSinkConfig[ADT <: FlinkEvent](
     * @return
     *   DataStreamSink[E]
     */
-  def getSink[E <: ADT: TypeInformation](
+  override def getSink[E <: ADT: TypeInformation](
       dataStream: DataStream[E]): DataStreamSink[E] =
     dataStream.sinkTo(
       FileSink
@@ -133,7 +133,7 @@ case class FileSinkConfig[ADT <: FlinkEvent](
     * @return
     *   DataStream[E]
     */
-  def getAvroSink[
+  override def getAvroSink[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](
       dataStream: DataStream[E]): DataStreamSink[E] = {

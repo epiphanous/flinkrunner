@@ -19,7 +19,7 @@ import java.nio.charset.StandardCharsets
   */
 class JsonSerializationSchema[
     E <: ADT: TypeInformation,
-    ADT <: FlinkEvent: TypeInformation](sinkConfig: SinkConfig[ADT])
+    ADT <: FlinkEvent](sinkConfig: SinkConfig[ADT])
     extends SerializationSchema[E]
     with LazyLogging {
 

@@ -2,6 +2,7 @@ package io.epiphanous.flinkrunner.model.source
 
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.serde._
+import io.epiphanous.flinkrunner.util.AvroUtils.toEmbeddedAvroInstance
 import io.epiphanous.flinkrunner.util.ConfigToProps.getFromEither
 import io.epiphanous.flinkrunner.util.FileUtils.getResourceOrFile
 import org.apache.avro.Schema
@@ -294,13 +295,13 @@ case class FileSourceConfig[ADT <: FlinkEvent](
       case StreamFormatName.Avro    =>
         val avroInputFormat = new AvroInputFormat(
           origin,
-          implicitly[TypeInformation[A]].getTypeClass
+          classOf[GenericRecord]
         )
         avroInputFormat.setNestedFileEnumeration(true)
         if (wantsFiltering) avroInputFormat.setFilesFilter(fileFilter)
         nameAndWatermark(
           env
-            .readFile[A](
+            .readFile[GenericRecord](
               avroInputFormat,
               path,
               if (monitorDuration > 0)
@@ -310,7 +311,13 @@ case class FileSourceConfig[ADT <: FlinkEvent](
             )
             .uid(s"avro:$label")
             .name(s"avro:$label")
-            .map((a: A) => fromKV(EmbeddedAvroRecordInfo(a, config))),
+            .map(g =>
+              toEmbeddedAvroInstance[E, A, ADT](
+                g,
+                implicitly[TypeInformation[A]].getTypeClass,
+                config
+              )
+            ),
           label
         )
       case _                        =>

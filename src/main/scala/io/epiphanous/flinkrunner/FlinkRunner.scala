@@ -5,9 +5,11 @@ import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.model.sink._
 import io.epiphanous.flinkrunner.model.source._
+import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.JobExecutionResult
 import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.formats.avro.utils.AvroKryoSerializerUtils.AvroSchemaSerializer
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.table.api.bridge.scala.StreamTableEnvironment
@@ -41,6 +43,11 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     config.getStreamExecutionEnvironment
 
   val tableEnv: StreamTableEnvironment = StreamTableEnvironment.create(env)
+
+  env.getConfig.addDefaultKryoSerializer(
+    classOf[Schema],
+    classOf[AvroSchemaSerializer]
+  )
 
   /** Gets (and returns as string) the execution plan for the job from the
     * StreamExecutionEnvironment.
@@ -261,7 +268,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
   def toSink[E <: ADT: TypeInformation](
       stream: DataStream[E],
       sinkName: String
-  ): Object =
+  ): DataStreamSink[E] =
     configToSink[E](stream, getSinkConfig(sinkName))
 
   /** Create an avro-encoded stream sink from configuration.
@@ -282,7 +289,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
       A <: GenericRecord: TypeInformation](
       stream: DataStream[E],
       sinkName: String
-  ): Object =
+  ): DataStreamSink[E] =
     configToAvroSink[E, A](stream, getSinkConfig(sinkName))
 
   def getSinkConfig(
@@ -299,7 +306,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
 
   def configToSink[E <: ADT: TypeInformation](
       stream: DataStream[E],
-      sinkConfig: SinkConfig[ADT]): Object =
+      sinkConfig: SinkConfig[ADT]): DataStreamSink[E] =
     sinkConfig match {
       case s: CassandraSinkConfig[ADT]     => s.getSink[E](stream)
       case s: ElasticsearchSinkConfig[ADT] => s.getSink[E](stream)
@@ -317,11 +324,13 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
       stream: DataStream[E],
       sinkConfig: SinkConfig[ADT]): DataStreamSink[E] =
     sinkConfig match {
-      case s: KafkaSinkConfig[ADT] => s.getAvroSink[E, A](stream)
-      case s: FileSinkConfig[ADT]  => s.getAvroSink[E, A](stream)
-      case s                       =>
-        throw new RuntimeException(
-          s"Avro serialization not supported for ${s.connector} sinks"
-        )
+      case s: CassandraSinkConfig[ADT]     => s.getAvroSink[E, A](stream)
+      case s: ElasticsearchSinkConfig[ADT] => s.getAvroSink[E, A](stream)
+      case s: FileSinkConfig[ADT]          => s.getAvroSink[E, A](stream)
+      case s: JdbcSinkConfig[ADT]          => s.getAvroSink[E, A](stream)
+      case s: KafkaSinkConfig[ADT]         => s.getAvroSink[E, A](stream)
+      case s: KinesisSinkConfig[ADT]       => s.getAvroSink[E, A](stream)
+      case s: RabbitMQSinkConfig[ADT]      => s.getAvroSink[E, A](stream)
+      case s: SocketSinkConfig[ADT]        => s.getAvroSink[E, A](stream)
     }
 }

@@ -1,13 +1,9 @@
 package io.epiphanous.flinkrunner.model.sink
 
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.model.{
-  FlinkConfig,
-  FlinkConnectorName,
-  FlinkEvent,
-  StreamFormatName
-}
+import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.serde._
+import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.serialization.SerializationSchema
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.datastream.DataStreamSink
@@ -62,14 +58,31 @@ case class SocketSinkConfig[ADT <: FlinkEvent](
         }
     }
 
-  def getSink[E <: ADT: TypeInformation](
-      dataStream: DataStream[E]): DataStreamSink[E] = dataStream.addSink(
-    new SocketClientSink[E](
-      host,
-      port,
-      getSerializationSchema[E],
-      maxRetries,
-      autoFlush
+  override def getSink[E <: ADT: TypeInformation](
+      dataStream: DataStream[E]): DataStreamSink[E] =
+    _getSink[E](dataStream, getSerializationSchema[E])
+
+  def getAvroSerializationSchema[
+      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+      A <: GenericRecord: TypeInformation]: SerializationSchema[E] =
+    new EmbeddedAvroJsonSerializationSchema[E, A, ADT](this)
+
+  override def getAvroSink[
+      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+      A <: GenericRecord: TypeInformation](
+      dataStream: DataStream[E]): DataStreamSink[E] =
+    _getSink[E](dataStream, getAvroSerializationSchema[E, A])
+
+  def _getSink[E <: ADT: TypeInformation](
+      dataStream: DataStream[E],
+      serializationSchema: SerializationSchema[E]): DataStreamSink[E] =
+    dataStream.addSink(
+      new SocketClientSink[E](
+        host,
+        port,
+        serializationSchema,
+        maxRetries,
+        autoFlush
+      )
     )
-  )
 }

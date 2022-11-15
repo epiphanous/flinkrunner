@@ -42,7 +42,7 @@
 
 `Flinkrunner 4`
 is [available on maven central](https://mvnrepository.com/artifact/io.epiphanous/flinkrunner_2.12)
-, built against Flink 1.15 with Scala 2.12 and JDK 11. You can add it to your sbt project:
+, built against Flink 1.16 with Scala 2.12 and JDK 11. You can add it to your sbt project:
 
 ```sbtshell
 libraryDependencies += "io.epiphanous" %% "flinkrunner" % <flinkrunner-version>

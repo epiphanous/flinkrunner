@@ -105,7 +105,17 @@ object AvroUtils extends LazyLogging {
         )
       )
 
-  implicit class GenericToSpecific(genericRecord: GenericRecord) {
+  implicit class RichGenericRecord(genericRecord: GenericRecord) {
+    def getDataAsSeq[A <: GenericRecord]: Seq[AnyRef] =
+      genericRecord.getSchema.getFields.asScala.map(f =>
+        genericRecord.get(f.pos())
+      )
+
+    def getDataAsMap[A <: GenericRecord]: Map[String, AnyRef] =
+      genericRecord.getSchema.getFields.asScala
+        .map(f => (f.name(), genericRecord.get(f.name())))
+        .toMap
+
     def toSpecific[A <: GenericRecord](instance: A): A = {
       genericRecord.getSchema.getFields.asScala
         .foldLeft(instance) { (a, field) =>
