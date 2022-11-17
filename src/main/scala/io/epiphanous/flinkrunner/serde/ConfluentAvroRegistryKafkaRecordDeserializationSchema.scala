@@ -7,6 +7,7 @@ import io.epiphanous.flinkrunner.model.{
   EmbeddedAvroRecordInfo,
   FlinkEvent
 }
+import io.epiphanous.flinkrunner.model.KafkaInfoHeader._
 import io.epiphanous.flinkrunner.util.AvroUtils.{
   isSpecific,
   schemaOf,
@@ -72,7 +73,21 @@ class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
       .map(_.asScala.map { h =>
         (h.key(), new String(h.value(), StandardCharsets.UTF_8))
       }.toMap)
-      .getOrElse(Map.empty[String, String])
+      .getOrElse(Map.empty[String, String]) ++ (
+      headerName(SerializedValueSize) -> record
+        .serializedValueSize()
+        .toString,
+      headerName(SerializedKeySize)   -> record
+        .serializedKeySize()
+        .toString,
+      headerName(Offset)              -> record.offset().toString,
+      headerName(Partition)           -> record.partition().toString,
+      headerName(Timestamp)           -> record.timestamp().toString,
+      headerName(TimestampType)       -> record
+        .timestampType()
+        .name(),
+      headerName(Topic)               -> record.topic()
+    )
 
     val key = Option(record.key()).map(keyBytes =>
       new String(keyBytes, StandardCharsets.UTF_8)
