@@ -186,6 +186,15 @@ object SqlColumnType {
     withPrecision(6)
   )
 
+  final val JSON = SqlColumnType(
+    "json",
+    Types.OTHER,
+    productConfig = Map(
+      Postgresql -> withName("JSONB", sharedDefaultConfig),
+      Snowflake -> withName("VARIANT", sharedDefaultConfig)
+    )
+  )
+
   final val values = Map(
     "BOOLEAN"                 -> BOOLEAN,
     "TINYINT"                 -> TINYINT,
@@ -203,7 +212,8 @@ object SqlColumnType {
     "TIME"                    -> TIME,
     "TIME_WITH_TIMEZONE"      -> TIME_WITH_TIMEZONE,
     "TIMESTAMP"               -> TIMESTAMP,
-    "TIMESTAMP_WITH_TIMEZONE" -> TIMESTAMP_WITH_TIMEZONE
+    "TIMESTAMP_WITH_TIMEZONE" -> TIMESTAMP_WITH_TIMEZONE,
+    "JSON"                    -> JSON
   )
 
 }

@@ -1,16 +1,11 @@
 package io.epiphanous.flinkrunner.model.sink
 
+
+
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.model.SupportedDatabase.{
-  Postgresql,
-  Snowflake
-}
+import io.epiphanous.flinkrunner.model.SupportedDatabase.{Postgresql, Snowflake}
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.model.sink.JdbcSinkConfig.{
-  DEFAULT_CONNECTION_TIMEOUT,
-  DEFAULT_TIMESCALE_CHUNK_TIME_INTERVAL,
-  DEFAULT_TIMESCALE_NUMBER_PARTITIONS
-}
+import io.epiphanous.flinkrunner.model.sink.JdbcSinkConfig.{DEFAULT_CONNECTION_TIMEOUT, DEFAULT_TIMESCALE_CHUNK_TIME_INTERVAL, DEFAULT_TIMESCALE_NUMBER_PARTITIONS}
 import io.epiphanous.flinkrunner.operator.CreateTableJdbcSinkFunction
 import io.epiphanous.flinkrunner.util.SqlBuilder
 import org.apache.avro.generic.GenericRecord
@@ -20,11 +15,7 @@ import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat
 import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat.StatementExecutorFactory
 import org.apache.flink.connector.jdbc.internal.connection.SimpleJdbcConnectionProvider
 import org.apache.flink.connector.jdbc.internal.executor.JdbcBatchStatementExecutor
-import org.apache.flink.connector.jdbc.{
-  JdbcConnectionOptions,
-  JdbcExecutionOptions,
-  JdbcStatementBuilder
-}
+import org.apache.flink.connector.jdbc.{JdbcConnectionOptions, JdbcExecutionOptions, JdbcStatementBuilder}
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
 
@@ -34,6 +25,8 @@ import java.util.function.{Function => JavaFunction}
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
+import org.json4s.jackson.Serialization
+
 
 /** A JDBC sink configuration. This configuration currently supports four
   * database types:
@@ -609,6 +602,7 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
       data: Map[String, Any],
       statement: PreparedStatement,
       element: E): Unit = {
+    implicit val formats = org.json4s.DefaultFormats
     columns.zipWithIndex.map(x => (x._1, x._2 + 1)).foreach {
       case (column, i) =>
         data.get(column.name) match {
@@ -618,6 +612,7 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
               case Some(ts: Instant) => Timestamp.from(ts)
               case Some(x)           => x
               case None              => null
+              case m: Map[String, Any] => Serialization.write(m)
               case _                 => v
             }
             statement.setObject(i, value, column.dataType.jdbcType)

@@ -133,7 +133,9 @@ val otherDeps = Seq(
   "net.java.dev.jna"                 % "jna"                              % V.jna                 % Test,
   "com.microsoft.sqlserver"          % "mssql-jdbc"                       % V.jdbcMssql           % Provided,
   "com.dimafeng"                    %% "testcontainers-scala-cassandra"   % V.testContainersScala % Test,
-  "com.datastax.cassandra"           % "cassandra-driver-extras"          % V.cassandraDriver     % Provided
+  "com.datastax.cassandra"           % "cassandra-driver-extras"          % V.cassandraDriver     % Provided,
+  "org.json4s" %% "json4s-native" % "4.1.0-M2",
+  "org.json4s" %% "json4s-jackson" % "4.1.0-M2",
 ) ++
   Seq("org.apache.parquet" % "parquet-avro" % V.parquet % Provided).map(
     m =>
