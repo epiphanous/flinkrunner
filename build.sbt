@@ -52,7 +52,6 @@ val V = new {
   val hadoop              = "3.3.2"
   val cassandraDriver     = "3.11.3"
   val jna                 = "5.12.1" // needed for testcontainers in some jvms
-  val json4s              = "4.1.0-M2"
 }
 
 val flinkDeps =
@@ -125,6 +124,7 @@ val otherDeps = Seq(
   "com.github.pjfanning"            %% "jackson-scala-reflect-extensions" % V.jackson,
   "com.fasterxml.jackson.dataformat" % "jackson-dataformat-csv"           % V.jackson,
   "com.fasterxml.jackson.datatype"   % "jackson-datatype-jsr310"          % V.jackson,
+  "com.fasterxml.jackson.core"       % "jackson-databind"                 % V.jackson,
   "com.dimafeng"                    %% "testcontainers-scala-scalatest"   % V.testContainersScala % Test,
   "com.dimafeng"                    %% "testcontainers-scala-mysql"       % V.testContainersScala % Test,
   "mysql"                            % "mysql-connector-java"             % V.jdbcMysql           % Provided,
@@ -135,8 +135,6 @@ val otherDeps = Seq(
   "com.microsoft.sqlserver"          % "mssql-jdbc"                       % V.jdbcMssql           % Provided,
   "com.dimafeng"                    %% "testcontainers-scala-cassandra"   % V.testContainersScala % Test,
   "com.datastax.cassandra"           % "cassandra-driver-extras"          % V.cassandraDriver     % Provided,
-  "org.json4s" %% "json4s-native" % V.json4s,
-  "org.json4s" %% "json4s-jackson" % V.json4s,
 ) ++
   Seq("org.apache.parquet" % "parquet-avro" % V.parquet % Provided).map(
     m =>

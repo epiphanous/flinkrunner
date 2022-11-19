@@ -19,13 +19,15 @@ import org.apache.flink.connector.jdbc.{JdbcConnectionOptions, JdbcExecutionOpti
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
 
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import com.fasterxml.jackson.databind.ObjectMapper
+
 import java.sql.{Connection, DriverManager, PreparedStatement, Timestamp}
 import java.time.Instant
 import java.util.function.{Function => JavaFunction}
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
-import org.json4s.jackson.Serialization
 
 
 /** A JDBC sink configuration. This configuration currently supports four
@@ -602,7 +604,8 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
       data: Map[String, Any],
       statement: PreparedStatement,
       element: E): Unit = {
-    implicit val formats = org.json4s.DefaultFormats
+      val mapper = new ObjectMapper()
+      mapper.registerModule(DefaultScalaModule)
     columns.zipWithIndex.map(x => (x._1, x._2 + 1)).foreach {
       case (column, i) =>
         data.get(column.name) match {
@@ -612,7 +615,7 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
               case Some(ts: Instant) => Timestamp.from(ts)
               case Some(x)           => x
               case None              => null
-              case m: Map[String, Any] => Serialization.write(m)
+              case m: Map[String, Any] => mapper.writeValueAsString(m)
               case _                 => v
             }
             statement.setObject(i, value, column.dataType.jdbcType)
