@@ -73,7 +73,7 @@ class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
       .map(_.asScala.map { h =>
         (h.key(), new String(h.value(), StandardCharsets.UTF_8))
       }.toMap)
-      .getOrElse(Map.empty[String, String]) ++ (
+      .getOrElse(Map.empty[String, String]) ++ Map(
       headerName(SerializedValueSize) -> record
         .serializedValueSize()
         .toString,
