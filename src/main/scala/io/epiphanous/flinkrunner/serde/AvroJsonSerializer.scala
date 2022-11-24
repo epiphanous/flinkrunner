@@ -17,6 +17,7 @@ import org.apache.flink.api.scala.createTypeInformation
 import java.nio.ByteBuffer
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 
 /** A simple custom jackson serializer to handle serializing avro records
   * (Generic or Specific)
@@ -43,49 +44,54 @@ class AvroJsonSerializer
   }
 
   def findSchemaOf[T: TypeInformation](
+      name: String,
       value: T,
-      unionSchemas: List[Schema]): Option[Schema] = {
+      unionSchemas: List[Schema]): Schema =
+    (if (value == null) {
 
-    if (value == null) {
+       unionSchemas
+         .find(_.getType.name().equalsIgnoreCase("null"))
 
-      unionSchemas
-        .find(_.getType.name().equalsIgnoreCase("null"))
+     } else {
 
-    } else {
+       val valueClass     =
+         implicitly[TypeInformation[T]].getTypeClass
+       val valueClassName = valueClass.getCanonicalName
 
-      val valueClass     =
-        implicitly[TypeInformation[T]].getTypeClass
-      val valueClassName = valueClass.getCanonicalName
+       def clsMatch[S](s: Schema, cls: Class[S]): Option[Schema] =
+         if (
+           cls.isAssignableFrom(valueClass) || valueClassName.equals(
+             s.getFullName
+           )
+         ) Some(s)
+         else None
 
-      def clsMatch[S](s: Schema, cls: Class[S]): Option[Schema] =
-        if (
-          cls.isAssignableFrom(valueClass) || valueClassName.equals(
-            s.getFullName
-          )
-        ) Some(s)
-        else None
-
-      unionSchemas
-        .flatMap(s =>
-          s.getType match {
-            case INT     => clsMatch(s, classOf[Int])
-            case DOUBLE  => clsMatch(s, classOf[Double])
-            case FLOAT   => clsMatch(s, classOf[Float])
-            case LONG    => clsMatch(s, classOf[Long])
-            case BOOLEAN => clsMatch(s, classOf[Boolean])
-            case STRING  => clsMatch(s, classOf[String])
-            case ARRAY   => clsMatch(s, classOf[Seq[_]])
-            case MAP     => clsMatch(s, classOf[Map[_, _]])
-            case BYTES   => clsMatch(s, classOf[ByteBuffer])
-            case ENUM    => clsMatch(s, classOf[GenericEnumSymbol[_]])
-            case FIXED   => clsMatch(s, classOf[GenericFixed])
-            case RECORD  => clsMatch(s, classOf[GenericRecord])
-            case _       => None
-          }
-        )
-        .headOption
-    }
-  }
+       unionSchemas
+         .flatMap(s =>
+           s.getType match {
+             case INT     => clsMatch(s, classOf[Int])
+             case DOUBLE  => clsMatch(s, classOf[Double])
+             case FLOAT   => clsMatch(s, classOf[Float])
+             case LONG    => clsMatch(s, classOf[Long])
+             case BOOLEAN => clsMatch(s, classOf[Boolean])
+             case STRING  => clsMatch(s, classOf[String])
+             case ARRAY   => clsMatch(s, classOf[Seq[_]])
+             case MAP     => clsMatch(s, classOf[mutable.Map[_, _]])
+             case BYTES   => clsMatch(s, classOf[ByteBuffer])
+             case ENUM    => clsMatch(s, classOf[GenericEnumSymbol[_]])
+             case FIXED   => clsMatch(s, classOf[GenericFixed])
+             case RECORD  => clsMatch(s, classOf[GenericRecord])
+             case _       => None
+           }
+         )
+         .headOption
+     }).getOrElse(
+      throw new RuntimeException(
+        s"field $name has value ($value) of an unexpected type; should be in (${unionSchemas
+            .map(_.getType.name())
+            .mkString(", ")})"
+      )
+    )
 
   @tailrec
   private def _serializeAvroValue[T: TypeInformation](
@@ -95,56 +101,47 @@ class AvroJsonSerializer
       gen: JsonGenerator,
       provider: SerializerProvider): Unit = {
     (schema.getType, value) match {
-      case (NULL, _) | (_, null | None)            => gen.writeNullField(name)
-      case (_, Some(v))                            =>
+      case (NULL, _) | (_, null | None)                    => gen.writeNullField(name)
+      case (_, Some(v))                                    =>
         _serializeAvroValue(name, v, schema, gen, provider)
-      case (RECORD, record: GenericRecord)         =>
+      case (RECORD, record: GenericRecord)                 =>
         gen.writeFieldName(name)
         serialize(record, gen, provider)
-      case (ENUM, ord: Int)                        =>
+      case (ENUM, ord: Int)                                =>
         gen.writeStringField(name, schema.getEnumSymbols.get(ord))
-      case (ARRAY, seq: Seq[_])                    =>
+      case (ARRAY, seq: Seq[_])                            =>
         gen.writeArrayFieldStart(name)
         seq.foreach { e =>
-          _serializeElement(e, schema.getElementType, gen, provider)
+          _serializeElement(name, e, schema.getElementType, gen, provider)
         }
         gen.writeEndArray()
-      case (MAP, map: Map[String, Any] @unchecked) =>
+      case (MAP, map: mutable.Map[String, Any] @unchecked) =>
         gen.writeObjectFieldStart(name)
         map.foreach { case (k, e) =>
           gen.writeFieldName(k)
-          _serializeElement(e, schema.getValueType, gen, provider)
+          _serializeElement(name, e, schema.getValueType, gen, provider)
         }
         gen.writeEndObject()
-      case (UNION, _)                              =>
-        val inOneOfSchemas = schema.getTypes.asScala.toList
-        val valSchema      =
-          findSchemaOf(value, inOneOfSchemas).getOrElse(
-            throw new RuntimeException(
-              s"union type field $name has value ($value) of a type not in the union schemas (${inOneOfSchemas
-                  .map(_.getType.name())
-                  .mkString(", ")})"
-            )
-          )
+      case (UNION, _)                                      =>
         _serializeAvroValue(
           name,
           value,
-          valSchema,
+          findSchemaOf(name, value, schema.getTypes.asScala.toList),
           gen,
           provider
         )
-      case (FIXED | BYTES, bytes: Array[Byte])     => // TODO: test this
+      case (FIXED | BYTES, bytes: Array[Byte])             => // TODO: test this
         gen.writeBinaryField(name, bytes)
-      case (STRING, string: String)                =>
+      case (STRING, string: String)                        =>
         gen.writeStringField(name, string)
-      case (INT, int: Int)                         =>
+      case (INT, int: Int)                                 =>
         gen.writeNumberField(name, int)
-      case (LONG, long: Long)                      => gen.writeNumberField(name, long)
-      case (FLOAT, float: Float)                   => gen.writeNumberField(name, float)
-      case (DOUBLE, double: Double)                => gen.writeNumberField(name, double)
-      case (BOOLEAN, boolean: Boolean)             =>
+      case (LONG, long: Long)                              => gen.writeNumberField(name, long)
+      case (FLOAT, float: Float)                           => gen.writeNumberField(name, float)
+      case (DOUBLE, double: Double)                        => gen.writeNumberField(name, double)
+      case (BOOLEAN, boolean: Boolean)                     =>
         gen.writeBooleanField(name, boolean)
-      case _                                       =>
+      case _                                               =>
         gen.writeFieldName(name)
         provider
           .findValueSerializer(
@@ -156,23 +153,32 @@ class AvroJsonSerializer
   }
 
   private def _serializeElement(
+      name: String,
       value: Any,
       schema: Schema,
       gen: JsonGenerator,
       provider: SerializerProvider): Unit = {
     (schema.getType, value) match {
       case (_, null | None)                => gen.writeNull()
-      case (_, Some(v))                    => _serializeElement(v, schema, gen, provider)
+      case (_, Some(v))                    =>
+        _serializeElement(name, v, schema, gen, provider)
       case (RECORD, record: GenericRecord) =>
         serialize(record, gen, provider)
       case (ENUM, ord: Int)                =>
         gen.writeString(schema.getEnumSymbols.get(ord))
       case (ARRAY, seq: Seq[_])            =>
         seq.foreach { e =>
-          _serializeElement(e, schema.getElementType, gen, provider)
+          _serializeElement(name, e, schema.getElementType, gen, provider)
         }
       case (MAP, _)                        => gen.writeObject(value)
-      case (UNION, _)                      => // todo
+      case (UNION, _)                      =>
+        _serializeElement(
+          name,
+          value,
+          findSchemaOf(name, value, schema.getTypes.asScala.toList),
+          gen,
+          provider
+        )
       case (STRING, string: String)        => gen.writeString(string)
       case (INT, int: Int)                 => gen.writeNumber(int)
       case (LONG, long: Long)              => gen.writeNumber(long)
