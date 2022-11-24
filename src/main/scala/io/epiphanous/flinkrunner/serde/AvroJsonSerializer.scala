@@ -17,7 +17,6 @@ import org.apache.flink.api.scala.createTypeInformation
 import java.nio.ByteBuffer
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
-import scala.collection.mutable
 
 /** A simple custom jackson serializer to handle serializing avro records
   * (Generic or Specific)
@@ -76,7 +75,7 @@ class AvroJsonSerializer
              case BOOLEAN => clsMatch(s, classOf[Boolean])
              case STRING  => clsMatch(s, classOf[String])
              case ARRAY   => clsMatch(s, classOf[Seq[_]])
-             case MAP     => clsMatch(s, classOf[mutable.Map[_, _]])
+             case MAP     => clsMatch(s, classOf[collection.Map[_, _]])
              case BYTES   => clsMatch(s, classOf[ByteBuffer])
              case ENUM    => clsMatch(s, classOf[GenericEnumSymbol[_]])
              case FIXED   => clsMatch(s, classOf[GenericFixed])
@@ -101,28 +100,28 @@ class AvroJsonSerializer
       gen: JsonGenerator,
       provider: SerializerProvider): Unit = {
     (schema.getType, value) match {
-      case (NULL, _) | (_, null | None)                    => gen.writeNullField(name)
-      case (_, Some(v))                                    =>
+      case (NULL, _) | (_, null | None)                       => gen.writeNullField(name)
+      case (_, Some(v))                                       =>
         _serializeAvroValue(name, v, schema, gen, provider)
-      case (RECORD, record: GenericRecord)                 =>
+      case (RECORD, record: GenericRecord)                    =>
         gen.writeFieldName(name)
         serialize(record, gen, provider)
-      case (ENUM, ord: Int)                                =>
+      case (ENUM, ord: Int)                                   =>
         gen.writeStringField(name, schema.getEnumSymbols.get(ord))
-      case (ARRAY, seq: Seq[_])                            =>
+      case (ARRAY, seq: Seq[_])                               =>
         gen.writeArrayFieldStart(name)
         seq.foreach { e =>
           _serializeElement(name, e, schema.getElementType, gen, provider)
         }
         gen.writeEndArray()
-      case (MAP, map: mutable.Map[String, Any] @unchecked) =>
+      case (MAP, map: collection.Map[String, Any] @unchecked) =>
         gen.writeObjectFieldStart(name)
         map.foreach { case (k, e) =>
           gen.writeFieldName(k)
           _serializeElement(name, e, schema.getValueType, gen, provider)
         }
         gen.writeEndObject()
-      case (UNION, _)                                      =>
+      case (UNION, _)                                         =>
         _serializeAvroValue(
           name,
           value,
@@ -130,18 +129,18 @@ class AvroJsonSerializer
           gen,
           provider
         )
-      case (FIXED | BYTES, bytes: Array[Byte])             => // TODO: test this
+      case (FIXED | BYTES, bytes: Array[Byte])                => // TODO: test this
         gen.writeBinaryField(name, bytes)
-      case (STRING, string: String)                        =>
+      case (STRING, string: String)                           =>
         gen.writeStringField(name, string)
-      case (INT, int: Int)                                 =>
+      case (INT, int: Int)                                    =>
         gen.writeNumberField(name, int)
-      case (LONG, long: Long)                              => gen.writeNumberField(name, long)
-      case (FLOAT, float: Float)                           => gen.writeNumberField(name, float)
-      case (DOUBLE, double: Double)                        => gen.writeNumberField(name, double)
-      case (BOOLEAN, boolean: Boolean)                     =>
+      case (LONG, long: Long)                                 => gen.writeNumberField(name, long)
+      case (FLOAT, float: Float)                              => gen.writeNumberField(name, float)
+      case (DOUBLE, double: Double)                           => gen.writeNumberField(name, double)
+      case (BOOLEAN, boolean: Boolean)                        =>
         gen.writeBooleanField(name, boolean)
-      case _                                               =>
+      case _                                                  =>
         gen.writeFieldName(name)
         provider
           .findValueSerializer(
