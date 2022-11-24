@@ -42,7 +42,20 @@ class AvroJsonSerializer
     gen.writeEndObject()
   }
 
-  def findSchemaOf[T: TypeInformation](
+  /** Based on a value, determine which, if any, of the possible schemas in
+    * a union apply to the value.
+    * @param name
+    *   name of the field which has the union type
+    * @param value
+    *   the value that needs serializing
+    * @param unionSchemas
+    *   the admissible schemas for the union
+    * @tparam T
+    *   the type of value
+    * @return
+    *   Option[Schema]
+    */
+  def findSchemaOf[T](
       name: String,
       value: T,
       unionSchemas: List[Schema]): Schema =
@@ -53,8 +66,7 @@ class AvroJsonSerializer
 
      } else {
 
-       val valueClass     =
-         implicitly[TypeInformation[T]].getTypeClass
+       val valueClass     = value.getClass
        val valueClassName = valueClass.getCanonicalName
 
        def clsMatch[S](s: Schema, cls: Class[S]): Option[Schema] =
@@ -68,15 +80,48 @@ class AvroJsonSerializer
        unionSchemas
          .flatMap(s =>
            s.getType match {
-             case INT     => clsMatch(s, classOf[Int])
-             case DOUBLE  => clsMatch(s, classOf[Double])
-             case FLOAT   => clsMatch(s, classOf[Float])
-             case LONG    => clsMatch(s, classOf[Long])
-             case BOOLEAN => clsMatch(s, classOf[Boolean])
+             case INT     =>
+               clsMatch(s, classOf[Int]) orElse
+                 clsMatch(
+                   s,
+                   classOf[java.lang.Integer]
+                 )
+             case DOUBLE  =>
+               clsMatch(s, classOf[Double]) orElse clsMatch(
+                 s,
+                 classOf[java.lang.Double]
+               )
+             case FLOAT   =>
+               clsMatch(s, classOf[Float]) orElse clsMatch(
+                 s,
+                 classOf[java.lang.Float]
+               )
+             case LONG    =>
+               clsMatch(s, classOf[Long]) orElse clsMatch(
+                 s,
+                 classOf[java.lang.Long]
+               )
+             case BOOLEAN =>
+               clsMatch(s, classOf[Boolean]) orElse clsMatch(
+                 s,
+                 classOf[java.lang.Boolean]
+               )
              case STRING  => clsMatch(s, classOf[String])
-             case ARRAY   => clsMatch(s, classOf[Seq[_]])
-             case MAP     => clsMatch(s, classOf[collection.Map[_, _]])
-             case BYTES   => clsMatch(s, classOf[ByteBuffer])
+             case ARRAY   =>
+               clsMatch(s, classOf[Seq[_]]) orElse clsMatch(
+                 s,
+                 classOf[java.util.List[_]]
+               )
+             case MAP     =>
+               clsMatch(s, classOf[collection.Map[_, _]]) orElse clsMatch(
+                 s,
+                 classOf[java.util.Map[_, _]]
+               )
+             case BYTES   =>
+               clsMatch(s, classOf[ByteBuffer]) orElse clsMatch(
+                 s,
+                 classOf[Array[Byte]]
+               )
              case ENUM    => clsMatch(s, classOf[GenericEnumSymbol[_]])
              case FIXED   => clsMatch(s, classOf[GenericFixed])
              case RECORD  => clsMatch(s, classOf[GenericRecord])
@@ -110,15 +155,22 @@ class AvroJsonSerializer
         gen.writeStringField(name, schema.getEnumSymbols.get(ord))
       case (ARRAY, seq: Seq[_])                               =>
         gen.writeArrayFieldStart(name)
-        seq.foreach { e =>
-          _serializeElement(name, e, schema.getElementType, gen, provider)
+        seq.zipWithIndex.foreach { case (e, i) =>
+          _serializeElement(
+            name,
+            i.toString,
+            e,
+            schema.getElementType,
+            gen,
+            provider
+          )
         }
         gen.writeEndArray()
       case (MAP, map: collection.Map[String, Any] @unchecked) =>
         gen.writeObjectFieldStart(name)
         map.foreach { case (k, e) =>
           gen.writeFieldName(k)
-          _serializeElement(name, e, schema.getValueType, gen, provider)
+          _serializeElement(name, k, e, schema.getValueType, gen, provider)
         }
         gen.writeEndObject()
       case (UNION, _)                                         =>
@@ -153,6 +205,7 @@ class AvroJsonSerializer
 
   private def _serializeElement(
       name: String,
+      key: String,
       value: Any,
       schema: Schema,
       gen: JsonGenerator,
@@ -160,21 +213,33 @@ class AvroJsonSerializer
     (schema.getType, value) match {
       case (_, null | None)                => gen.writeNull()
       case (_, Some(v))                    =>
-        _serializeElement(name, v, schema, gen, provider)
+        _serializeElement(name, key, v, schema, gen, provider)
       case (RECORD, record: GenericRecord) =>
         serialize(record, gen, provider)
       case (ENUM, ord: Int)                =>
         gen.writeString(schema.getEnumSymbols.get(ord))
       case (ARRAY, seq: Seq[_])            =>
-        seq.foreach { e =>
-          _serializeElement(name, e, schema.getElementType, gen, provider)
+        seq.zipWithIndex.foreach { case (e, i) =>
+          _serializeElement(
+            name,
+            s"$key[$i]",
+            e,
+            schema.getElementType,
+            gen,
+            provider
+          )
         }
       case (MAP, _)                        => gen.writeObject(value)
       case (UNION, _)                      =>
         _serializeElement(
           name,
+          key,
           value,
-          findSchemaOf(name, value, schema.getTypes.asScala.toList),
+          findSchemaOf(
+            s"$name[$key]",
+            value,
+            schema.getTypes.asScala.toList
+          ),
           gen,
           provider
         )
@@ -185,7 +250,8 @@ class AvroJsonSerializer
       case (BOOLEAN, boolean: Boolean)     => gen.writeBoolean(boolean)
       case _                               =>
         logger.error(
-          s"no serializer for array element type ${schema.getType.name()}"
+          s"no serializer found for $name[$key] element with type ${schema.getType
+              .name()} and value $value"
         )
       // todo
     }
