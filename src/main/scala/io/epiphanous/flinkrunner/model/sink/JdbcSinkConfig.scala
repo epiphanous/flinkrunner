@@ -18,14 +18,12 @@ import org.apache.flink.connector.jdbc.internal.executor.JdbcBatchStatementExecu
 import org.apache.flink.connector.jdbc.{JdbcConnectionOptions, JdbcExecutionOptions, JdbcStatementBuilder}
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import com.fasterxml.jackson.databind.ObjectMapper
-import io.epiphanous.flinkrunner.serde.{JsonConfig, JsonRowEncoder, RowEncoder}
-import org.apache.flink.api.java.typeutils.MapTypeInfo
+import io.epiphanous.flinkrunner.serde.JsonRowEncoder
 import org.apache.flink.api.scala.createTypeInformation
 
 import java.sql.{Connection, DriverManager, PreparedStatement, Timestamp}
 import java.time.Instant
+import java.util.Properties
 import java.util.function.{Function => JavaFunction}
 import scala.collection.JavaConverters._
 import scala.collection.mutable
@@ -125,6 +123,8 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
     config.getStringOpt(pfx("connection.username"))
   val password: Option[String] =
     config.getStringOpt(pfx("connection.password"))
+  val privateKey: Option[String] =
+    config.getStringOpt(pfx("connection.private.key"))
 
   val connTimeout: Int    =
     config
@@ -317,8 +317,13 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
 
   def getConnection: Try[Connection] = Try {
     Class.forName(SupportedDatabase.driverFor(product))
-    (username, password) match {
-      case (Some(u), Some(p)) => DriverManager.getConnection(url, u, p)
+    (username, password,privateKey) match {
+      case (Some(u), Some(p),None) => DriverManager.getConnection(url, u, p)
+      case (None,None,Some(k))=> {
+        val props= new Properties()
+        props.put("private_key_file", k)
+        DriverManager.getConnection(url,props)
+      }
       case _                  => DriverManager.getConnection(url)
     }
   }
