@@ -610,6 +610,16 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
       }
     }
 
+  def prepareValueForJdbcWrite(value : Any, default: Any, encoder: JsonRowEncoder[Map[String,Any]]): Any = {
+    value match {
+      case None => null
+      case Some(x) => prepareValueForJdbcWrite(x, default, encoder)
+      case ts: Instant => Timestamp.from(ts)
+      case m: Map[String, Any] => encoder.encode(m)
+      case _ => default
+    }
+  }
+
   def _fillInStatement[E <: ADT](
       data: Map[String, Any],
       statement: PreparedStatement,
@@ -620,15 +630,7 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
       case (column, i) =>
         data.get(column.name) match {
           case Some(v) =>
-            val value = v match {
-              case ts: Instant       => Timestamp.from(ts)
-              case Some(ts: Instant) => Timestamp.from(ts)
-              case Some(x)           => x
-              case Some(m: Map[String, Any]) => encoder.encode(m)
-              case m: Map[String, Any] => encoder.encode(m)
-              case None              => null
-              case _                 => v
-            }
+            val value = prepareValueForJdbcWrite(v, v, encoder)
             statement.setObject(i, value, column.dataType.jdbcType)
           case None    =>
             throw new RuntimeException(

@@ -190,8 +190,10 @@ object SqlColumnType {
     "json",
     Types.OTHER,
     productConfig = Map(
+      Mysql      -> withName("JSON", sharedDefaultConfig),
       Postgresql -> withName("JSONB", sharedDefaultConfig),
-      Snowflake -> withName("VARIANT", sharedDefaultConfig)
+      Snowflake  -> withName("VARIANT", sharedDefaultConfig),
+      SqlServer  -> withName("NVARCHAR", sharedDefaultConfig)
     )
   )
 
