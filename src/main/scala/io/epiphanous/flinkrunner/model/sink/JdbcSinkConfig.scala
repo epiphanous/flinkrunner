@@ -10,7 +10,7 @@ import io.epiphanous.flinkrunner.operator.CreateTableJdbcSinkFunction
 import io.epiphanous.flinkrunner.util.SqlBuilder
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.functions.RuntimeContext
-import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.api.common.typeinfo.{TypeHint, TypeInformation}
 import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat
 import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat.StatementExecutorFactory
 import org.apache.flink.connector.jdbc.internal.connection.SimpleJdbcConnectionProvider
@@ -18,9 +18,11 @@ import org.apache.flink.connector.jdbc.internal.executor.JdbcBatchStatementExecu
 import org.apache.flink.connector.jdbc.{JdbcConnectionOptions, JdbcExecutionOptions, JdbcStatementBuilder}
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
-
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.epiphanous.flinkrunner.serde.{JsonConfig, JsonRowEncoder, RowEncoder}
+import org.apache.flink.api.java.typeutils.MapTypeInfo
+import org.apache.flink.api.scala.createTypeInformation
 
 import java.sql.{Connection, DriverManager, PreparedStatement, Timestamp}
 import java.time.Instant
@@ -604,8 +606,8 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
       data: Map[String, Any],
       statement: PreparedStatement,
       element: E): Unit = {
-      val mapper = new ObjectMapper()
-      mapper.registerModule(DefaultScalaModule)
+
+    val encoder = new JsonRowEncoder[Map[String,Any]]()
     columns.zipWithIndex.map(x => (x._1, x._2 + 1)).foreach {
       case (column, i) =>
         data.get(column.name) match {
@@ -614,8 +616,9 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
               case ts: Instant       => Timestamp.from(ts)
               case Some(ts: Instant) => Timestamp.from(ts)
               case Some(x)           => x
+              case Some(m: Map[String, Any]) => encoder.encode(m)
+              case m: Map[String, Any] => encoder.encode(m)
               case None              => null
-              case m: Map[String, Any] => mapper.writeValueAsString(m)
               case _                 => v
             }
             statement.setObject(i, value, column.dataType.jdbcType)
