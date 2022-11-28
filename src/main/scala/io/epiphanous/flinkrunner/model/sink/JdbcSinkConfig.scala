@@ -125,6 +125,7 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
     config.getStringOpt(pfx("connection.password"))
   val privateKey: Option[String] =
     config.getStringOpt(pfx("connection.private.key"))
+  val role: Option[String] = config.getStringOpt(pfx("connection.role"))
 
   val connTimeout: Int    =
     config
@@ -317,11 +318,13 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
 
   def getConnection: Try[Connection] = Try {
     Class.forName(SupportedDatabase.driverFor(product))
-    (username, password,privateKey) match {
-      case (Some(u), Some(p),None) => DriverManager.getConnection(url, u, p)
-      case (None,None,Some(k))=> {
+    (username, password,privateKey,role) match {
+      case (Some(u), Some(p),None,None) => DriverManager.getConnection(url, u, p)
+      case (Some(u),None,Some(k),Some(r))=> {
         val props= new Properties()
+        props.put("user",u)
         props.put("private_key_file", k)
+        props.put("role",r)
         DriverManager.getConnection(url,props)
       }
       case _                  => DriverManager.getConnection(url)
