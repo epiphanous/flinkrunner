@@ -123,9 +123,6 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
     config.getStringOpt(pfx("connection.username"))
   val password: Option[String] =
     config.getStringOpt(pfx("connection.password"))
-  val privateKey: Option[String] =
-    config.getStringOpt(pfx("connection.private.key"))
-  val role: Option[String] = config.getStringOpt(pfx("connection.role"))
 
   val connTimeout: Int    =
     config
@@ -318,16 +315,9 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
 
   def getConnection: Try[Connection] = Try {
     Class.forName(SupportedDatabase.driverFor(product))
-    (username, password,privateKey,role) match {
-      case (Some(u), Some(p),None,None) => DriverManager.getConnection(url, u, p)
-      case (Some(u),None,Some(k),Some(r))=> {
-        val props= new Properties()
-        props.put("user",u)
-        props.put("private_key_file", k)
-        props.put("role",r)
-        DriverManager.getConnection(url,props)
-      }
-      case _                  => DriverManager.getConnection(url)
+    (username, password) match {
+      case (Some(u), Some(p)) => DriverManager.getConnection(url, u, p)
+      case _ => DriverManager.getConnection(url)
     }
   }
 
@@ -610,16 +600,6 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
       }
     }
 
-  def prepareValueForJdbcWrite(value : Any, encoder: JsonRowEncoder[Map[String,Any]]): Any = {
-    value match {
-      case None => null
-      case Some(x) => prepareValueForJdbcWrite(x, encoder)
-      case ts: Instant => Timestamp.from(ts)
-      case m: Map[String, Any] => encoder.encode(m)
-      case _ => value
-    }
-  }
-
   def _fillInStatement[E <: ADT](
       data: Map[String, Any],
       statement: PreparedStatement,
@@ -630,13 +610,31 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
       case (column, i) =>
         data.get(column.name) match {
           case Some(v) =>
-            val value = prepareValueForJdbcWrite(v, encoder)
+            val value = v match {
+              case Some(x) => _matcher(x)
+              case x => _matcher(x)
+              case null | None    => null
+            }
             statement.setObject(i, value, column.dataType.jdbcType)
           case None    =>
             throw new RuntimeException(
               s"value for field ${column.name} is not in $element"
             )
         }
+    }
+  }
+
+  def _matcher(value : Any): Unit ={
+    val encoder = new JsonRowEncoder[Map[String,Any]]()
+    value match {
+      case ts: Instant       => Timestamp.from(ts)
+      case m: Map[String, Any] => encoder.encode(m) match {
+        case Success(jsonString) => jsonString
+        case Failure(e) => {
+          throw new RuntimeException(s"Error occurred: ${e.getMessage}")
+        }
+      }
+      case _ => value
     }
   }
 
