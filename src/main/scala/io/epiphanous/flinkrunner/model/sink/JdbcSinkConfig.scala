@@ -624,10 +624,10 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
     }
   }
 
-  def _matcher(value : Any): Unit ={
-    val encoder = new JsonRowEncoder[Map[String,Any]]()
+  def _matcher(value: Any) = {
+    val encoder = new JsonRowEncoder[Map[String, Any]]()
     value match {
-      case ts: Instant       => Timestamp.from(ts)
+      case ts: Instant => Timestamp.from(ts)
       case m: Map[String, Any] => encoder.encode(m) match {
         case Success(jsonString) => jsonString
         case Failure(e) => {
