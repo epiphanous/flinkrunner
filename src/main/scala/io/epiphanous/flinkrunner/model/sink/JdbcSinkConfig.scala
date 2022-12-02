@@ -628,12 +628,15 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
     val encoder = new JsonRowEncoder[Map[String, Any]]()
     value match {
       case ts: Instant => Timestamp.from(ts)
-      case m: Map[String, Any] => encoder.encode(m) match {
-        case Success(jsonString) => jsonString
-        case Failure(e) => {
-          throw new RuntimeException(s"Error occurred: ${e.getMessage}")
+      case m: Map[String, Any] =>
+        try {
+          encoder.encode(m).get
+        } catch {
+          case _ => {
+            println(s"Failure to encode map: $m")
+            null
+          }
         }
-      }
       case _ => value
     }
   }
