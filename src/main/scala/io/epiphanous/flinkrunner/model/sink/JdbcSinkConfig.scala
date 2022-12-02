@@ -284,12 +284,12 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
     sqlBuilder.append(")\nSELECT ")
     Range(0, columns.length).foreach { i =>
       (columns(i).dataType,product) match {
-        case (SqlColumnType.JSON,SupportedDatabase.Snowflake) => sqlBuilder.append("parse_json(?)")
+        case (SqlColumnType.JSON,SupportedDatabase.Snowflake) => sqlBuilder.append("parse_json(?")
         case _ => sqlBuilder.append("?")
       }
       if (i < columns.length - 1) sqlBuilder.append(", ")
     }
-  //  sqlBuilder.append(")")
+    sqlBuilder.append(")")
     product match {
       case SupportedDatabase.Postgresql =>
         if (!isTimescale) {
@@ -625,7 +625,7 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
     }
   }
 
-  def _matcher(value: Any) = {
+  def _matcher(value: Any): Any = {
     val encoder = new JsonRowEncoder[Map[String, Any]]()
     value match {
       case ts: Instant => Timestamp.from(ts)
