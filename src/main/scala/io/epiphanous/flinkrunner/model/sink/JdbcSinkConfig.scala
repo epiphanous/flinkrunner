@@ -281,7 +281,7 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
       .identifier(database, schema, table)
       .append(" (")
     buildColumnList()
-    sqlBuilder.append(")\nSELECT (")
+    sqlBuilder.append(")\nSELECT ")
     Range(0, columns.length).foreach { i =>
       (columns(i).dataType,product) match {
         case (SqlColumnType.JSON,SupportedDatabase.Snowflake) => sqlBuilder.append("parse_json(?)")
@@ -289,7 +289,6 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
       }
       if (i < columns.length - 1) sqlBuilder.append(", ")
     }
-    sqlBuilder.append(")")
     product match {
       case SupportedDatabase.Postgresql =>
         if (!isTimescale) {
