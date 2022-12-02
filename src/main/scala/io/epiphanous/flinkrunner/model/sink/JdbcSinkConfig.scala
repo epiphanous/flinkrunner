@@ -1,34 +1,41 @@
 package io.epiphanous.flinkrunner.model.sink
 
-
-
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.model.SupportedDatabase.{Postgresql, Snowflake}
+import io.epiphanous.flinkrunner.model.SupportedDatabase.{
+  Postgresql,
+  Snowflake
+}
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.model.sink.JdbcSinkConfig.{DEFAULT_CONNECTION_TIMEOUT, DEFAULT_TIMESCALE_CHUNK_TIME_INTERVAL, DEFAULT_TIMESCALE_NUMBER_PARTITIONS}
+import io.epiphanous.flinkrunner.model.sink.JdbcSinkConfig.{
+  DEFAULT_CONNECTION_TIMEOUT,
+  DEFAULT_TIMESCALE_CHUNK_TIME_INTERVAL,
+  DEFAULT_TIMESCALE_NUMBER_PARTITIONS
+}
 import io.epiphanous.flinkrunner.operator.CreateTableJdbcSinkFunction
+import io.epiphanous.flinkrunner.serde.JsonRowEncoder
 import io.epiphanous.flinkrunner.util.SqlBuilder
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.functions.RuntimeContext
-import org.apache.flink.api.common.typeinfo.{TypeHint, TypeInformation}
+import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.api.scala.createTypeInformation
 import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat
 import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat.StatementExecutorFactory
 import org.apache.flink.connector.jdbc.internal.connection.SimpleJdbcConnectionProvider
 import org.apache.flink.connector.jdbc.internal.executor.JdbcBatchStatementExecutor
-import org.apache.flink.connector.jdbc.{JdbcConnectionOptions, JdbcExecutionOptions, JdbcStatementBuilder}
+import org.apache.flink.connector.jdbc.{
+  JdbcConnectionOptions,
+  JdbcExecutionOptions,
+  JdbcStatementBuilder
+}
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
-import io.epiphanous.flinkrunner.serde.JsonRowEncoder
-import org.apache.flink.api.scala.createTypeInformation
 
 import java.sql.{Connection, DriverManager, PreparedStatement, Timestamp}
 import java.time.Instant
-import java.util.Properties
 import java.util.function.{Function => JavaFunction}
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
-
 
 /** A JDBC sink configuration. This configuration currently supports four
   * database types:
@@ -283,9 +290,10 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
     buildColumnList()
     sqlBuilder.append(")\nSELECT ")
     Range(0, columns.length).foreach { i =>
-      (columns(i).dataType,product) match {
-        case (SqlColumnType.JSON,SupportedDatabase.Snowflake) => sqlBuilder.append("parse_json(?)")
-        case _ => sqlBuilder.append("?")
+      (columns(i).dataType, product) match {
+        case (SqlColumnType.JSON, SupportedDatabase.Snowflake) =>
+          sqlBuilder.append("parse_json(?)")
+        case _                                                 => sqlBuilder.append("?")
       }
       if (i < columns.length - 1) sqlBuilder.append(", ")
     }
@@ -319,7 +327,7 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
     Class.forName(SupportedDatabase.driverFor(product))
     (username, password) match {
       case (Some(u), Some(p)) => DriverManager.getConnection(url, u, p)
-      case _ => DriverManager.getConnection(url)
+      case _                  => DriverManager.getConnection(url)
     }
   }
 
@@ -612,8 +620,8 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
           case Some(v) =>
             val value = v match {
               case null | None => null
-              case Some(x) => _matcher(x)
-              case x => _matcher(x)
+              case Some(x)     => _matcher(x)
+              case x           => _matcher(x)
             }
             statement.setObject(i, value, column.dataType.jdbcType)
           case None    =>
@@ -625,19 +633,18 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
   }
 
   def _matcher(value: Any): Any = {
-    val encoder = new JsonRowEncoder[Map[String, Any]]()
+    lazy val encoder = new JsonRowEncoder[Map[String, Any]]()
     value match {
-      case ts: Instant => Timestamp.from(ts)
+      case ts: Instant         => Timestamp.from(ts)
       case m: Map[String, Any] =>
-        try {
+        try
           encoder.encode(m).get
-        } catch {
-          case _ => {
+        catch {
+          case _ =>
             println(s"Failure to encode map: $m")
             null
-          }
         }
-      case _ => value
+      case _                   => value
     }
   }
 
