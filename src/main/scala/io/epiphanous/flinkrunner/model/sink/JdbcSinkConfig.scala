@@ -292,7 +292,9 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
     Range(0, columns.length).foreach { i =>
       (columns(i).dataType, product) match {
         case (SqlColumnType.JSON, SupportedDatabase.Snowflake) =>
-          sqlBuilder.append("parse_json(?)")
+          sqlBuilder.append("PARSE_JSON(?)")
+        case (SqlColumnType.JSON, SupportedDatabase.Postgresql) =>
+          sqlBuilder.append("CAST(? AS JSON)")
         case _                                                 => sqlBuilder.append("?")
       }
       if (i < columns.length - 1) sqlBuilder.append(", ")
