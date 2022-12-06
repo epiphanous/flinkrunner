@@ -56,6 +56,7 @@ case class Codec[E](
         DeserializationFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE,
         false
       )
+      .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)
     (if (isAvro) mapper.addModule(avroModule) else mapper)
       .build() :: ScalaReflectExtensions
   }
