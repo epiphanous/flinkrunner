@@ -121,6 +121,29 @@ object AvroUtils extends LazyLogging {
         .foldLeft(instance) { (a, field) =>
           val f = field.name()
           genericRecord.get(f) match {
+            case array: java.util.List[_] =>
+              val convertedArray = array.asScala.map {
+                case rec: GenericRecord =>
+                  val fieldClassName = rec.getSchema.getFullName
+                  Try(Class.forName(fieldClassName)).fold(
+                    error =>
+                      logger.error(
+                        s"can't convert embedded generic record to a $fieldClassName",
+                        error
+                      ),
+                    klass => {
+                      if (isGenericInstance(rec)) {
+                        val k = klass
+                          .getDeclaredConstructor()
+                          .newInstance()
+                          .asInstanceOf[GenericRecord]
+                        rec.toSpecific(k)
+                      } else rec
+                    }
+                  )
+                case v => v
+              }
+              a.put(f, convertedArray.asJava)
             case rec: GenericRecord =>
               val fieldClassName = rec.getSchema.getFullName
               Try(Class.forName(fieldClassName)).fold(
@@ -145,5 +168,4 @@ object AvroUtils extends LazyLogging {
         }
     }
   }
-
 }
