@@ -556,8 +556,8 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
     JdbcExecutionOptions
       .builder()
       .withMaxRetries(maxRetries)
-      .withBatchSize(batchSize)
-      .withBatchIntervalMs(batchInterval)
+      .withBatchSize(5000)
+      .withBatchIntervalMs(5000)
       .build()
   }
 
