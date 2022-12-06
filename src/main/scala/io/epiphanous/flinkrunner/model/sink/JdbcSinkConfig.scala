@@ -5,6 +5,8 @@ import io.epiphanous.flinkrunner.model.SupportedDatabase.{
   Postgresql,
   Snowflake
 }
+import io.epiphanous.flinkrunner.util.{MysqlQueryBuilder, PostgresqlQueryBuilder, SqlServerQueryBuilder, SnowflakeQueryBuilder}
+
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.model.sink.JdbcSinkConfig.{
   DEFAULT_CONNECTION_TIMEOUT,
@@ -268,57 +270,18 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
       )
       .toMap
 
-  def buildColumnList(
-      cols: Seq[JdbcSinkColumn] = columns,
-      assign: Option[String] = None): Unit = {
-    val n = cols.length - 1
-    cols.zipWithIndex.foreach { case (col, i) =>
-      sqlBuilder.identifier(col.name)
-      assign.foreach { eq =>
-        sqlBuilder.append(eq).identifier(col.name)
-        if (eq.endsWith("(")) sqlBuilder.append(")")
-      }
-      if (i < n) sqlBuilder.append(", ")
-    }
-  }
-
   val queryDml: String = {
-    sqlBuilder
-      .append("INSERT INTO ")
-      .identifier(database, schema, table)
-      .append(" (")
-    buildColumnList()
-    sqlBuilder.append(")\nSELECT ")
-    Range(0, columns.length).foreach { i =>
-      (columns(i).dataType, product) match {
-        case (SqlColumnType.JSON, SupportedDatabase.Snowflake) =>
-          sqlBuilder.append("PARSE_JSON(?)")
-        case (SqlColumnType.JSON, SupportedDatabase.Postgresql) =>
-          sqlBuilder.append("CAST(? AS JSON)")
-        case _                                                 => sqlBuilder.append("?")
-      }
-      if (i < columns.length - 1) sqlBuilder.append(", ")
-    }
-    product match {
+    val queryBuilder = product match {
       case SupportedDatabase.Postgresql =>
-        if (!isTimescale) {
-          sqlBuilder
-            .append("\nON CONFLICT ON CONSTRAINT ")
-            .identifier(pkIndex)
-            .append(" DO UPDATE SET\n")
-          buildColumnList(nonPkCols, Some("=EXCLUDED."))
-        }
-
+        new PostgresqlQueryBuilder
       case SupportedDatabase.Mysql =>
-        sqlBuilder.append("\nON DUPLICATE KEY UPDATE\n")
-        buildColumnList(nonPkCols, Some("=VALUES("))
-
+        new MysqlQueryBuilder
       case SupportedDatabase.Snowflake =>
-      // do nothing: upsert not supported in a single prepared statement (use merge in stored proc?)
-
+        new SnowflakeQueryBuilder
       case SupportedDatabase.SqlServer =>
-      // do nothing: upsert not supported in a single prepared statement (use merge in stored proc?)
+        new SqlServerQueryBuilder
     }
+    queryBuilder.buildSqlQuery(database, schema, table, columns, product, isTimescale, nonPkCols, pkIndex)
     sqlBuilder.getSqlAndClear
   }
   logger.debug(
