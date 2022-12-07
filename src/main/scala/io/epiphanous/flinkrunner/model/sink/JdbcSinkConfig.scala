@@ -18,7 +18,6 @@ import org.apache.flink.api.common.functions.RuntimeContext
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat
 import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat.StatementExecutorFactory
-import org.apache.flink.connector.jdbc.internal.connection.SimpleJdbcConnectionProvider
 import org.apache.flink.connector.jdbc.internal.executor.JdbcBatchStatementExecutor
 import org.apache.flink.connector.jdbc.{
   JdbcConnectionOptions,
@@ -292,17 +291,7 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
     buildColumnList()
     sqlBuilder.append(")\nVALUES (")
     Range(0, columns.length).foreach { i =>
-      <<<<<<< Updated upstream
       sqlBuilder.append("?")
-      =======
-      (columns(i).dataType, product) match {
-        case (SqlColumnType.JSON, SupportedDatabase.Snowflake)  =>
-          sqlBuilder.append("PARSE_JSON(?)")
-        case (SqlColumnType.JSON, SupportedDatabase.Postgresql) =>
-          sqlBuilder.append("CAST(? AS JSON)")
-        case _                                                  => sqlBuilder.append("?")
-      }
-      >>>>>>> Stashed changes
       if (i < columns.length - 1) sqlBuilder.append(", ")
     }
     sqlBuilder.append(")")
