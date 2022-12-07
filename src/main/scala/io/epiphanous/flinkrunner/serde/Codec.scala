@@ -52,10 +52,6 @@ case class Codec[E](
         jsonConfig.sortKeys
       )
       .configure(SerializationFeature.INDENT_OUTPUT, jsonConfig.pretty)
-      .configure(
-        DeserializationFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE,
-        false
-      )
     (if (isAvro) mapper.addModule(avroModule) else mapper)
       .build() :: ScalaReflectExtensions
   }
