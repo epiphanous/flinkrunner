@@ -60,8 +60,10 @@ import scala.util.{Failure, Success, Try}
   *   - `execution`: optional object defining execution parameters:
   *     - `batch`: object defining how batches of inserts are sent to the
   *       database, with properties:
-  *       - `interval`: batches are sent at least this often
+  *       - `interval`: batches are sent at least this often (defaults to
+  *         0, which deactivates interval checking)
   *       - `size`: batches of no more than this size are sent at once
+  *         (defaults to 5000)
   *   - `table`: required object defining the structure of the database
   *     table data is inserted into
   *     - `name`: name of the table (required)
@@ -137,13 +139,15 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
   val batchInterval: Long =
     config
       .getDurationOpt(pfx("execution.batch.interval"))
-      .map(_.toSeconds)
-      .getOrElse(0L)
-  val batchSize: Int      =
+      .map(_.toMillis)
+      .getOrElse(
+        0L
+      ) // JdbcExecutionOptions.DEFAULT_INTERVAL_MILLIS is, for unknown reasons, private
+  val batchSize: Int  =
     config
       .getIntOpt(pfx("execution.batch.size"))
       .getOrElse(JdbcExecutionOptions.DEFAULT_SIZE)
-  val maxRetries: Int     =
+  val maxRetries: Int =
     config
       .getIntOpt(pfx("execution.max.retries"))
       .getOrElse(JdbcExecutionOptions.DEFAULT_MAX_RETRY_TIMES)
@@ -288,7 +292,17 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
     buildColumnList()
     sqlBuilder.append(")\nVALUES (")
     Range(0, columns.length).foreach { i =>
+      <<<<<<< Updated upstream
       sqlBuilder.append("?")
+      =======
+      (columns(i).dataType, product) match {
+        case (SqlColumnType.JSON, SupportedDatabase.Snowflake)  =>
+          sqlBuilder.append("PARSE_JSON(?)")
+        case (SqlColumnType.JSON, SupportedDatabase.Postgresql) =>
+          sqlBuilder.append("CAST(? AS JSON)")
+        case _                                                  => sqlBuilder.append("?")
+      }
+      >>>>>>> Stashed changes
       if (i < columns.length - 1) sqlBuilder.append(", ")
     }
     sqlBuilder.append(")")
@@ -634,8 +648,9 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
       statementBuilder: JdbcStatementBuilder[E]): DataStreamSink[E] = {
     val jdbcOutputFormat =
       new JdbcOutputFormat[E, E, JdbcBatchStatementExecutor[E]](
-        new SimpleJdbcConnectionProvider(
-          getJdbcConnectionOptions
+        new BasicJdbcConnectionProvider(
+          getJdbcConnectionOptions,
+          properties
         ),
         getJdbcExecutionOptions,
         // =================================
