@@ -6,17 +6,14 @@ import com.fasterxml.jackson.databind.{JsonSerializer, SerializerProvider}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.avro.Schema
 import org.apache.avro.Schema.Type._
-import org.apache.avro.generic.{
-  GenericEnumSymbol,
-  GenericFixed,
-  GenericRecord
-}
+import org.apache.avro.generic.{GenericEnumSymbol, GenericFixed, GenericRecord}
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.scala.createTypeInformation
 
 import java.nio.ByteBuffer
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
+import scala.collection.convert.Wrappers
 
 /** A simple custom jackson serializer to handle serializing avro records
   * (Generic or Specific)
@@ -166,6 +163,19 @@ class AvroJsonSerializer
           )
         }
         gen.writeEndArray()
+      case (ARRAY, arr: Wrappers.MutableBufferWrapper[GenericRecord]) =>
+        gen.writeArrayFieldStart(name)
+        arr.asScala.zipWithIndex.foreach { case (e, i) =>
+          _serializeElement(
+            name,
+            i.toString,
+            e,
+            schema.getElementType,
+            gen,
+            provider
+          )
+        }
+        gen.writeEndArray()
       case (MAP, map: collection.Map[String, Any] @unchecked) =>
         gen.writeObjectFieldStart(name)
         map.foreach { case (k, e) =>
@@ -223,6 +233,17 @@ class AvroJsonSerializer
           _serializeElement(
             name,
             s"$key[$i]",
+            e,
+            schema.getElementType,
+            gen,
+            provider
+          )
+        }
+      case (ARRAY, arr: Wrappers.MutableBufferWrapper[GenericRecord]) =>
+        arr.asScala.zipWithIndex.foreach { case (e, i) =>
+          _serializeElement(
+            name,
+            i.toString,
             e,
             schema.getElementType,
             gen,
