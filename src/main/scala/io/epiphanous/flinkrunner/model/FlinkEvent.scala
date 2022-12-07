@@ -23,7 +23,7 @@ trait FlinkEvent extends Product with Serializable {
 
   /** a path for bucketing streams of this event */
   @AvroIgnore def $bucketId: String =
-    Instant.ofEpochMilli($timestamp).prefixedTimePath(s"$$key/")
+    Instant.ofEpochMilli($timestamp).prefixedTimePath(s"${$key}/")
 
   /** an id to use to deduplicate a stream of events */
   @AvroIgnore def $dedupeId: String = $id
