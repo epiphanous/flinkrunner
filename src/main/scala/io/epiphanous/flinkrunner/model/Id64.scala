@@ -1,6 +1,10 @@
 package io.epiphanous.flinkrunner.model
 
+import com.github.f4b6a3.uuid.UuidCreator
+import io.epiphanous.flinkrunner.util.UuidUtils.RichUuid
+
 import java.time.Instant
+import java.util.UUID
 
 /** Generates short identifiers that are time-sortable, url-safe,
   * lexicographically stable, and globally unique.
@@ -31,20 +35,23 @@ object Id64 {
     UNSHUFFLE_ORDER.map(i => bytes(i))
 
   def gen(reversible: Boolean = true): String =
-    fromUUID(UUID.timeBasedUUID(), reversible)
+    fromUUID(UuidCreator.getTimeBased(), reversible)
 
   def fromUUIDString(uuid: String, reversible: Boolean = true): String =
-    fromUUID(UUID.fromString(uuid), reversible)
+    fromUUID(UuidCreator.fromString(uuid), reversible)
 
   def fromUUID(uuid: UUID, reversible: Boolean = true): String = {
-    val bytes    = uuid.bytes
-    val shuffled = shuffle(bytes, reversible)
-    D64.encode(shuffled)
+    val version = uuid.version()
+    assert(
+      version == 1,
+      "ID64 requires time-based (v1) UUIDs to work"
+    )
+    D64.encode(shuffle(uuid.bytes, reversible))
   }
 
   def ungen(id: String): UUID = {
     val b = D64.decode(id)
-    UUID.fromBytes(unshuffle(if (b.length == 15) {
+    UuidCreator.fromBytes(unshuffle(if (b.length == 15) {
       val bb = Array.fill[Byte](16)(0)
       System.arraycopy(b, 0, bb, 0, 8)
       System.arraycopy(b, 8, bb, 9, 7)
@@ -56,7 +63,7 @@ object Id64 {
   def uuidOf(id: String): UUID = ungen(id)
   def toUUID(id: String): UUID = ungen(id)
 
-  def ticksOf(id: String): Long      = uuidOf(id).timestamp
+  def ticksOf(id: String): Long      = uuidOf(id).timestamp()
   def microsOf(id: String): Long     =
     Math
       .floor((ticksOf(id) - GREGORIAN_OFFSET) / 10)
