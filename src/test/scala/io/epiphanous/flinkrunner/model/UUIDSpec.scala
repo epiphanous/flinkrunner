@@ -69,7 +69,7 @@ class UUIDSpec extends PropSpec {
       UUID.timeBasedUUID(Instant.ofEpochSecond(1577872805).plusNanos(500))
     u.variant shouldEqual UUID.Variant_1_4122
     u.version shouldEqual 1
-    u.timestamp shouldEqual 137971656050005L
+    u.timestamp shouldEqual 137971656050000005L
     u.clockSequence shouldNot be(u.node)
   }
 

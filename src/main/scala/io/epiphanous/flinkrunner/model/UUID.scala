@@ -36,11 +36,11 @@ case class UUID(msb: Long, lsb: Long) {
     else Variant_3_Future
   }
 
-  lazy val time_low: Int   = (msb >>> 32).toInt
-  lazy val time_mid: Int   = ((msb >> 16) & 0xffff).toInt
-  lazy val time_high: Int  = (msb & 0x0fff).toInt
+  lazy val time_low: Long  = msb >>> 32
+  lazy val time_mid: Long  = (msb >> 16) & 0xffffL
+  lazy val time_high: Long = msb & 0x0fffL
   lazy val timestamp: Long =
-    (time_high.toLong << 48) | (time_mid.toLong << 32) | time_low
+    (time_high << 48) | (time_mid << 32) | (msb >>> 32)
 
   lazy val clockSequence: Int = ((lsb >>> 48) & variantMask(variant)).toInt
   lazy val node: Long         = lsb & 0x0000ffffffffffffL
@@ -153,7 +153,7 @@ object UUID {
       ZonedDateTime.of(1582, 10, 15, 0, 0, 0, 0, ZoneOffset.UTC),
       time.atZone(ZoneOffset.UTC)
     )
-    var timestamp = dur.getSeconds * 10000 + dur.getNano / 100
+    var timestamp = dur.getSeconds * 10000000 + dur.getNano / 100
     val time_low  = timestamp & 0xffffffffL
     timestamp >>>= 32
     val time_mid  = timestamp & 0xffffL
