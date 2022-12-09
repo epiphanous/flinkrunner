@@ -117,33 +117,42 @@ object AvroUtils extends LazyLogging {
         .toMap
 
     def toSpecific[A <: GenericRecord](instance: A): A = {
+      def convertEmbeddedRecord(rec: GenericRecord): Any = {
+        val fieldClassName = rec.getSchema.getFullName
+        Try(Class.forName(fieldClassName)).fold(
+          error =>
+            logger.error(
+              s"can't convert embedded generic record to a $fieldClassName",
+              error
+            ),
+          klass => {
+            if (isGenericInstance(rec)) {
+              val k = klass
+                .getDeclaredConstructor()
+                .newInstance()
+                .asInstanceOf[GenericRecord]
+              rec.toSpecific(k)
+            } else rec
+          }
+        )
+      }
+
       genericRecord.getSchema.getFields.asScala
         .foldLeft(instance) { (a, field) =>
           val f = field.name()
           genericRecord.get(f) match {
+            case array: java.util.List[_] =>
+              val convertedArray = array.asScala.map {
+                case rec: GenericRecord => convertEmbeddedRecord(rec)
+                case v => v
+              }
+              a.put(f, convertedArray.asJava)
             case rec: GenericRecord =>
-              val fieldClassName = rec.getSchema.getFullName
-              Try(Class.forName(fieldClassName)).fold(
-                error =>
-                  logger.error(
-                    s"can't convert embedded generic record to a $fieldClassName",
-                    error
-                  ),
-                klass => {
-                  if (isGenericInstance(rec)) {
-                    val k = klass
-                      .getDeclaredConstructor()
-                      .newInstance()
-                      .asInstanceOf[GenericRecord]
-                    a.put(f, rec.toSpecific(k))
-                  } else a.put(f, rec)
-                }
-              )
+              a.put(f, convertEmbeddedRecord(rec))
             case v                  => a.put(f, v)
           }
           a
         }
     }
   }
-
 }

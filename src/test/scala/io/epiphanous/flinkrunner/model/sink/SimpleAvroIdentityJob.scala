@@ -2,7 +2,11 @@ package io.epiphanous.flinkrunner.model.sink
 
 import io.epiphanous.flinkrunner.FlinkRunner
 import io.epiphanous.flinkrunner.flink.AvroStreamJob
-import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, EmbeddedAvroRecordInfo, MyAvroADT}
+import io.epiphanous.flinkrunner.model.{
+  EmbeddedAvroRecord,
+  EmbeddedAvroRecordInfo,
+  MyAvroADT
+}
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.scala.createTypeInformation

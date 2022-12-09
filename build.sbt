@@ -36,7 +36,7 @@ val V = new {
   val scalaTestPlus       = "3.2.14.0"
   val scalaCheck          = "1.17.0"
   val testContainersScala = "0.40.11"
-  val jackson             = "2.14.0"
+  val jackson             = "2.14.1"
   val circe               = "0.14.2"
   val http4s              = "0.23.12"
   val enumeratum          = "1.7.0"
@@ -45,12 +45,13 @@ val V = new {
   val squants             = "1.8.3"
   val confluentAvroSerde  = "7.1.1"
   val parquet             = "1.12.3"
-  val awsSdk              = "1.12.332"
+  val awsSdk              = "1.12.351"
   val jdbcMysql           = "8.0.30"
-  val jdbcPg              = "42.5.0"
+  val jdbcPg              = "42.5.1"
   val jdbcMssql           = "11.2.0.jre11"
   val hadoop              = "3.3.2"
   val cassandraDriver     = "3.11.3"
+  val uuidCreator         = "5.2.0"
   val jna                 = "5.12.1" // needed for testcontainers in some jvms
 }
 
@@ -109,6 +110,7 @@ val circeDeps = Seq(
 ).map(d => "io.circe" %% s"circe-$d" % V.circe)
 
 val otherDeps = Seq(
+  "com.github.f4b6a3"                % "uuid-creator"                     % V.uuidCreator,
   "org.apache.hadoop"                % "hadoop-client"                    % V.hadoop              % Provided,
   "io.confluent"                     % "kafka-avro-serializer"            % V.confluentAvroSerde  % Provided,
   "com.amazonaws"                    % "aws-java-sdk-core"                % V.awsSdk              % Provided,
@@ -121,7 +123,7 @@ val otherDeps = Seq(
   "org.scalatestplus"               %% "scalacheck-1-17"                  % V.scalaTestPlus       % Test,
   "org.scalacheck"                  %% "scalacheck"                       % V.scalaCheck,
   "com.fasterxml.jackson.module"    %% "jackson-module-scala"             % V.jackson,
-  "com.github.pjfanning"            %% "jackson-scala-reflect-extensions" % V.jackson,
+  "com.github.pjfanning"            %% "jackson-scala-reflect-extensions" % "2.14.0",
   "com.fasterxml.jackson.dataformat" % "jackson-dataformat-csv"           % V.jackson,
   "com.fasterxml.jackson.datatype"   % "jackson-datatype-jsr310"          % V.jackson,
   "com.dimafeng"                    %% "testcontainers-scala-scalatest"   % V.testContainersScala % Test,

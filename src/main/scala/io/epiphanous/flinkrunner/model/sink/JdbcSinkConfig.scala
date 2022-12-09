@@ -12,13 +12,14 @@ import io.epiphanous.flinkrunner.model.sink.JdbcSinkConfig.{
   DEFAULT_TIMESCALE_NUMBER_PARTITIONS
 }
 import io.epiphanous.flinkrunner.operator.CreateTableJdbcSinkFunction
+import io.epiphanous.flinkrunner.serde.JsonRowEncoder
 import io.epiphanous.flinkrunner.util.SqlBuilder
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.functions.RuntimeContext
 import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.api.scala.createTypeInformation
 import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat
 import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat.StatementExecutorFactory
-import org.apache.flink.connector.jdbc.internal.connection.SimpleJdbcConnectionProvider
 import org.apache.flink.connector.jdbc.internal.executor.JdbcBatchStatementExecutor
 import org.apache.flink.connector.jdbc.{
   JdbcConnectionOptions,
@@ -60,8 +61,10 @@ import scala.util.{Failure, Success, Try}
   *   - `execution`: optional object defining execution parameters:
   *     - `batch`: object defining how batches of inserts are sent to the
   *       database, with properties:
-  *       - `interval`: batches are sent at least this often
+  *       - `interval`: batches are sent at least this often (defaults to
+  *         0, which deactivates interval checking)
   *       - `size`: batches of no more than this size are sent at once
+  *         (defaults to 5000)
   *   - `table`: required object defining the structure of the database
   *     table data is inserted into
   *     - `name`: name of the table (required)
@@ -137,13 +140,15 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
   val batchInterval: Long =
     config
       .getDurationOpt(pfx("execution.batch.interval"))
-      .map(_.toSeconds)
-      .getOrElse(0L)
-  val batchSize: Int      =
+      .map(_.toMillis)
+      .getOrElse(
+        0L
+      ) // JdbcExecutionOptions.DEFAULT_INTERVAL_MILLIS is, for unknown reasons, private
+  val batchSize: Int  =
     config
       .getIntOpt(pfx("execution.batch.size"))
       .getOrElse(JdbcExecutionOptions.DEFAULT_SIZE)
-  val maxRetries: Int     =
+  val maxRetries: Int =
     config
       .getIntOpt(pfx("execution.max.retries"))
       .getOrElse(JdbcExecutionOptions.DEFAULT_MAX_RETRY_TIMES)
@@ -286,12 +291,17 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
       .identifier(database, schema, table)
       .append(" (")
     buildColumnList()
-    sqlBuilder.append(")\nVALUES (")
+    sqlBuilder.append(")\nSELECT ")
     Range(0, columns.length).foreach { i =>
-      sqlBuilder.append("?")
+      (columns(i).dataType, product) match {
+        case (SqlColumnType.JSON, SupportedDatabase.Snowflake) =>
+          sqlBuilder.append("PARSE_JSON(?)")
+        case (SqlColumnType.JSON, SupportedDatabase.Postgresql) =>
+          sqlBuilder.append("CAST(? AS JSON)")
+        case _                                                 => sqlBuilder.append("?")
+      }
       if (i < columns.length - 1) sqlBuilder.append(", ")
     }
-    sqlBuilder.append(")")
     product match {
       case SupportedDatabase.Postgresql =>
         if (!isTimescale) {
@@ -614,11 +624,9 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
         data.get(column.name) match {
           case Some(v) =>
             val value = v match {
-              case ts: Instant       => Timestamp.from(ts)
-              case Some(ts: Instant) => Timestamp.from(ts)
-              case Some(x)           => x
-              case None              => null
-              case _                 => v
+              case null | None => null
+              case Some(x)     => _matcher(x)
+              case x           => _matcher(x)
             }
             statement.setObject(i, value, column.dataType.jdbcType)
           case None    =>
@@ -629,13 +637,30 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
     }
   }
 
+  def _matcher(value: Any): Any = {
+    lazy val encoder = new JsonRowEncoder[Map[String, Any]]()
+    value match {
+      case ts: Instant         => Timestamp.from(ts)
+      case m: Map[String, Any] =>
+        try
+          encoder.encode(m).get
+        catch {
+          case _ =>
+            println(s"Failure to encode map: $m")
+            null
+        }
+      case _                   => value
+    }
+  }
+
   def _getSink[E <: ADT: TypeInformation](
       dataStream: DataStream[E],
       statementBuilder: JdbcStatementBuilder[E]): DataStreamSink[E] = {
     val jdbcOutputFormat =
       new JdbcOutputFormat[E, E, JdbcBatchStatementExecutor[E]](
-        new SimpleJdbcConnectionProvider(
-          getJdbcConnectionOptions
+        new BasicJdbcConnectionProvider(
+          getJdbcConnectionOptions,
+          properties
         ),
         getJdbcExecutionOptions,
         // =================================
