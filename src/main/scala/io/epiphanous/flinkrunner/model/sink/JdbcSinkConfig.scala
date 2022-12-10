@@ -294,11 +294,11 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
     sqlBuilder.append(")\nSELECT ")
     Range(0, columns.length).foreach { i =>
       (columns(i).dataType, product) match {
-        case (SqlColumnType.JSON, SupportedDatabase.Snowflake) =>
+        case (SqlColumnType.JSON, SupportedDatabase.Snowflake)  =>
           sqlBuilder.append("PARSE_JSON(?)")
         case (SqlColumnType.JSON, SupportedDatabase.Postgresql) =>
           sqlBuilder.append("CAST(? AS JSON)")
-        case _                                                 => sqlBuilder.append("?")
+        case _                                                  => sqlBuilder.append("?")
       }
       if (i < columns.length - 1) sqlBuilder.append(", ")
     }
@@ -640,16 +640,16 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
   def _matcher(value: Any): Any = {
     lazy val encoder = new JsonRowEncoder[Map[String, Any]]()
     value match {
-      case ts: Instant         => Timestamp.from(ts)
-      case m: Map[String, Any] =>
+      case ts: Instant                    => Timestamp.from(ts)
+      case m: Map[String, Any] @unchecked =>
         try
           encoder.encode(m).get
         catch {
-          case _ =>
-            println(s"Failure to encode map: $m")
+          case t: Throwable =>
+            logger.error(s"Failure to encode map: $m", t)
             null
         }
-      case _                   => value
+      case _                              => value
     }
   }
 

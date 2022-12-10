@@ -6,7 +6,11 @@ import com.fasterxml.jackson.databind.{JsonSerializer, SerializerProvider}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.avro.Schema
 import org.apache.avro.Schema.Type._
-import org.apache.avro.generic.{GenericEnumSymbol, GenericFixed, GenericRecord}
+import org.apache.avro.generic.{
+  GenericEnumSymbol,
+  GenericFixed,
+  GenericRecord
+}
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.scala.createTypeInformation
 
@@ -163,7 +167,10 @@ class AvroJsonSerializer
           )
         }
         gen.writeEndArray()
-      case (ARRAY, arr: Wrappers.MutableBufferWrapper[GenericRecord]) =>
+      case (
+            ARRAY,
+            arr: Wrappers.MutableBufferWrapper[GenericRecord] @unchecked
+          ) =>
         gen.writeArrayFieldStart(name)
         arr.asScala.zipWithIndex.foreach { case (e, i) =>
           _serializeElement(
@@ -239,7 +246,10 @@ class AvroJsonSerializer
             provider
           )
         }
-      case (ARRAY, arr: Wrappers.MutableBufferWrapper[GenericRecord]) =>
+      case (
+            ARRAY,
+            arr: Wrappers.MutableBufferWrapper[GenericRecord] @unchecked
+          ) =>
         arr.asScala.zipWithIndex.foreach { case (e, i) =>
           _serializeElement(
             name,

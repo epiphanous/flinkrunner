@@ -21,7 +21,7 @@ case class KinesisProperties(
     maxRecordSizeInBytes: Option[Long])
 
 object KinesisProperties {
-  def fromSinkConfig[SC <: SinkConfig[ADT], ADT <: FlinkEvent](
+  def fromSinkConfig[SC <: SinkConfig[_]](
       sinkConfig: SC): KinesisProperties = {
     val config = sinkConfig.config
     val pfx    = sinkConfig.pfx()
@@ -66,7 +66,11 @@ object KinesisProperties {
         "delivery.stream.name"
       ),
       config.getStringOpt
-    ).getOrElse()
+    ).getOrElse(
+      throw new RuntimeException(
+        s"kinesis stream name required but missing in sink ${sinkConfig.name} of job ${config.jobName}"
+      )
+    )
 
     val failOnError: Boolean =
       config.getBooleanOpt("fail.on.error").getOrElse(false)

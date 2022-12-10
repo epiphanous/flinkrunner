@@ -16,12 +16,12 @@ object MetricUtils {
   implicit class RichVariableCounters(
       counters: Map[String, Map[String, Counter]])
       extends LazyLogging {
-    def inc(key: String, value: String, num: Int = 1): Unit =
+    def inc(key: String, value: String, num: Long = 1): Unit =
       if (counters.contains(key) && counters(key).contains(value))
         counters(key)(value).inc(num)
       else logger.warn(unregisteredMetricMessage("counter", key, value))
 
-    def dec(key: String, value: String, num: Int = 1): Unit =
+    def dec(key: String, value: String, num: Long = 1): Unit =
       if (counters.contains(key) && counters(key).contains(value))
         counters(key)(value).dec(num)
       else logger.warn(unregisteredMetricMessage("counter", key, value))
@@ -30,7 +30,7 @@ object MetricUtils {
   implicit class RichVariableMeters(
       meters: Map[String, Map[String, Meter]])
       extends LazyLogging {
-    def markEvent(key: String, value: String, num: Int = 1): Unit =
+    def markEvent(key: String, value: String, num: Long = 1): Unit =
       if (meters.contains(key) && meters(key).contains(value))
         meters(key)(value).markEvent(num)
       else logger.warn(unregisteredMetricMessage("meter", key, value))
@@ -116,18 +116,18 @@ object MetricUtils {
         _.registerMeter(counterName, span)
       )
 
-    def registerGauge[T](name: String, gauge: Gauge[T]): Gauge[T] =
+    def registerGauge[T, G <: Gauge[T]](name: String, gauge: G): G =
       mg.gauge(name, gauge)
 
-    def registerGaugeByVariables[T](
+    def registerGaugeByVariables[T, G <: Gauge[T]](
         name: String,
-        gauge: Gauge[T],
+        gauge: G,
         variables: Map[String, List[String]])
-        : Map[String, Map[String, Gauge[T]]] =
+        : Map[String, Map[String, G]] =
       registerMetricByVariables(
         name,
         variables,
-        _.registerGauge(name, gauge)
+        _.registerGauge[T, G](name, gauge)
       )
 
     def registerHistogram(
