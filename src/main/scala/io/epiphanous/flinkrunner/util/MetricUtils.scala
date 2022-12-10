@@ -2,6 +2,7 @@ package io.epiphanous.flinkrunner.util
 
 import com.codahale.metrics.ExponentiallyDecayingReservoir
 import com.typesafe.scalalogging.LazyLogging
+import org.apache.flink.api.scala.metrics.ScalaGauge
 import org.apache.flink.dropwizard.metrics.DropwizardHistogramWrapper
 import org.apache.flink.metrics._
 
@@ -116,18 +117,20 @@ object MetricUtils {
         _.registerMeter(counterName, span)
       )
 
-    def registerGauge[T, G <: Gauge[T]](name: String, gauge: G): G =
-      mg.gauge(name, gauge)
+    def registerGauge[T](name: String, gauge: Gauge[T]): Gauge[T] =
+      mg.gauge[T, Gauge[T]](name, gauge)
 
-    def registerGaugeByVariables[T, G <: Gauge[T]](
+    ScalaGauge
+
+    def registerGaugeByVariables[T](
         name: String,
-        gauge: G,
+        gauge: Gauge[T],
         variables: Map[String, List[String]])
-        : Map[String, Map[String, G]] =
+        : Map[String, Map[String, Gauge[T]]] =
       registerMetricByVariables(
         name,
         variables,
-        _.registerGauge[T, G](name, gauge)
+        _.registerGauge[T](name, gauge)
       )
 
     def registerHistogram(

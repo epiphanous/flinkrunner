@@ -150,7 +150,7 @@ case class KafkaSinkConfig[ADT <: FlinkEvent: TypeInformation](
     KafkaSink
       .builder()
       .setBootstrapServers(bootstrapServers)
-      .setDeliverGuarantee(deliveryGuarantee)
+      .setDeliveryGuarantee(deliveryGuarantee)
       .setTransactionalIdPrefix(transactionalIdPrefix)
       .setKafkaProducerConfig(properties)
       .setRecordSerializer(serializer)
