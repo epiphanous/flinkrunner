@@ -43,22 +43,21 @@ import scala.collection.JavaConverters._
   *     - `delimited`: general delimited (see config options below)
   *     - `avro`: avro file format
   *     - `parquet`: parquet file format
-  *     - `monitor`: an optional duration indicating how frequently the
-  *       file location should be monitored for new files. Defaults to 0,
-  *       meaning no new files will be monitored.
-  *     - `column.separator`: optional string that separate columns
-  *       (defaults to a comma if format is delimited)
-  *     - `line.separator`: optional string that separate lines (defaults
-  *       to the system line separator if format is delimited)
-  *     - `quote.character`: optional character that quotes values
-  *       (defaults to double quote if format is delimited)
-  *     - `escape.character`: optional character that escapes quote
-  *       characters in values (defaults to backslash if format is
-  *       delimited)
-  *     - `uses.header`: true if files contain a header line (defaults to
-  *       true)
-  *     - `uses.quotes`: true if all column values should be quoted or only
-  *       those that have embedded quotes (defaults to false)
+  *   - `monitor`: an optional duration indicating how frequently the file
+  *     location should be monitored for new files. Defaults to 0, meaning
+  *     no new files will be monitored.
+  *   - `column.separator`: optional string that separate columns (defaults
+  *     to a comma if format is delimited)
+  *   - `line.separator`: optional string that separate lines (defaults to
+  *     the system line separator if format is delimited)
+  *   - `quote.character`: optional character that quotes values (defaults
+  *     to double quote if format is delimited)
+  *   - `escape.character`: optional character that escapes quote
+  *     characters in values (defaults to backslash if format is delimited)
+  *   - `uses.header`: true if files contain a header line (defaults to
+  *     true)
+  *   - `uses.quotes`: true if all column values should be quoted or only
+  *     those that have embedded quotes (defaults to false)
   *   - `bucket`: optional configs associated with bucketing emitted files
   *     - `check.interval.ms`: maximum time to wait to emit the currently
   *       accumulating file
@@ -67,10 +66,10 @@ import scala.collection.JavaConverters._
   *         `datetime`)
   *       - `datetime.format`: when `type=datetime` this format specifier
   *         controls how the bucket path is created
-  *   - `output.file.part`: controls the prefixing and suffixing of the
-  *     emitted file names
-  *     - `prefix`
-  *     - `suffix`
+  *     - `output.file.part`: controls the prefixing and suffixing of the
+  *       emitted file names
+  *       - `prefix`
+  *       - `suffix`
   *
   * @param name
   *   name of the sink

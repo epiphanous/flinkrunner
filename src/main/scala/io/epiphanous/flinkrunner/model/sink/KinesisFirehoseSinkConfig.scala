@@ -9,13 +9,18 @@ import io.epiphanous.flinkrunner.serde.{
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.serialization.SerializationSchema
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.connector.kinesis.sink.KinesisStreamsSink
+import org.apache.flink.connector.firehose.sink.KinesisFirehoseSink
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
 
-/** Kinesis Sink Config
+/** AWS kinesis firehose sink config.
   *
-  * Configuration: Configuration:
+  * Follow the instructions from the <a
+  * href="https://docs.aws.amazon.com/firehose/latest/dev/basic-create.html">Amazon
+  * Kinesis Data Firehose Developer Guide</a> to setup a Kinesis Data
+  * Firehose delivery stream.
+  *
+  * Configuration:
   *   - stream - required name of the kinesis firehose delivery stream
   *   - aws.region - optional aws region where kinesis is hosted (defaults
   *     to us-east-1)
@@ -44,52 +49,58 @@ import org.apache.flink.streaming.api.scala.DataStream
   *   - fail.on.error: when an exception is encountered while persisting to
   *     Kinesis Data Streams, the job will fail immediately if failOnError
   *     is set
+  *
+  * @param name
+  *   name of the sink
+  * @param config
+  *   flinkrunner config
+  * @tparam ADT
+  *   the flinkrunner algebraic data type
   */
-case class KinesisSinkConfig[ADT <: FlinkEvent: TypeInformation](
+case class KinesisFirehoseSinkConfig[ADT <: FlinkEvent: TypeInformation](
     name: String,
     config: FlinkConfig
 ) extends SinkConfig[ADT]
     with LazyLogging {
-
-  override val connector: FlinkConnectorName = FlinkConnectorName.Kinesis
+  override def connector: FlinkConnectorName =
+    FlinkConnectorName.KinesisFirehoseSink
 
   val props: KinesisProperties = KinesisProperties.fromSinkConfig(this)
 
-  def _getSink[E <: ADT: TypeInformation](
-      dataStream: DataStream[E],
-      serializationSchema: SerializationSchema[E]): DataStreamSink[E] = {
-    val ks = {
-      val kb = KinesisStreamsSink
-        .builder[E]
-        .setKinesisClientProperties(props.clientProperties)
-        .setSerializationSchema(serializationSchema)
-        .setPartitionKeyGenerator(element => element.$key)
-        .setStreamName(props.stream)
-        .setFailOnError(props.failOnError)
-        .setMaxBatchSize(props.maxBatchSizeInNumber)
-        .setMaxBatchSizeInBytes(props.maxBatchSizeInBytes)
-        .setMaxInFlightRequests(props.maxInFlightRequests)
-        .setMaxBufferedRequests(props.maxBufferedRequests)
-        .setMaxTimeInBufferMS(props.maxBufferTime)
-      props.maxRecordSizeInBytes
-        .map(kb.setMaxRecordSizeInBytes)
-        .getOrElse(kb)
-    }.build()
-    dataStream
-      .sinkTo(ks)
-      .uid(label)
-      .name(label)
-  }
-
   override def getSink[E <: ADT: TypeInformation](
       dataStream: DataStream[E]): DataStreamSink[E] =
-    _getSink[E](dataStream, getSerializationSchema[E])
+    _getSink(dataStream, getSerializationSchema[E])
 
   override def getAvroSink[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](
       dataStream: DataStream[E]): DataStreamSink[E] =
-    _getSink[E](dataStream, getAvroSerializationSchema[E, A])
+    _getSink(
+      dataStream,
+      getAvroSerializationSchema[E, A]
+    )
+
+  def _getSink[E <: ADT](
+      dataStream: DataStream[E],
+      serializationSchema: SerializationSchema[E]): DataStreamSink[E] = {
+    val kfs = {
+      val k = KinesisFirehoseSink
+        .builder[E]()
+        .setFirehoseClientProperties(props.clientProperties)
+        .setSerializationSchema(serializationSchema)
+        .setDeliveryStreamName(props.stream)
+        .setFailOnError(props.failOnError)
+        .setMaxInFlightRequests(props.maxInFlightRequests)
+        .setMaxBufferedRequests(props.maxBufferedRequests)
+        .setMaxBatchSize(props.maxBatchSizeInNumber)
+        .setMaxBatchSizeInBytes(props.maxBatchSizeInBytes)
+        .setMaxTimeInBufferMS(props.maxBufferTime)
+      props.maxRecordSizeInBytes
+        .map(k.setMaxBatchSizeInBytes)
+        .getOrElse(k)
+    }.build()
+    dataStream.sinkTo(kfs)
+  }
 
   def getSerializationSchema[E <: ADT: TypeInformation]
       : SerializationSchema[E] =
@@ -99,5 +110,4 @@ case class KinesisSinkConfig[ADT <: FlinkEvent: TypeInformation](
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation] =
     new EmbeddedAvroJsonSerializationSchema[E, A, ADT](this)
-
 }
