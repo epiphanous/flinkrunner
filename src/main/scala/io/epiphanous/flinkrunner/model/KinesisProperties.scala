@@ -1,5 +1,6 @@
 package io.epiphanous.flinkrunner.model
 
+import com.amazonaws.regions.Regions
 import io.epiphanous.flinkrunner.model.sink.SinkConfig
 import io.epiphanous.flinkrunner.util.ConfigToProps.{
   getFromEither,
@@ -21,6 +22,15 @@ case class KinesisProperties(
     maxRecordSizeInBytes: Option[Long])
 
 object KinesisProperties {
+
+  final val DEFAULT_REGION                   = Regions.US_EAST_1.getName
+  final val DEFAULT_FAIL_ON_ERROR            = false
+  final val DEFAULT_MAX_BATCH_SIZE_IN_NUMBER = 500
+  final val DEFAULT_MAX_BATCH_SIZE_IN_BYTES  = 4 * 1024 * 1024
+  final val DEFAULT_MAX_BUFFERED_REQUESTS    = 10000
+  final val DEFAULT_MAX_BUFFER_TIME          = 5000
+  final val DEFAULT_MAX_IN_FLIGHT_REQUESTS   = 50
+
   def fromSinkConfig[SC <: SinkConfig[_]](
       sinkConfig: SC): KinesisProperties = {
     val config = sinkConfig.config
@@ -47,7 +57,7 @@ object KinesisProperties {
 
     clientProperties.putIfAbsent(
       AWSConfigConstants.AWS_REGION,
-      awsRegion.getOrElse("us-east-1")
+      DEFAULT_REGION
     )
 
     awsEndpoint.foreach(endpoint =>
@@ -68,32 +78,69 @@ object KinesisProperties {
       config.getStringOpt
     ).getOrElse(
       throw new RuntimeException(
-        s"kinesis stream name required but missing in sink ${sinkConfig.name} of job ${config.jobName}"
+        s"kinesis stream name required but missing in sink <${sinkConfig.name}> of job <${config.jobName}>"
       )
     )
 
-    val failOnError: Boolean =
-      config.getBooleanOpt("fail.on.error").getOrElse(false)
+    val failOnError: Boolean = getFromEither(
+      pfx,
+      Seq("failOnError", "fail.on.error"),
+      config.getBooleanOpt
+    ).getOrElse(DEFAULT_FAIL_ON_ERROR)
 
-    val maxInFlightRequests: Int =
-      config.getIntOpt("max.in.flight.requests").getOrElse(50)
+    val maxInFlightRequests: Int = getFromEither(
+      pfx,
+      Seq("maxInFlightRequests", "max.in.flight.requests"),
+      config.getIntOpt
+    ).getOrElse(DEFAULT_MAX_IN_FLIGHT_REQUESTS)
 
     val maxBufferedRequests: Int =
-      config.getIntOpt("max.buffer.requests").getOrElse(10000)
+      getFromEither(
+        pfx,
+        Seq("maxBufferedRequests", "max.buffered.requests"),
+        config.getIntOpt
+      ).getOrElse(DEFAULT_MAX_BUFFERED_REQUESTS)
 
     val maxBatchSizeInNumber: Int =
-      config.getIntOpt("max.batch.size.number").getOrElse(500)
+      getFromEither(
+        pfx,
+        Seq(
+          "maxBatchSizeInNumber",
+          "max.batch.size.in.number",
+          "max.batch.size.number"
+        ),
+        config.getIntOpt
+      ).getOrElse(DEFAULT_MAX_BATCH_SIZE_IN_NUMBER)
 
     val maxBatchSizeInBytes: Long =
-      config.getLongOpt("max.batch.size.bytes").getOrElse(4 * 1024 * 1024)
+      getFromEither(
+        pfx,
+        Seq(
+          "maxBatchSizeInBytes",
+          "max.batch.size.in.bytes",
+          "max.batch.size.bytes"
+        ),
+        config.getLongOpt
+      ).getOrElse(DEFAULT_MAX_BATCH_SIZE_IN_BYTES)
 
-    val maxBufferTime: Long = config
-      .getDurationOpt("max.buffer.time")
+    val maxBufferTime: Long = getFromEither(
+      pfx,
+      Seq("maxBufferTime", "max.buffer.time"),
+      config.getDurationOpt
+    )
       .map(_.toMillis)
-      .getOrElse(5000)
+      .getOrElse(DEFAULT_MAX_BUFFER_TIME)
 
-    val maxRecordSize: Option[Long] =
-      config.getLongOpt("max.record.size")
+    val maxRecordSizeInBytes: Option[Long] = getFromEither(
+      pfx,
+      Seq(
+        "maxRecordSizeInBytes",
+        "maxRecordSize",
+        "max.record.size",
+        "max.record.size.in.bytes"
+      ),
+      config.getLongOpt
+    )
 
     KinesisProperties(
       stream,
@@ -104,7 +151,7 @@ object KinesisProperties {
       maxBufferedRequests,
       maxBufferTime,
       maxInFlightRequests,
-      maxRecordSize
+      maxRecordSizeInBytes
     )
   }
 

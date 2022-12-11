@@ -10,10 +10,6 @@ import io.epiphanous.flinkrunner.serde.JsonRMQDeserializationSchema
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.connector.source.{Source, SourceSplit}
 import org.apache.flink.streaming.api.functions.source.SourceFunction
-import org.apache.flink.streaming.api.scala.{
-  DataStream,
-  StreamExecutionEnvironment
-}
 import org.apache.flink.streaming.connectors.rabbitmq.{
   RMQDeserializationSchema,
   RMQSource
@@ -33,6 +29,8 @@ case class RabbitMQSourceConfig[ADT <: FlinkEvent](
 ) extends SourceConfig[ADT] {
 
   override val connector: FlinkConnectorName = FlinkConnectorName.RabbitMQ
+
+  override lazy val parallelism: Int = 1 // ensure exactly once
 
   val uri: String               = config.getString(pfx("uri"))
   val useCorrelationId: Boolean =
@@ -63,9 +61,5 @@ case class RabbitMQSourceConfig[ADT <: FlinkEvent](
         getDeserializationSchema
       )
     )
-
-  override def getSourceStream[E <: ADT: TypeInformation](
-      env: StreamExecutionEnvironment): DataStream[E] =
-    super.getSourceStream(env).setParallelism(1) // to ensure exactly once
 
 }

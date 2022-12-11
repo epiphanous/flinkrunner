@@ -14,7 +14,7 @@ object FlinkConnectorName extends Enum[FlinkConnectorName] {
 
   case object Kinesis extends FlinkConnectorName
 
-  case object KinesisFirehoseSink extends FlinkConnectorName
+  case object Firehose extends FlinkConnectorName
 
   case object Kafka extends FlinkConnectorName
 
@@ -33,7 +33,7 @@ object FlinkConnectorName extends Enum[FlinkConnectorName] {
   case object Generator extends FlinkConnectorName
 
   val sources: immutable.Seq[FlinkConnectorName] =
-    values diff IndexedSeq(Cassandra, Elasticsearch, KinesisFirehoseSink)
+    values diff IndexedSeq(Cassandra, Elasticsearch, Firehose)
   val sinks: immutable.Seq[FlinkConnectorName]   =
     values diff IndexedSeq(Hybrid, Generator)
 
@@ -62,10 +62,11 @@ object FlinkConnectorName extends Enum[FlinkConnectorName] {
     val connector      = (connectorNameOpt match {
       case Some(connectorName) => withNameInsensitiveOption(connectorName)
       case None                =>
-        val lcName         = sourceOrSinkName.toLowerCase
-        val lcNameSuffixed = s"${lcName}_$sourceOrSink"
+        val lcName           = sourceOrSinkName.toLowerCase.replaceAll("-", "_")
+        val lcNameSuffixed   = s"${lcName}_$sourceOrSink"
+        val lcNameUnsuffixed = lcName.replace(s"_$sourceOrSink", "")
         values.find { c =>
-          Seq(lcName, lcNameSuffixed).exists(
+          Seq(lcName, lcNameSuffixed, lcNameUnsuffixed).exists(
             _.contains(c.entryName.toLowerCase)
           )
         }

@@ -57,13 +57,13 @@ import org.apache.flink.streaming.api.scala.DataStream
   * @tparam ADT
   *   the flinkrunner algebraic data type
   */
-case class KinesisFirehoseSinkConfig[ADT <: FlinkEvent: TypeInformation](
+case class FirehoseSinkConfig[ADT <: FlinkEvent: TypeInformation](
     name: String,
     config: FlinkConfig
 ) extends SinkConfig[ADT]
     with LazyLogging {
   override def connector: FlinkConnectorName =
-    FlinkConnectorName.KinesisFirehoseSink
+    FlinkConnectorName.Firehose
 
   val props: KinesisProperties = KinesisProperties.fromSinkConfig(this)
 

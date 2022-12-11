@@ -59,9 +59,9 @@ case class SocketSourceConfig[ADT <: FlinkEvent](
     env
       .socketTextStream(host, port)
       .name(s"raw:$label")
-      .uid(s"raw:$label")
+      .uid(s"raw:$uid")
       .flatMap(line => decoder.decode(line))
-      .uid(label)
-      .name(label)
+      .uid(uid)
+      .name(uid)
   }
 }

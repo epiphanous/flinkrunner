@@ -206,20 +206,20 @@ case class FileSourceConfig[ADT <: FlinkEvent](
         WatermarkStrategy.noWatermarks(),
         rawName
       )
-      .uid(rawName)
+      .uid(s"raw:$uid")
+      .setParallelism(parallelism)
   }
 
   def nameAndWatermark[E <: ADT: TypeInformation](
       stream: DataStream[E],
       label: String): DataStream[E] = {
     stream
-      .name(label)
-      .uid(label)
       .assignTimestampsAndWatermarks(
         getWatermarkStrategy[E]
       )
       .name(s"wm:$label")
-      .uid(s"wm:$label")
+      .uid(s"wm:$uid")
+      .setParallelism(parallelism)
   }
 
   def flatMapTextStream[E <: ADT: TypeInformation](
@@ -229,10 +229,7 @@ case class FileSourceConfig[ADT <: FlinkEvent](
       textStream
         .flatMap[E](new FlatMapFunction[String, E] {
           override def flatMap(line: String, out: Collector[E]): Unit =
-            decoder.decode(line).foreach { e =>
-              println(s"decoded event from $line")
-              out.collect(e)
-            }
+            decoder.decode(line).foreach(out.collect)
         }),
       label
     )
@@ -292,6 +289,8 @@ case class FileSourceConfig[ADT <: FlinkEvent](
             getWatermarkStrategy,
             label
           )
+          .uid(uid)
+          .setParallelism(parallelism)
       case StreamFormatName.Avro    =>
         val avroInputFormat = new AvroInputFormat(
           origin,
@@ -311,6 +310,7 @@ case class FileSourceConfig[ADT <: FlinkEvent](
             )
             .uid(s"avro:$label")
             .name(s"avro:$label")
+            .setParallelism(parallelism)
             .map(g =>
               toEmbeddedAvroInstance[E, A, ADT](
                 g,
