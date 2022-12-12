@@ -188,7 +188,7 @@ object SqlColumnType {
 
   final val JSON = SqlColumnType(
     "json",
-    Types.VARCHAR,
+    Types.OTHER,
     productConfig = Map(
       Mysql      -> withName("JSON", sharedDefaultConfig),
       Postgresql -> withName("JSONB", sharedDefaultConfig),
