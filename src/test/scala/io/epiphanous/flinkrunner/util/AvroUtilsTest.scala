@@ -16,6 +16,7 @@ class AvroUtilsTest extends PropSpec {
       .set("b1", spec.b1.getOrElse(null)) // orNull won't work here
       .set("b2", spec.b2.getOrElse(null)) // orNull won't work here
       .set("b3", spec.b3.toEpochMilli)
+      .set("b4", spec.b4)
       .build()
 
   def fromSpecCRecord(spec: CRecord): GenericRecord =

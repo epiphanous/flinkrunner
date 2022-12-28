@@ -6,6 +6,7 @@
     { "name": "b0", "type": "string" },
     { "name": "b1", "type": ["null", "int"] },
     { "name": "b2", "type": ["null", "double"] },
-    { "name": "b3", "type": {"type": "long", "logicalType": "timestamp-millis" }}
+    { "name": "b3", "type": {"type": "long", "logicalType": "timestamp-millis" }},
+    { "name": "b4", "type": "string" }
   ]
 }

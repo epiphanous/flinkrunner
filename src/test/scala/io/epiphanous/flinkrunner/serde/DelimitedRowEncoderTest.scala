@@ -30,7 +30,7 @@ class DelimitedRowEncoderTest
 
   property("encode non-nested avro property") {
     def csvLine(b: BRecord): String =
-      s"${b.b0},${b.b1.getOrElse("")},${b.b2.getOrElse("")},${b.b3.toEpochMilli}${System.lineSeparator()}"
+      s"${b.b0},${b.b1.getOrElse("")},${b.b2.getOrElse("")},${b.b3.toEpochMilli},${b.b4}${System.lineSeparator()}"
     val encoder                     = getTypedRowEncoder[BRecord]()
     forAll { test: BRecord =>
       encoder
