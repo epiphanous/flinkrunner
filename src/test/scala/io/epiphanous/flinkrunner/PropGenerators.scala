@@ -18,7 +18,8 @@ trait PropGenerators extends BasePropGenerators {
     b1 <- Gen.option(Gen.chooseNum(1, 1000))
     b2 <- Gen.option(Gen.chooseNum(1d, 100d))
     b3 <- instantGen()
-  } yield BRecord(b0, b1, b2, b3)
+    b4 <- simpleJsonStringGen()
+  } yield BRecord(b0, b1, b2, b3, b4)
   implicit lazy val bRecordArb: Arbitrary[BRecord] = Arbitrary(bRecordGen)
 
   lazy val cRecordGen: Gen[CRecord]                = for {
@@ -71,7 +72,8 @@ trait PropGenerators extends BasePropGenerators {
     b1 <- Gen.chooseNum(200d, 299d)
     b2 <- Gen.option(Gen.chooseNum(200, 299))
     ts <- instantGen()
-  } yield SimpleB(id, b0, b1, b2, ts)
+    json <- simpleJsonStringGen()
+  } yield SimpleB(id, b0, b1, b2, ts, json)
   implicit lazy val simpleBArb: Arbitrary[SimpleB] = Arbitrary(simpleBGen)
 
   lazy val simpleCGen: Gen[SimpleC]                = for {

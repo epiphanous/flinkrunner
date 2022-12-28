@@ -33,6 +33,8 @@ case class SimpleA(id: String, a0: String, a1: Int, ts: Instant)
   *   an Option[Int]
   * @param ts
   *   an Instant
+  * @param json
+  *   a String of json
   */
 case class SimpleB(
     id: String,
@@ -41,7 +43,8 @@ case class SimpleB(
     @JsonDeserialize(contentAs = classOf[java.lang.Integer]) b2: Option[
       Int
     ],
-    ts: Instant)
+    ts: Instant,
+    json: String)
     extends MySimpleADT {
   override def $id: String = id
 

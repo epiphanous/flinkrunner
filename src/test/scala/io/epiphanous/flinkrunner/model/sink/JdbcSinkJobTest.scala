@@ -57,6 +57,10 @@ class JdbcSinkJobTest extends SinkSpec {
          |          type = TIMESTAMP
          |          nullable = false
          |        }
+         |        {
+         |          name = json
+         |          type = JSON
+         |        }
          |      ]
          |    }
          |  }
@@ -79,7 +83,7 @@ class JdbcSinkJobTest extends SinkSpec {
         ) + "|" + rs.getDouble("b1") + "|" + rs.getInt("b2") + "|" + rs
           .getTimestamp(
             "ts"
-          )
+          ) + "|" + rs.getString("json")
       )
     }
     stmt.close()
@@ -132,6 +136,9 @@ class JdbcSinkJobTest extends SinkSpec {
            |          type = TIMESTAMP
            |          nullable = false
            |        }
+           |        {
+           |          name = b4
+           |          type = JSON
            |      ]
            |    }
            |  }
@@ -152,7 +159,8 @@ class JdbcSinkJobTest extends SinkSpec {
         val b1  = Option(rs.getInt("b1"))
         val b2  = Option(rs.getDouble("b2"))
         val b3  = Instant.ofEpochMilli(rs.getTimestamp("b3").getTime)
-        println(row -> BRecord(b0, b1, b2, b3))
+        val b4 =  rs.getString("b4").trim()
+        println(row -> BRecord(b0, b1, b2, b3, b4))
       }
       stmt.close()
       conn.close()

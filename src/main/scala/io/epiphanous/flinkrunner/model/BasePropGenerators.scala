@@ -47,6 +47,19 @@ trait BasePropGenerators {
     durationGen()
   )
 
+  def simpleJsonStringGen(
+                           min: Int = 1,
+                           max: Int = 90
+                         ): Gen[String] =
+                   for {
+                     num <- Gen.choose(min, max)
+                     key: String <- nameGen("A", num)
+                     value: String <- uuidGen
+                   } yield s"{$key: $value}"
+                    implicit lazy val jsonStringArbitraryResult: Arbitrary[String] = Arbitrary(
+    simpleJsonStringGen()
+  )
+
   def uuidGen: Gen[String]                     = Gen.uuid.map(u => u.toString)
   implicit lazy val uuidArb: Arbitrary[String] = Arbitrary(uuidGen)
 
