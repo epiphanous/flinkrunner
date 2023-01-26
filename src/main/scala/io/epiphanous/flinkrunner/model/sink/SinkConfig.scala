@@ -70,9 +70,7 @@ trait SinkConfig[ADT <: FlinkEvent] extends LazyLogging {
       stream: DataStream[E]
   ): Unit
 
-  def addRowSink(
-      stream: DataStream[Row],
-      optRowType: Option[RowType] = None): Unit =
+  def addRowSink(stream: DataStream[Row], rowType: RowType): Unit =
     throw new RuntimeException(
       s"addRowSink is not implemented for ${connector.entryName} sink $name"
     )

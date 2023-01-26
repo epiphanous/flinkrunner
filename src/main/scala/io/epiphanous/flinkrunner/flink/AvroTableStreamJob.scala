@@ -11,6 +11,8 @@ import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.table.types.logical.RowType
 
+import scala.util.Try
+
 /** A stream job class to output avro records in tabular format (using
   * Flink's Row datatype). Like the TableStreamJob this job class inherits
   * from, this class also requires a flink RowType instance to define the
@@ -41,19 +43,24 @@ abstract class AvroTableStreamJob[
     ADT <: FlinkEvent: TypeInformation](runner: FlinkRunner[ADT])
     extends TableStreamJob[OUT, ADT](runner) {
 
-  /** Return an optional RowType based on the avro schema associated with
-    * the output event. If there is an error during the conversion process,
-    * this will log the error and return None.
+  override def getRowType: RowType =
+    rowTypeFromConfig
+      .orElse(rowTypeFromAvro)
+      .fold(
+        t =>
+          throw new RuntimeException(
+            "Failed to get row type from configuration or avro",
+            t
+          ),
+        rt => rt
+      )
+
+  /** Return a RowType based on the avro schema associated with the output
+    * event.
     * @return
-    *   Option[ [[RowType]] ]
+    *   Try([[RowType]])
     */
-  def getAvroRowType: Option[RowType] =
-    rowTypeOf(implicitly[TypeInformation[A]].getTypeClass).fold(
-      t => {
-        logger.error("failed to convert avro type to row type", t)
-        None
-      },
-      rowType => Some(rowType)
-    )
+  def rowTypeFromAvro: Try[RowType] =
+    rowTypeOf(implicitly[TypeInformation[A]].getTypeClass)
 
 }

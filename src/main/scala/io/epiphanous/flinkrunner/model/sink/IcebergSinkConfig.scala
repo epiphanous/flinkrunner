@@ -3,31 +3,21 @@ package io.epiphanous.flinkrunner.model.sink
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.{
   EmbeddedAvroRecord,
-  EmbeddedRowType,
   FlinkConfig,
   FlinkConnectorName,
   FlinkEvent
 }
 import org.apache.avro.generic.GenericRecord
-import org.apache.flink.api.common.functions.MapFunction
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.api.scala.createTypeInformation
-import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
 import org.apache.flink.table.api.{DataTypes, TableSchema}
-import org.apache.flink.table.data.RowData
 import org.apache.flink.table.types.logical.{LogicalType, RowType}
 import org.apache.flink.types.Row
 import org.apache.hadoop.conf.Configuration
-import org.apache.iceberg.{DistributionMode, Schema => IcebergSchema}
-import org.apache.iceberg.flink.{
-  CatalogLoader,
-  FlinkSchemaUtil,
-  TableLoader
-}
+import org.apache.iceberg.DistributionMode
 import org.apache.iceberg.flink.sink.FlinkSink
+import org.apache.iceberg.flink.{CatalogLoader, TableLoader}
 
-import java.util.Properties
 import scala.collection.JavaConverters._
 
 case class IcebergSinkConfig[ADT <: FlinkEvent](
@@ -60,36 +50,27 @@ case class IcebergSinkConfig[ADT <: FlinkEvent](
 
   override def addRowSink(
       dataStream: DataStream[Row],
-      providedRowType: Option[RowType] = None): Unit = {
-    providedRowType
-      .orElse(configuredRowType)
-      .map { sinkRowType =>
-        val tableSchema = {
-          val tsb = sinkRowType.getFields.asScala
-            // NOTE: using deprecated TableSchema since iceberg sink constructor requires it
-            // TODO: What about primary key and watermark specs?
-            .foldLeft(new TableSchema.Builder()) { case (b, f) =>
-              b.field(f.getName, DataTypes.of(f.getType))
-            }
-          tsb.primaryKey("pkname", Array("c1", "c2"))
-          tsb.watermark("rowtime", "expr", DataTypes.of(new LogicalType()))
-          tsb.build()
+      rowType: RowType): Unit = {
+    val tableSchema = {
+      val tsb = rowType.getFields.asScala
+        // NOTE: using deprecated TableSchema since iceberg sink constructor requires it
+        // TODO: What about primary key and watermark specs?
+        .foldLeft(new TableSchema.Builder()) { case (b, f) =>
+          b.field(f.getName, DataTypes.of(f.getType))
         }
-        FlinkSink
-          .forRow(dataStream.javaStream, tableSchema)
-          .distributionMode(DistributionMode.RANGE)
-          .equalityFieldColumns(List("C1", "C2").asJava)
-          .upsert(true)
-          .writeParallelism(2)
-          .flinkConf()
-          .tableLoader(TableLoader.fromCatalog())
-          .append()
-      }
-      .getOrElse(
-        throw new RuntimeException(
-          s"no available Row type definition for sink $name in job ${config.jobName}"
-        )
-      )
+      tsb.primaryKey("pkname", Array("c1", "c2"))
+//      tsb.watermark("rowtime", "expr", DataTypes.of(new LogicalType()))
+      tsb.build()
+    }
+    FlinkSink
+      .forRow(dataStream.javaStream, tableSchema)
+      .distributionMode(DistributionMode.RANGE)
+      .equalityFieldColumns(List("C1", "C2").asJava)
+      .upsert(true)
+      .writeParallelism(2)
+//      .flinkConf()
+//      .tableLoader(TableLoader.fromCatalog(catalogLoader, tableId))
+      .append()
   }
 
   override def addAvroSink[

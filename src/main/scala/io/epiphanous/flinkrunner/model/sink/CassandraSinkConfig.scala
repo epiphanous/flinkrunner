@@ -8,20 +8,11 @@ import io.epiphanous.flinkrunner.model.{
   FlinkConnectorName,
   FlinkEvent
 }
-import io.epiphanous.flinkrunner.util.AvroUtils.{
-  rowTypeOf,
-  RichGenericRecord
-}
+import io.epiphanous.flinkrunner.util.AvroUtils.RichGenericRecord
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.formats.avro.{
-  AvroRowDataDeserializationSchema,
-  AvroRowDataSerializationSchema,
-  AvroToRowDataConverters
-}
 import org.apache.flink.streaming.api.scala.DataStream
 import org.apache.flink.streaming.connectors.cassandra._
-import org.apache.flink.table.data.{GenericRowData, RowData}
 import org.apache.flink.table.types.logical.RowType
 import org.apache.flink.types.Row
 
@@ -64,6 +55,7 @@ case class CassandraSinkConfig[ADT <: FlinkEvent](
           new CodecRegistry().register(InstantCodec.instance)
         )
         .build()
+
   }
 
   def addSink[E <: ADT: TypeInformation](stream: DataStream[E]): Unit = {
@@ -95,10 +87,9 @@ case class CassandraSinkConfig[ADT <: FlinkEvent](
   override def addRowSink(
       stream: DataStream[Row],
       rowType: RowType): Unit = {
-    stream.map(_.)
-    val sink =
+    stream.addSink(
       new CassandraRowSink(rowType.getFieldCount, query, clusterBuilder)
-    stream.addSink(sink)
+    )
     ()
   }
 }

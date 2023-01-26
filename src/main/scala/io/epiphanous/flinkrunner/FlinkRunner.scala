@@ -10,10 +10,8 @@ import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.JobExecutionResult
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.formats.avro.utils.AvroKryoSerializerUtils.AvroSchemaSerializer
-import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.table.api.bridge.scala.StreamTableEnvironment
-import org.apache.flink.table.data.RowData
 import org.apache.flink.table.types.logical.RowType
 import org.apache.flink.types.Row
 
@@ -301,24 +299,23 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
       case s: IcebergSinkConfig[ADT]       => s.addAvroSink[E, A](stream)
     }
 
-  def addRowSink[E <: ADT with EmbeddedRowType: TypeInformation](
-      stream: DataStream[E],
+  def addRowSink(
+      rows: DataStream[Row],
       sinkName: String = getDefaultSinkName,
-      optRowType: Option[RowType] = None): Unit = {
-    val rowStream: DataStream[Row] = stream.map((e: E) => e.toRow)
+      rowType: RowType): Unit = {
     getSinkConfig(sinkName) match {
       case s: CassandraSinkConfig[ADT]     =>
-        s.addRowSink(rowStream, optRowType)
+        s.addRowSink(rows, rowType)
       case s: ElasticsearchSinkConfig[ADT] =>
-        s.addRowSink(rowStream, optRowType)
-      case s: FileSinkConfig[ADT]          => s.addRowSink(rowStream, optRowType)
-      case s: JdbcSinkConfig[ADT]          => s.addRowSink(rowStream, optRowType)
-      case s: KafkaSinkConfig[ADT]         => s.addRowSink(rowStream, optRowType)
-      case s: KinesisSinkConfig[ADT]       => s.addRowSink(rowStream, optRowType)
+        s.addRowSink(rows, rowType)
+      case s: FileSinkConfig[ADT]          => s.addRowSink(rows, rowType)
+      case s: JdbcSinkConfig[ADT]          => s.addRowSink(rows, rowType)
+      case s: KafkaSinkConfig[ADT]         => s.addRowSink(rows, rowType)
+      case s: KinesisSinkConfig[ADT]       => s.addRowSink(rows, rowType)
       case s: RabbitMQSinkConfig[ADT]      =>
-        s.addRowSink(rowStream, optRowType)
-      case s: SocketSinkConfig[ADT]        => s.addRowSink(rowStream, optRowType)
-      case s: IcebergSinkConfig[ADT]       => s.addRowSink(rowStream, optRowType)
+        s.addRowSink(rows, rowType)
+      case s: SocketSinkConfig[ADT]        => s.addRowSink(rows, rowType)
+      case s: IcebergSinkConfig[ADT]       => s.addRowSink(rows, rowType)
     }
   }
 
