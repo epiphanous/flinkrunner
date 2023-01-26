@@ -8,12 +8,22 @@ import io.epiphanous.flinkrunner.model.{
   FlinkConnectorName,
   FlinkEvent
 }
-import io.epiphanous.flinkrunner.util.AvroUtils.RichGenericRecord
+import io.epiphanous.flinkrunner.util.AvroUtils.{
+  rowTypeOf,
+  RichGenericRecord
+}
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.streaming.api.datastream.DataStreamSink
+import org.apache.flink.formats.avro.{
+  AvroRowDataDeserializationSchema,
+  AvroRowDataSerializationSchema,
+  AvroToRowDataConverters
+}
 import org.apache.flink.streaming.api.scala.DataStream
 import org.apache.flink.streaming.connectors.cassandra._
+import org.apache.flink.table.data.{GenericRowData, RowData}
+import org.apache.flink.table.types.logical.RowType
+import org.apache.flink.types.Row
 
 /** A cassandra sink config.
   *
@@ -56,18 +66,16 @@ case class CassandraSinkConfig[ADT <: FlinkEvent](
         .build()
   }
 
-  def getSink[E <: ADT: TypeInformation](
-      stream: DataStream[E]): DataStreamSink[E] = {
+  def addSink[E <: ADT: TypeInformation](stream: DataStream[E]): Unit = {
     stream
       .addSink(new CassandraScalaProductSink[E](query, clusterBuilder))
       .uid(label)
       .name(label)
   }
 
-  override def getAvroSink[
+  override def addAvroSink[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
-      A <: GenericRecord: TypeInformation](
-      stream: DataStream[E]): DataStreamSink[E] =
+      A <: GenericRecord: TypeInformation](stream: DataStream[E]): Unit = {
     stream
       .addSink(
         new AbstractCassandraTupleSink[E](
@@ -82,5 +90,15 @@ case class CassandraSinkConfig[ADT <: FlinkEvent](
       )
       .uid(label)
       .name(label)
+  }
 
+  override def addRowSink(
+      stream: DataStream[Row],
+      rowType: RowType): Unit = {
+    stream.map(_.)
+    val sink =
+      new CassandraRowSink(rowType.getFieldCount, query, clusterBuilder)
+    stream.addSink(sink)
+    ()
+  }
 }

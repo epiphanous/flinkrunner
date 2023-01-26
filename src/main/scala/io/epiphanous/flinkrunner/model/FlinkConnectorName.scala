@@ -30,8 +30,10 @@ object FlinkConnectorName extends Enum[FlinkConnectorName] {
 
   case object Generator extends FlinkConnectorName
 
+  case object Iceberg extends FlinkConnectorName
+
   val sources: immutable.Seq[FlinkConnectorName] =
-    values diff IndexedSeq(Cassandra, Elasticsearch)
+    values diff IndexedSeq(Cassandra, Elasticsearch, Iceberg)
   val sinks: immutable.Seq[FlinkConnectorName]   =
     values diff IndexedSeq(Hybrid, Generator)
 

@@ -6,8 +6,10 @@ import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.util.StreamUtils._
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
+import org.apache.flink.table.types.logical.RowType
+import org.apache.flink.table.types.logical.utils.LogicalTypeParser
+import org.apache.flink.types.Row
 
 import java.util
 import java.util.Properties
@@ -49,13 +51,31 @@ trait SinkConfig[ADT <: FlinkEvent] extends LazyLogging {
 
   lazy val label: String = s"${connector.entryName.toLowerCase}/$name"
 
-  def getSink[E <: ADT: TypeInformation](
-      dataStream: DataStream[E]): DataStreamSink[E]
+  lazy val configuredRowType: Option[RowType] = config
+    .getStringOpt(pfx("row"))
+    .map(t =>
+      RowType.of(
+        false,
+        LogicalTypeParser
+          .parse(t, Thread.currentThread.getContextClassLoader)
+      )
+    )
 
-  def getAvroSink[
+  def addSink[E <: ADT: TypeInformation](stream: DataStream[E]): Unit
+
+  def addAvroSink[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
-      A <: GenericRecord: TypeInformation](
-      dataStream: DataStream[E]): DataStreamSink[E]
+      A <: GenericRecord: TypeInformation
+  ](
+      stream: DataStream[E]
+  ): Unit
+
+  def addRowSink(
+      stream: DataStream[Row],
+      optRowType: Option[RowType] = None): Unit =
+    throw new RuntimeException(
+      s"addRowSink is not implemented for ${connector.entryName} sink $name"
+    )
 
 }
 

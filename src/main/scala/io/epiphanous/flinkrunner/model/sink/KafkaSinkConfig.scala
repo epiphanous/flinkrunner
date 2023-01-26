@@ -15,7 +15,6 @@ import org.apache.flink.connector.kafka.sink.{
   KafkaRecordSerializationSchema,
   KafkaSink
 }
-import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
 
 import java.time.Duration
@@ -135,17 +134,17 @@ case class KafkaSinkConfig[ADT <: FlinkEvent: TypeInformation](
       : KafkaRecordSerializationSchema[E] =
     new JsonKafkaRecordSerializationSchema[E, ADT](this)
 
-  override def getAvroSink[
+  override def addAvroSink[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](
-      dataStream: DataStream[E]): DataStreamSink[E] =
-    dataStream.sinkTo(_getSink[E](getAvroSerializationSchema[E, A]))
+      dataStream: DataStream[E]): Unit =
+    dataStream.sinkTo(_addSink[E](getAvroSerializationSchema[E, A]))
 
-  override def getSink[E <: ADT: TypeInformation](
-      dataStream: DataStream[E]): DataStreamSink[E] =
-    dataStream.sinkTo(_getSink[E](getSerializationSchema[E]))
+  override def addSink[E <: ADT: TypeInformation](
+      dataStream: DataStream[E]): Unit =
+    dataStream.sinkTo(_addSink[E](getSerializationSchema[E]))
 
-  def _getSink[E <: ADT: TypeInformation](
+  def _addSink[E <: ADT: TypeInformation](
       serializer: KafkaRecordSerializationSchema[E]): KafkaSink[E] =
     KafkaSink
       .builder()

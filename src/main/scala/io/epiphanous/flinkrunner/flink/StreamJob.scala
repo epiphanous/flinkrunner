@@ -498,7 +498,7 @@ abstract class StreamJob[
     *   a transformed stream from transform()
     */
   def sink(out: DataStream[OUT]): Unit =
-    runner.getSinkNames.foreach(name => runner.toSink[OUT](out, name))
+    runner.getSinkNames.foreach(name => runner.addSink[OUT](out, name))
 
   /** The output stream will only be passed to output sink(s) if the runner
     * determines it's required. Some testing configurations can skip

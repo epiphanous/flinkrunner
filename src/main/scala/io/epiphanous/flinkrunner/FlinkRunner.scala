@@ -13,6 +13,9 @@ import org.apache.flink.formats.avro.utils.AvroKryoSerializerUtils.AvroSchemaSer
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.table.api.bridge.scala.StreamTableEnvironment
+import org.apache.flink.table.data.RowData
+import org.apache.flink.table.types.logical.RowType
+import org.apache.flink.types.Row
 
 import scala.collection.JavaConverters._
 
@@ -254,44 +257,6 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
 
   //  ********************** SINKS **********************
 
-  /** Create a json-encoded stream sink from configuration.
-    *
-    * @param stream
-    *   the data stream to send to sink
-    * @param sinkName
-    *   the sink to send it to
-    * @tparam E
-    *   stream element type
-    * @return
-    *   DataStream[E]
-    */
-  def toSink[E <: ADT: TypeInformation](
-      stream: DataStream[E],
-      sinkName: String
-  ): DataStreamSink[E] =
-    configToSink[E](stream, getSinkConfig(sinkName))
-
-  /** Create an avro-encoded stream sink from configuration.
-    *
-    * @param stream
-    *   the data stream to send to the sink
-    * @param sinkName
-    *   an optional sink name (defaults to first sink)
-    * @tparam E
-    *   the event type
-    * @tparam A
-    *   the avro record type
-    * @return
-    *   the
-    */
-  def toAvroSink[
-      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
-      A <: GenericRecord: TypeInformation](
-      stream: DataStream[E],
-      sinkName: String
-  ): DataStreamSink[E] =
-    configToAvroSink[E, A](stream, getSinkConfig(sinkName))
-
   def getSinkConfig(
       sinkName: String = getDefaultSinkName): SinkConfig[ADT] =
     SinkConfig[ADT](sinkName, config)
@@ -304,33 +269,57 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     */
   def writeToSink: Boolean = checkResultsOpt.forall(_.writeToSink)
 
-  def configToSink[E <: ADT: TypeInformation](
+  def addSink[E <: ADT: TypeInformation](
       stream: DataStream[E],
-      sinkConfig: SinkConfig[ADT]): DataStreamSink[E] =
-    sinkConfig match {
-      case s: CassandraSinkConfig[ADT]     => s.getSink[E](stream)
-      case s: ElasticsearchSinkConfig[ADT] => s.getSink[E](stream)
-      case s: FileSinkConfig[ADT]          => s.getSink[E](stream)
-      case s: JdbcSinkConfig[ADT]          => s.getSink[E](stream)
-      case s: KafkaSinkConfig[ADT]         => s.getSink[E](stream)
-      case s: KinesisSinkConfig[ADT]       => s.getSink[E](stream)
-      case s: RabbitMQSinkConfig[ADT]      => s.getSink[E](stream)
-      case s: SocketSinkConfig[ADT]        => s.getSink[E](stream)
+      sinkName: String): Unit =
+    getSinkConfig(sinkName) match {
+      case s: CassandraSinkConfig[ADT]     => s.addSink[E](stream)
+      case s: ElasticsearchSinkConfig[ADT] => s.addSink[E](stream)
+      case s: FileSinkConfig[ADT]          => s.addSink[E](stream)
+      case s: JdbcSinkConfig[ADT]          => s.addSink[E](stream)
+      case s: KafkaSinkConfig[ADT]         => s.addSink[E](stream)
+      case s: KinesisSinkConfig[ADT]       => s.addSink[E](stream)
+      case s: RabbitMQSinkConfig[ADT]      => s.addSink[E](stream)
+      case s: SocketSinkConfig[ADT]        => s.addSink[E](stream)
+      case s: IcebergSinkConfig[ADT]       => s.addSink[E](stream)
     }
 
-  def configToAvroSink[
+  def addAvroSink[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](
       stream: DataStream[E],
-      sinkConfig: SinkConfig[ADT]): DataStreamSink[E] =
-    sinkConfig match {
-      case s: CassandraSinkConfig[ADT]     => s.getAvroSink[E, A](stream)
-      case s: ElasticsearchSinkConfig[ADT] => s.getAvroSink[E, A](stream)
-      case s: FileSinkConfig[ADT]          => s.getAvroSink[E, A](stream)
-      case s: JdbcSinkConfig[ADT]          => s.getAvroSink[E, A](stream)
-      case s: KafkaSinkConfig[ADT]         => s.getAvroSink[E, A](stream)
-      case s: KinesisSinkConfig[ADT]       => s.getAvroSink[E, A](stream)
-      case s: RabbitMQSinkConfig[ADT]      => s.getAvroSink[E, A](stream)
-      case s: SocketSinkConfig[ADT]        => s.getAvroSink[E, A](stream)
+      sinkName: String): Unit =
+    getSinkConfig(sinkName) match {
+      case s: CassandraSinkConfig[ADT]     => s.addAvroSink[E, A](stream)
+      case s: ElasticsearchSinkConfig[ADT] => s.addAvroSink[E, A](stream)
+      case s: FileSinkConfig[ADT]          => s.addAvroSink[E, A](stream)
+      case s: JdbcSinkConfig[ADT]          => s.addAvroSink[E, A](stream)
+      case s: KafkaSinkConfig[ADT]         => s.addAvroSink[E, A](stream)
+      case s: KinesisSinkConfig[ADT]       => s.addAvroSink[E, A](stream)
+      case s: RabbitMQSinkConfig[ADT]      => s.addAvroSink[E, A](stream)
+      case s: SocketSinkConfig[ADT]        => s.addAvroSink[E, A](stream)
+      case s: IcebergSinkConfig[ADT]       => s.addAvroSink[E, A](stream)
     }
+
+  def addRowSink[E <: ADT with EmbeddedRowType: TypeInformation](
+      stream: DataStream[E],
+      sinkName: String = getDefaultSinkName,
+      optRowType: Option[RowType] = None): Unit = {
+    val rowStream: DataStream[Row] = stream.map((e: E) => e.toRow)
+    getSinkConfig(sinkName) match {
+      case s: CassandraSinkConfig[ADT]     =>
+        s.addRowSink(rowStream, optRowType)
+      case s: ElasticsearchSinkConfig[ADT] =>
+        s.addRowSink(rowStream, optRowType)
+      case s: FileSinkConfig[ADT]          => s.addRowSink(rowStream, optRowType)
+      case s: JdbcSinkConfig[ADT]          => s.addRowSink(rowStream, optRowType)
+      case s: KafkaSinkConfig[ADT]         => s.addRowSink(rowStream, optRowType)
+      case s: KinesisSinkConfig[ADT]       => s.addRowSink(rowStream, optRowType)
+      case s: RabbitMQSinkConfig[ADT]      =>
+        s.addRowSink(rowStream, optRowType)
+      case s: SocketSinkConfig[ADT]        => s.addRowSink(rowStream, optRowType)
+      case s: IcebergSinkConfig[ADT]       => s.addRowSink(rowStream, optRowType)
+    }
+  }
+
 }

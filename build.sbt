@@ -30,6 +30,7 @@ resolvers += "Confluent Repository" at "https://packages.confluent.io/maven/"
 
 val V = new {
   val flink               = "1.16.0"
+  val flinkMinor          = "1.16"
   val logback             = "1.2.11"
   val scalaLogging        = "3.9.5"
   val scalaTest           = "3.2.14"
@@ -52,6 +53,7 @@ val V = new {
   val hadoop              = "3.3.2"
   val cassandraDriver     = "3.11.3"
   val uuidCreator         = "5.2.0"
+  val iceberg             = "1.1.0"
   val jna                 = "5.12.1" // needed for testcontainers in some jvms
 }
 
@@ -110,6 +112,7 @@ val circeDeps = Seq(
 ).map(d => "io.circe" %% s"circe-$d" % V.circe)
 
 val otherDeps = Seq(
+  "org.apache.iceberg"               % "iceberg-flink-runtime-1.16"       % V.iceberg             % Provided,
   "com.github.f4b6a3"                % "uuid-creator"                     % V.uuidCreator,
   "org.apache.hadoop"                % "hadoop-client"                    % V.hadoop              % Provided,
   "io.confluent"                     % "kafka-avro-serializer"            % V.confluentAvroSerde  % Provided,

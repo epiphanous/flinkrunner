@@ -26,7 +26,6 @@ import org.apache.flink.connector.jdbc.{
   JdbcExecutionOptions,
   JdbcStatementBuilder
 }
-import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
 
 import java.sql.{Connection, DriverManager, PreparedStatement, Timestamp}
@@ -294,11 +293,11 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
     sqlBuilder.append(")\nSELECT ")
     Range(0, columns.length).foreach { i =>
       (columns(i).dataType, product) match {
-        case (SqlColumnType.JSON, SupportedDatabase.Snowflake) =>
+        case (SqlColumnType.JSON, SupportedDatabase.Snowflake)  =>
           sqlBuilder.append("PARSE_JSON(?)")
         case (SqlColumnType.JSON, SupportedDatabase.Postgresql) =>
           sqlBuilder.append("CAST(? AS JSON)")
-        case _                                                 => sqlBuilder.append("?")
+        case _                                                  => sqlBuilder.append("?")
       }
       if (i < columns.length - 1) sqlBuilder.append(", ")
     }
@@ -653,9 +652,9 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
     }
   }
 
-  def _getSink[E <: ADT: TypeInformation](
+  def _addSink[E <: ADT: TypeInformation](
       dataStream: DataStream[E],
-      statementBuilder: JdbcStatementBuilder[E]): DataStreamSink[E] = {
+      statementBuilder: JdbcStatementBuilder[E]): Unit = {
     val jdbcOutputFormat =
       new JdbcOutputFormat[E, E, JdbcBatchStatementExecutor[E]](
         new BasicJdbcConnectionProvider(
@@ -688,15 +687,15 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
       .name(label)
   }
 
-  override def getSink[E <: ADT: TypeInformation](
-      dataStream: DataStream[E]): DataStreamSink[E] =
-    _getSink(dataStream, getStatementBuilder[E])
+  override def addSink[E <: ADT: TypeInformation](
+      dataStream: DataStream[E]): Unit =
+    _addSink(dataStream, getStatementBuilder[E])
 
-  override def getAvroSink[
+  override def addAvroSink[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](
-      dataStream: DataStream[E]): DataStreamSink[E] =
-    _getSink(dataStream, getAvroStatementBuilder[E, A])
+      dataStream: DataStream[E]): Unit =
+    _addSink(dataStream, getAvroStatementBuilder[E, A])
 }
 
 object JdbcSinkConfig {

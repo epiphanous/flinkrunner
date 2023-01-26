@@ -10,6 +10,9 @@ import io.epiphanous.flinkrunner.model.{
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
 import org.apache.avro.specific.SpecificRecordBase
+import org.apache.flink.formats.avro.typeutils.AvroSchemaConverter
+import org.apache.flink.table.types.FieldsDataType
+import org.apache.flink.table.types.logical.RowType
 
 import scala.collection.JavaConverters._
 import scala.util.Try
@@ -32,7 +35,7 @@ object AvroUtils extends LazyLogging {
 
   def schemaOf[A <: GenericRecord](
       typeClass: Class[A],
-      schemaStringOpt: Option[String]): Schema =
+      schemaStringOpt: Option[String] = None): Schema =
     if (isSpecific(typeClass)) instanceOf(typeClass).getSchema
     else
       schemaStringOpt
@@ -105,6 +108,14 @@ object AvroUtils extends LazyLogging {
         )
       )
 
+  def rowTypeOf[A <: GenericRecord](typeClass: Class[A]): Try[RowType] =
+    Try(
+      AvroSchemaConverter
+        .convertToDataType(schemaOf(typeClass).toString)
+        .getLogicalType
+        .asInstanceOf[RowType]
+    )
+
   implicit class RichGenericRecord(genericRecord: GenericRecord) {
     def getDataAsSeq[A <: GenericRecord]: Seq[AnyRef] =
       genericRecord.getSchema.getFields.asScala.map(f =>
@@ -144,12 +155,12 @@ object AvroUtils extends LazyLogging {
             case array: java.util.List[_] =>
               val convertedArray = array.asScala.map {
                 case rec: GenericRecord => convertEmbeddedRecord(rec)
-                case v => v
+                case v                  => v
               }
               a.put(f, convertedArray.asJava)
-            case rec: GenericRecord =>
+            case rec: GenericRecord       =>
               a.put(f, convertEmbeddedRecord(rec))
-            case v                  => a.put(f, v)
+            case v                        => a.put(f, v)
           }
           a
         }

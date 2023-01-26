@@ -17,7 +17,6 @@ import org.apache.flink.connector.elasticsearch.sink.{
   ElasticsearchEmitter,
   FlushBackoffType
 }
-import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
 import org.apache.http.HttpHost
 import org.elasticsearch.client.Requests
@@ -79,9 +78,9 @@ case class ElasticsearchSinkConfig[ADT <: FlinkEvent](
   val bulkFlushIntervalMs: Option[Long] =
     Option(properties.getProperty("bulk.flush.interval.ms")).map(_.toLong)
 
-  def _getSink[E <: ADT: TypeInformation](
+  def _addSink[E <: ADT: TypeInformation](
       dataStream: DataStream[E],
-      emitter: ElasticsearchEmitter[E]): DataStreamSink[E] = {
+      emitter: ElasticsearchEmitter[E]): Unit = {
     val esb =
       new Elasticsearch7SinkBuilder[E]
         .setHosts(transports: _*)
@@ -97,15 +96,15 @@ case class ElasticsearchSinkConfig[ADT <: FlinkEvent](
     dataStream.sinkTo(esb.build()).uid(label).name(label)
   }
 
-  override def getSink[E <: ADT: TypeInformation](
-      dataStream: DataStream[E]): DataStreamSink[E] =
-    _getSink(dataStream, getEmitter[E])
+  override def addSink[E <: ADT: TypeInformation](
+      dataStream: DataStream[E]): Unit =
+    _addSink(dataStream, getEmitter[E])
 
-  override def getAvroSink[
+  override def addAvroSink[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](
-      dataStream: DataStream[E]): DataStreamSink[E] =
-    _getSink(dataStream, getAvroEmitter[E, A])
+      dataStream: DataStream[E]): Unit =
+    _addSink(dataStream, getAvroEmitter[E, A])
 
   def _getEmitter[E <: ADT](
       getData: E => AnyRef): ElasticsearchEmitter[E] =

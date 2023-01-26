@@ -25,6 +25,6 @@ abstract class AvroStreamJob[
 
   override def sink(out: DataStream[OUT]): Unit =
     runner.getSinkNames.foreach(name =>
-      runner.toAvroSink[OUT, A](out, name)
+      runner.addAvroSink[OUT, A](out, name)
     )
 }

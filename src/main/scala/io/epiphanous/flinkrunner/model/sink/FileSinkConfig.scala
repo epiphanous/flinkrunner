@@ -110,8 +110,8 @@ case class FileSinkConfig[ADT <: FlinkEvent](
     * @return
     *   DataStreamSink[E]
     */
-  override def getSink[E <: ADT: TypeInformation](
-      dataStream: DataStream[E]): DataStreamSink[E] =
+  override def addSink[E <: ADT: TypeInformation](
+      dataStream: DataStream[E]): Unit =
     dataStream.sinkTo(
       FileSink
         .forRowFormat(destination, getRowEncoder[E])
@@ -133,10 +133,10 @@ case class FileSinkConfig[ADT <: FlinkEvent](
     * @return
     *   DataStream[E]
     */
-  override def getAvroSink[
+  override def addAvroSink[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](
-      dataStream: DataStream[E]): DataStreamSink[E] = {
+      dataStream: DataStream[E]): Unit = {
     val sink = format match {
       case StreamFormatName.Parquet | StreamFormatName.Avro =>
         FileSink
