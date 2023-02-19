@@ -41,8 +41,6 @@ object StreamUtils extends LazyLogging {
     }
   }
 
-  implicit class RichConfig(val c: Config) {}
-
   implicit class RichProps(val p: Properties) {
     def asJavaMap: util.HashMap[String, String] =
       Maps.newHashMap(Maps.fromProperties(p))

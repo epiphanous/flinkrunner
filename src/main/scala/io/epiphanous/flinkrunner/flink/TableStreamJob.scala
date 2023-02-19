@@ -4,16 +4,9 @@ import io.epiphanous.flinkrunner.FlinkRunner
 import io.epiphanous.flinkrunner.model.{EmbeddedRowType, FlinkEvent}
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.scala.createTypeInformation
-import org.apache.flink.api.scala.typeutils.Types
 import org.apache.flink.streaming.api.scala.DataStream
-import org.apache.flink.table.api.DataTypes
-import org.apache.flink.table.types.logical.RowType.RowField
 import org.apache.flink.table.types.logical.utils.LogicalTypeParser
-import org.apache.flink.table.types.logical.{
-  LogicalType,
-  LogicalTypeRoot,
-  RowType
-}
+import org.apache.flink.table.types.logical.{LogicalTypeRoot, RowType}
 
 import scala.util.Try
 

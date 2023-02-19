@@ -6,6 +6,7 @@ import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.util.StreamUtils._
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
 import org.apache.flink.table.types.logical.RowType
 import org.apache.flink.table.types.logical.utils.LogicalTypeParser
@@ -71,8 +72,11 @@ trait SinkConfig[ADT <: FlinkEvent] extends LazyLogging {
   ): Unit
 
   def addRowSink(stream: DataStream[Row], rowType: RowType): Unit =
+    notImplementedError("addRowSink")
+
+  def notImplementedError(method: String): Unit =
     throw new RuntimeException(
-      s"addRowSink is not implemented for ${connector.entryName} sink $name"
+      s"$method is not implemented for ${connector.entryName} sink $name"
     )
 
 }
