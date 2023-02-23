@@ -50,7 +50,7 @@ case class JdbcSinkColumn(
     logger.debug(
       Seq(
         s"name:$name${eq(nameMatches)}$columnName",
-        s"type:${dataType.name}${eq(typeMatches)}$typeName",
+        s"type:${dataType.name}(value:${dataType.jdbcType})${eq(typeMatches)}$typeName(value:$jdbcType)",
         s"precision:${precision.map(_.toString).getOrElse("_")}${eq(precisionMatches)}$columnSize",
         s"scale:${scale.map(_.toString).getOrElse("_")}${eq(scaleMatches)}${if (Option(decimalDigits).isEmpty) "_"
           else decimalDigits.toString}",
