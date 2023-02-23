@@ -46,15 +46,17 @@ val V = new {
   val squants             = "1.8.3"
   val confluentAvroSerde  = "7.1.1"
   val parquet             = "1.12.3"
-  val awsSdk              = "1.12.405"
+  val awsSdk              = "1.12.411"
   val jdbcMysql           = "8.0.32"
-  val jdbcPg              = "42.5.3"
+  val jdbcPg              = "42.5.4"
   val jdbcMssql           = "11.2.0.jre11"
   val hadoop              = "3.3.2"
   val cassandraDriver     = "3.11.3"
   val uuidCreator         = "5.2.0"
   val iceberg             = "1.1.0"
   val jna                 = "5.12.1" // needed for testcontainers in some jvms
+  val minio               = "8.5.2"
+  val awsSdk2             = "2.20.8"
 }
 
 val flinkDeps =
@@ -114,33 +116,38 @@ val circeDeps = Seq(
 ).map(d => "io.circe" %% s"circe-$d" % V.circe)
 
 val otherDeps = Seq(
-  "org.apache.iceberg"               % s"iceberg-flink-runtime-${V.flinkMinor}" % V.iceberg,
-  "com.github.f4b6a3"                % "uuid-creator"                           % V.uuidCreator,
-  "org.apache.hadoop"                % "hadoop-client"                          % V.hadoop              % Provided,
-  "io.confluent"                     % "kafka-avro-serializer"                  % V.confluentAvroSerde  % Provided,
   "com.amazonaws"                    % "aws-java-sdk-core"                      % V.awsSdk              % Provided,
+  "com.amazonaws"                    % "aws-java-sdk-s3"                        % V.awsSdk              % Test,
   "com.beachape"                    %% "enumeratum"                             % V.enumeratum,
-  "com.typesafe"                     % "config"                                 % V.typesafeConfig,
+  "com.datastax.cassandra"           % "cassandra-driver-extras"                % V.cassandraDriver     % Provided,
+  "com.dimafeng"                    %% "testcontainers-scala-cassandra"         % V.testContainersScala % Test,
+  "com.dimafeng"                    %% "testcontainers-scala-localstack-v2"     % V.testContainersScala % Test,
+  "com.dimafeng"                    %% "testcontainers-scala-mssqlserver"       % V.testContainersScala % Test,
+  "com.dimafeng"                    %% "testcontainers-scala-mysql"             % V.testContainersScala % Test,
+  "com.dimafeng"                    %% "testcontainers-scala-postgresql"        % V.testContainersScala % Test,
+  "com.dimafeng"                    %% "testcontainers-scala-scalatest"         % V.testContainersScala % Test,
+  "com.fasterxml.jackson.dataformat" % "jackson-dataformat-csv"                 % V.jackson,
+  "com.fasterxml.jackson.datatype"   % "jackson-datatype-jsr310"                % V.jackson,
+  "com.fasterxml.jackson.module"    %% "jackson-module-scala"                   % V.jackson,
+  "com.github.f4b6a3"                % "uuid-creator"                           % V.uuidCreator,
+  "com.github.pjfanning"            %% "jackson-scala-reflect-extensions"       % "2.14.0",
   "com.google.guava"                 % "guava"                                  % V.guava,
-  "org.typelevel"                   %% "squants"                                % V.squants,
+  "com.lihaoyi"                     %% "requests"                               % "0.8.0"               % Test,
+  "com.microsoft.sqlserver"          % "mssql-jdbc"                             % V.jdbcMssql           % Provided,
+  "com.typesafe"                     % "config"                                 % V.typesafeConfig,
+  "io.confluent"                     % "kafka-avro-serializer"                  % V.confluentAvroSerde  % Provided,
+  "io.minio"                         % "minio"                                  % V.minio               % Test,
+  "mysql"                            % "mysql-connector-java"                   % V.jdbcMysql           % Provided,
+  "net.java.dev.jna"                 % "jna"                                    % V.jna                 % Test,
+  "org.apache.hadoop"                % "hadoop-client"                          % V.hadoop              % Provided,
+  "org.apache.iceberg"               % s"iceberg-flink-runtime-${V.flinkMinor}" % V.iceberg,
+  "org.postgresql"                   % "postgresql"                             % V.jdbcPg              % Provided,
+  "org.scalacheck"                  %% "scalacheck"                             % V.scalaCheck,
   "org.scalactic"                   %% "scalactic"                              % V.scalaTest,
   "org.scalatest"                   %% "scalatest"                              % V.scalaTest           % Test,
   "org.scalatestplus"               %% "scalacheck-1-17"                        % V.scalaTestPlus       % Test,
-  "org.scalacheck"                  %% "scalacheck"                             % V.scalaCheck,
-  "com.fasterxml.jackson.module"    %% "jackson-module-scala"                   % V.jackson,
-  "com.github.pjfanning"            %% "jackson-scala-reflect-extensions"       % "2.14.0",
-  "com.fasterxml.jackson.dataformat" % "jackson-dataformat-csv"                 % V.jackson,
-  "com.fasterxml.jackson.datatype"   % "jackson-datatype-jsr310"                % V.jackson,
-  "com.dimafeng"                    %% "testcontainers-scala-scalatest"         % V.testContainersScala % Test,
-  "com.dimafeng"                    %% "testcontainers-scala-mysql"             % V.testContainersScala % Test,
-  "mysql"                            % "mysql-connector-java"                   % V.jdbcMysql           % Provided,
-  "com.dimafeng"                    %% "testcontainers-scala-postgresql"        % V.testContainersScala % Test,
-  "org.postgresql"                   % "postgresql"                             % V.jdbcPg              % Provided,
-  "com.dimafeng"                    %% "testcontainers-scala-mssqlserver"       % V.testContainersScala % Test,
-  "net.java.dev.jna"                 % "jna"                                    % V.jna                 % Test,
-  "com.microsoft.sqlserver"          % "mssql-jdbc"                             % V.jdbcMssql           % Provided,
-  "com.dimafeng"                    %% "testcontainers-scala-cassandra"         % V.testContainersScala % Test,
-  "com.datastax.cassandra"           % "cassandra-driver-extras"                % V.cassandraDriver     % Provided
+  "org.typelevel"                   %% "squants"                                % V.squants,
+  "software.amazon.awssdk"           % "aws-sdk-java"                           % V.awsSdk2             % Test
 ) ++
   Seq("org.apache.parquet" % "parquet-avro" % V.parquet % Provided).map(
     m =>

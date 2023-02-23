@@ -14,7 +14,7 @@ import org.apache.flink.table.types.logical.RowType
 import org.apache.flink.table.types.utils.TypeConversions
 import org.apache.flink.types.Row
 import org.apache.hadoop.conf.Configuration
-import org.apache.iceberg.catalog.TableIdentifier
+import org.apache.iceberg.catalog.{Namespace, TableIdentifier}
 import org.apache.iceberg.flink.sink.FlinkSink
 import org.apache.iceberg.flink.{
   CatalogLoader,
@@ -22,7 +22,7 @@ import org.apache.iceberg.flink.{
   FlinkWriteOptions,
   TableLoader
 }
-import org.apache.iceberg.{PartitionSpec, Schema}
+import org.apache.iceberg.{PartitionSpec, Schema, Table}
 
 import java.util
 import scala.collection.JavaConverters._
@@ -46,13 +46,18 @@ case class IcebergSinkConfig[ADT <: FlinkEvent](
 
   val hadoopConf = new Configuration()
 
-  val databaseName: String =
-    config.getStringOpt(pfx("database")).getOrElse("default")
+  val namespace: Namespace =
+    Namespace.of(
+      config
+        .getStringOpt(pfx("namespace"))
+        .getOrElse("default")
+        .split("\\."): _*
+    )
 
   val tableName: String = config.getString(pfx("table"))
 
   val tableIdentifier: TableIdentifier =
-    TableIdentifier.of(databaseName, tableName)
+    TableIdentifier.of(namespace, tableName)
 
   val (
     catalogName: String,
@@ -140,22 +145,35 @@ case class IcebergSinkConfig[ADT <: FlinkEvent](
     * @return
     *   Try[Boolean] - true if we created the table, false otherwise
     */
-  def maybeCreateTable(flinkTableSchema: TableSchema): Try[Boolean] = Try {
-    val icebergSchema: Schema = FlinkSchemaUtil.convert(flinkTableSchema)
-    val catalog               = catalogLoader.loadCatalog()
-    if (!catalog.tableExists(tableIdentifier)) {
-      catalog.createTable(
-        tableIdentifier,
-        icebergSchema,
-        partitionSpecConfig
-          .foldLeft(PartitionSpec.builderFor(icebergSchema)) {
-            case (psb, pc) =>
-              pc.addToSpec(psb)
-          }
-          .build()
-      )
-      true
-    } else false
+  def maybeCreateTable(flinkTableSchema: TableSchema): Try[Table] = {
+    logger.debug(s"enter maybeCreateTable $flinkTableSchema")
+    val t = Try {
+      val icebergSchema: Schema = FlinkSchemaUtil.convert(flinkTableSchema)
+      logger.debug(icebergSchema.toString)
+      val catalog               = catalogLoader.loadCatalog()
+      logger.debug(catalog.toString)
+      val ps                    =
+        if (partitionSpecConfig.nonEmpty)
+          partitionSpecConfig
+            .foldLeft(PartitionSpec.builderFor(icebergSchema)) {
+              case (psb, pc) =>
+                pc.addToSpec(psb)
+            }
+            .build()
+        else PartitionSpec.unpartitioned()
+      logger.debug(ps.toString)
+      logger.debug(tableIdentifier.toString)
+      if (catalog.tableExists(tableIdentifier))
+        catalog.loadTable(tableIdentifier)
+      else
+        catalog.createTable(
+          tableIdentifier,
+          icebergSchema,
+          ps
+        )
+    }
+    logger.debug(s"exit maybeCreateTable with $t")
+    t
   }
 
   /** Add an iceberg row sink for the given data stream and row type
@@ -169,13 +187,12 @@ case class IcebergSinkConfig[ADT <: FlinkEvent](
       rowType: RowType): Unit = {
     val flinkTableSchema = getFlinkTableSchema(rowType)
     maybeCreateTable(flinkTableSchema).fold(
-      t =>
+      err =>
         throw new RuntimeException(
           s"Failed to create iceberg table $tableIdentifier",
-          t
+          err
         ),
-      created =>
-        if (created) logger.info(s"created iceberg table $tableIdentifier")
+      table => logger.info(s"iceberg table $table ready")
     )
     FlinkSink
       .forRow(dataStream.javaStream, flinkTableSchema)
