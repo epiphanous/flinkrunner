@@ -686,6 +686,7 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
       )
       .uid(label)
       .name(label)
+      .setParallelism(parallelism)
   }
 
   override def getSink[E <: ADT: TypeInformation](

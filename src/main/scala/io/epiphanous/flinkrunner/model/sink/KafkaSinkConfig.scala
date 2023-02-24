@@ -139,11 +139,11 @@ case class KafkaSinkConfig[ADT <: FlinkEvent: TypeInformation](
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](
       dataStream: DataStream[E]): DataStreamSink[E] =
-    dataStream.sinkTo(_getSink[E](getAvroSerializationSchema[E, A]))
+    dataStream.sinkTo(_getSink[E](getAvroSerializationSchema[E, A])).setParallelism(parallelism)
 
   override def getSink[E <: ADT: TypeInformation](
       dataStream: DataStream[E]): DataStreamSink[E] =
-    dataStream.sinkTo(_getSink[E](getSerializationSchema[E]))
+    dataStream.sinkTo(_getSink[E](getSerializationSchema[E])).setParallelism(parallelism)
 
   def _getSink[E <: ADT: TypeInformation](
       serializer: KafkaRecordSerializationSchema[E]): KafkaSink[E] =

@@ -94,6 +94,11 @@ class KinesisSourceConfigSpec extends PropSpec {
     defaultConfigPlus("efo.enabled = false").useEfo shouldBe false
   }
 
+  property("parallelism property") {
+    defaultConfigPlus("parallelism = 10").parallelism shouldBe 10
+    defaultConfigPlus("parallelism = 10.5").parallelism shouldBe 10
+  }
+
   property("missing stream property") {
     the[Exception] thrownBy noProvidedConfig should have message "kinesis source kinesis-test is missing required 'stream' property"
   }

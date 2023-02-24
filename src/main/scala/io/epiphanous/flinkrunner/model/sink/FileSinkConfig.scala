@@ -119,7 +119,7 @@ case class FileSinkConfig[ADT <: FlinkEvent](
         .withRollingPolicy(getCheckpointRollingPolicy)
         .withOutputFileConfig(getOutputFileConfig)
         .build()
-    )
+    ).setParallelism(parallelism)
 
   /** Create an bulk avro parquet file sink and send the data stream to it.
     * @param dataStream
@@ -165,7 +165,7 @@ case class FileSinkConfig[ADT <: FlinkEvent](
           s"Invalid format for getAvroSink: $format"
         )
     }
-    dataStream.sinkTo(sink)
+    dataStream.sinkTo(sink).setParallelism(parallelism)
   }
 
   def getBucketCheckInterval: Long =

@@ -62,6 +62,7 @@ case class CassandraSinkConfig[ADT <: FlinkEvent](
       .addSink(new CassandraScalaProductSink[E](query, clusterBuilder))
       .uid(label)
       .name(label)
+      .setParallelism(parallelism)
   }
 
   override def getAvroSink[
@@ -82,5 +83,6 @@ case class CassandraSinkConfig[ADT <: FlinkEvent](
       )
       .uid(label)
       .name(label)
+      .setParallelism(parallelism)
 
 }

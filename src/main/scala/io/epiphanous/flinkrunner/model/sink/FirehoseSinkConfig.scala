@@ -99,7 +99,7 @@ case class FirehoseSinkConfig[ADT <: FlinkEvent: TypeInformation](
         .map(k.setMaxBatchSizeInBytes)
         .getOrElse(k)
     }.build()
-    dataStream.sinkTo(kfs)
+    dataStream.sinkTo(kfs).setParallelism(parallelism)
   }
 
   def getSerializationSchema[E <: ADT: TypeInformation]

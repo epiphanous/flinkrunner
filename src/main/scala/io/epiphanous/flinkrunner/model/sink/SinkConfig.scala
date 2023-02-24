@@ -50,6 +50,10 @@ trait SinkConfig[ADT <: FlinkEvent] extends LazyLogging {
 
   lazy val label: String = s"${connector.entryName.toLowerCase}/$name"
 
+  lazy val parallelism: Int = config
+    .getIntOpt(pfx("parallelism"))
+    .getOrElse(config.globalParallelism)
+
   def getSink[E <: ADT: TypeInformation](
       dataStream: DataStream[E]): DataStreamSink[E]
 
