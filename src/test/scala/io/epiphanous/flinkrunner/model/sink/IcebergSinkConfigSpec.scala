@@ -127,7 +127,7 @@ class IcebergSinkConfigSpec extends PropSpec with TestContainersForAll {
            |      name = iceberg
            |      uri = "${icebergEndpoint(ib)}"
            |      io-impl = "org.apache.iceberg.aws.s3.S3FileIO"
-           |      s3.endpoint = "${s3Endpoint(ls, outside = false)}"
+           |      s3.endpoint = "${s3Endpoint(ls)}"
            |      warehouse = "s3://$bucketName"
            |    }
            |    namespace = "testing.tables"
@@ -143,6 +143,8 @@ class IcebergSinkConfigSpec extends PropSpec with TestContainersForAll {
     table should be a 'Success
     logger.debug(table.get.toString)
   }
+
+  // ****************** TESTS START HERE ************************
 
   property("has warehouse s3 bucket") {
     withContainers { case ls and _ =>
