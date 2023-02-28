@@ -144,12 +144,12 @@ object AvroUtils extends LazyLogging {
             case array: java.util.List[_] =>
               val convertedArray = array.asScala.map {
                 case rec: GenericRecord => convertEmbeddedRecord(rec)
-                case v => v
+                case v                  => v
               }
               a.put(f, convertedArray.asJava)
-            case rec: GenericRecord =>
+            case rec: GenericRecord       =>
               a.put(f, convertEmbeddedRecord(rec))
-            case v                  => a.put(f, v)
+            case v                        => a.put(f, v)
           }
           a
         }

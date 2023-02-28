@@ -84,5 +84,5 @@ case class SocketSinkConfig[ADT <: FlinkEvent](
         maxRetries,
         autoFlush
       )
-    )
+    ).setParallelism(parallelism)
 }
