@@ -14,8 +14,6 @@ object FlinkConnectorName extends Enum[FlinkConnectorName] {
 
   case object Kinesis extends FlinkConnectorName
 
-  case object Firehose extends FlinkConnectorName
-
   case object Kafka extends FlinkConnectorName
 
   case object File extends FlinkConnectorName
@@ -33,40 +31,39 @@ object FlinkConnectorName extends Enum[FlinkConnectorName] {
   case object Generator extends FlinkConnectorName
 
   val sources: immutable.Seq[FlinkConnectorName] =
-    values diff IndexedSeq(Cassandra, Elasticsearch, Firehose)
+    values diff IndexedSeq(Cassandra, Elasticsearch)
   val sinks: immutable.Seq[FlinkConnectorName]   =
     values diff IndexedSeq(Hybrid, Generator)
 
   def fromSourceName(
-      sourceName: String,
-      jobName: String,
-      connectorNameOpt: Option[String] = None,
-      defaultOpt: Option[FlinkConnectorName] = None): FlinkConnectorName =
+                      sourceName: String,
+                      jobName: String,
+                      connectorNameOpt: Option[String] = None,
+                      defaultOpt: Option[FlinkConnectorName] = None): FlinkConnectorName =
     fromName("source", sourceName, jobName, connectorNameOpt, defaultOpt)
 
   def fromSinkName(
-      sinkName: String,
-      jobName: String,
-      connectorNameOpt: Option[String] = None,
-      defaultOpt: Option[FlinkConnectorName] = None): FlinkConnectorName =
+                    sinkName: String,
+                    jobName: String,
+                    connectorNameOpt: Option[String] = None,
+                    defaultOpt: Option[FlinkConnectorName] = None): FlinkConnectorName =
     fromName("sink", sinkName, jobName, connectorNameOpt, defaultOpt)
 
   def fromName(
-      sourceOrSink: String,
-      sourceOrSinkName: String,
-      jobName: String,
-      connectorNameOpt: Option[String] = None,
-      defaultOpt: Option[FlinkConnectorName] = None)
-      : FlinkConnectorName = {
+                sourceOrSink: String,
+                sourceOrSinkName: String,
+                jobName: String,
+                connectorNameOpt: Option[String] = None,
+                defaultOpt: Option[FlinkConnectorName] = None)
+  : FlinkConnectorName = {
     val sourceOrSinkID = s"$sourceOrSinkName $sourceOrSink in job $jobName"
     val connector      = (connectorNameOpt match {
       case Some(connectorName) => withNameInsensitiveOption(connectorName)
       case None                =>
-        val lcName           = sourceOrSinkName.toLowerCase.replaceAll("-", "_")
-        val lcNameSuffixed   = s"${lcName}_$sourceOrSink"
-        val lcNameUnsuffixed = lcName.replace(s"_$sourceOrSink", "")
+        val lcName         = sourceOrSinkName.toLowerCase
+        val lcNameSuffixed = s"${lcName}_$sourceOrSink"
         values.find { c =>
-          Seq(lcName, lcNameSuffixed, lcNameUnsuffixed).exists(
+          Seq(lcName, lcNameSuffixed).exists(
             _.contains(c.entryName.toLowerCase)
           )
         }
