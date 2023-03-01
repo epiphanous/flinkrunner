@@ -3,7 +3,6 @@ package io.epiphanous.flinkrunner.model
 import io.epiphanous.flinkrunner.PropSpec
 
 import java.nio.ByteBuffer
-import java.nio.charset.StandardCharsets
 import scala.collection.mutable
 import scala.util.Random
 

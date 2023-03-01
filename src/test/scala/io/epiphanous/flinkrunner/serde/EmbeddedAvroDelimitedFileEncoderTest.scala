@@ -1,12 +1,11 @@
 package io.epiphanous.flinkrunner.serde
 
 import io.epiphanous.flinkrunner.PropSpec
-import io.epiphanous.flinkrunner.model.{ARecord, AWrapper, MyAvroADT}
+import io.epiphanous.flinkrunner.model.{AWrapper, MyAvroADT}
 import org.apache.flink.api.scala.createTypeInformation
 
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
-import scala.collection.JavaConverters._
 
 class EmbeddedAvroDelimitedFileEncoderTest extends PropSpec {
 

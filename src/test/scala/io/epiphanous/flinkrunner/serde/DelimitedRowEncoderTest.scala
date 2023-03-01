@@ -1,7 +1,7 @@
 package io.epiphanous.flinkrunner.serde
 
 import io.epiphanous.flinkrunner.PropSpec
-import io.epiphanous.flinkrunner.model.{BRecord, CRecord, SimpleB}
+import io.epiphanous.flinkrunner.model.SimpleB
 import org.apache.flink.api.scala.createTypeInformation
 
 class DelimitedRowEncoderTest

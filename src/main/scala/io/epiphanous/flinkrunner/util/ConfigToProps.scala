@@ -3,7 +3,7 @@ package io.epiphanous.flinkrunner.util
 import com.typesafe.config.{ConfigException, ConfigObject}
 import io.epiphanous.flinkrunner.model.FlinkConfig
 
-import java.util.{List => JList, Map => JMap, Properties}
+import java.util.{Properties, List => JList, Map => JMap}
 import scala.collection.JavaConverters._
 
 object ConfigToProps {

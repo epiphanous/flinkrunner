@@ -1,27 +1,14 @@
 package io.epiphanous.flinkrunner.model
 
-import io.epiphanous.flinkrunner.model.source.{
-  FileSourceConfig,
-  SourceConfig
-}
-import io.epiphanous.flinkrunner.serde.{
-  DelimitedConfig,
-  EmbeddedAvroDelimitedFileEncoder,
-  EmbeddedAvroJsonFileEncoder,
-  JsonConfig
-}
+import io.epiphanous.flinkrunner.model.source.{FileSourceConfig, SourceConfig}
+import io.epiphanous.flinkrunner.serde.{DelimitedConfig, EmbeddedAvroDelimitedFileEncoder, EmbeddedAvroJsonFileEncoder, JsonConfig}
 import io.epiphanous.flinkrunner.util.AvroUtils.toEmbeddedAvroInstance
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.serialization.BulkWriter
 import org.apache.flink.api.scala.createTypeInformation
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.core.fs.local.LocalDataInputStream
-import org.apache.flink.core.fs.{
-  FSDataOutputStream,
-  FileInputSplit,
-  FileSystem,
-  Path
-}
+import org.apache.flink.core.fs.{FSDataOutputStream, FileInputSplit, FileSystem, Path}
 import org.apache.flink.formats.avro.AvroInputFormat
 import org.apache.flink.testutils.TestFileSystem
 

@@ -8,32 +8,17 @@ import com.typesafe.scalalogging.LazyLogging
 import io.circe.Decoder
 import io.epiphanous.flinkrunner.BuildInfo
 import io.epiphanous.flinkrunner.model.FlinkConfig
-import org.apache.flink.streaming.api.scala.async.{
-  ResultFuture,
-  RichAsyncFunction
-}
+import org.apache.flink.streaming.api.scala.async.{ResultFuture, RichAsyncFunction}
 import org.apache.flink.util.concurrent.Executors
 import org.http4s.circe.jsonOf
 import org.http4s.client.Client
 import org.http4s.ember.client.EmberClientBuilder
 import org.http4s.headers._
-import org.http4s.{
-  EntityDecoder,
-  Headers,
-  MediaType,
-  Method,
-  ProductId,
-  Request,
-  Uri
-}
+import org.http4s.{EntityDecoder, Headers, MediaType, Method, ProductId, Request, Uri}
 
 import java.time.Duration
 import java.util.concurrent.TimeUnit
-import scala.concurrent.{
-  ExecutionContext,
-  ExecutionContextExecutor,
-  Future
-}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success, Try}
 
 /** An abstract asynchronous function to enrich a data stream with

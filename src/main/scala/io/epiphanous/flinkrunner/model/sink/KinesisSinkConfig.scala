@@ -1,16 +1,8 @@
 package io.epiphanous.flinkrunner.model.sink
 
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.model.{
-  EmbeddedAvroRecord,
-  FlinkConfig,
-  FlinkConnectorName,
-  FlinkEvent
-}
-import io.epiphanous.flinkrunner.serde.{
-  EmbeddedAvroJsonSerializationSchema,
-  JsonSerializationSchema
-}
+import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, FlinkConfig, FlinkConnectorName, FlinkEvent}
+import io.epiphanous.flinkrunner.serde.{EmbeddedAvroJsonSerializationSchema, JsonSerializationSchema}
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.serialization.SerializationSchema
 import org.apache.flink.api.common.typeinfo.TypeInformation

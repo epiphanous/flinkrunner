@@ -1,11 +1,7 @@
 package io.epiphanous.flinkrunner.operator
 
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.model.aggregate.{
-  Aggregate,
-  AggregateAccumulator,
-  AggregateType
-}
+import io.epiphanous.flinkrunner.model.aggregate.{Aggregate, AggregateAccumulator, AggregateType}
 import io.epiphanous.flinkrunner.model.{FlinkEvent, UnitMapper}
 import org.apache.flink.api.common.functions.AggregateFunction
 import squants.{Dimension, Quantity, UnitOfMeasure}

@@ -1,11 +1,6 @@
 package io.epiphanous.flinkrunner.serde
 
-import io.epiphanous.flinkrunner.model.{
-  EmbeddedAvroRecord,
-  EmbeddedAvroRecordInfo,
-  FlinkConfig,
-  FlinkEvent
-}
+import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, EmbeddedAvroRecordInfo, FlinkConfig, FlinkEvent}
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
 

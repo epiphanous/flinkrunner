@@ -142,15 +142,15 @@ class AvroJsonSerializer
       gen: JsonGenerator,
       provider: SerializerProvider): Unit = {
     (schema.getType, value) match {
-      case (NULL, _) | (_, null | None)                       => gen.writeNullField(name)
-      case (_, Some(v))                                       =>
+      case (NULL, _) | (_, null | None)                               => gen.writeNullField(name)
+      case (_, Some(v))                                               =>
         _serializeAvroValue(name, v, schema, gen, provider)
-      case (RECORD, record: GenericRecord)                    =>
+      case (RECORD, record: GenericRecord)                            =>
         gen.writeFieldName(name)
         serialize(record, gen, provider)
-      case (ENUM, ord: Int)                                   =>
+      case (ENUM, ord: Int)                                           =>
         gen.writeStringField(name, schema.getEnumSymbols.get(ord))
-      case (ARRAY, seq: Seq[_])                               =>
+      case (ARRAY, seq: Seq[_])                                       =>
         gen.writeArrayFieldStart(name)
         seq.zipWithIndex.foreach { case (e, i) =>
           _serializeElement(
@@ -176,14 +176,14 @@ class AvroJsonSerializer
           )
         }
         gen.writeEndArray()
-      case (MAP, map: collection.Map[String, Any] @unchecked) =>
+      case (MAP, map: collection.Map[String, Any] @unchecked)         =>
         gen.writeObjectFieldStart(name)
         map.foreach { case (k, e) =>
           gen.writeFieldName(k)
           _serializeElement(name, k, e, schema.getValueType, gen, provider)
         }
         gen.writeEndObject()
-      case (UNION, _)                                         =>
+      case (UNION, _)                                                 =>
         _serializeAvroValue(
           name,
           value,
@@ -191,18 +191,18 @@ class AvroJsonSerializer
           gen,
           provider
         )
-      case (FIXED | BYTES, bytes: Array[Byte])                => // TODO: test this
+      case (FIXED | BYTES, bytes: Array[Byte])                        => // TODO: test this
         gen.writeBinaryField(name, bytes)
-      case (STRING, string: String)                           =>
+      case (STRING, string: String)                                   =>
         gen.writeStringField(name, string)
-      case (INT, int: Int)                                    =>
+      case (INT, int: Int)                                            =>
         gen.writeNumberField(name, int)
-      case (LONG, long: Long)                                 => gen.writeNumberField(name, long)
-      case (FLOAT, float: Float)                              => gen.writeNumberField(name, float)
-      case (DOUBLE, double: Double)                           => gen.writeNumberField(name, double)
-      case (BOOLEAN, boolean: Boolean)                        =>
+      case (LONG, long: Long)                                         => gen.writeNumberField(name, long)
+      case (FLOAT, float: Float)                                      => gen.writeNumberField(name, float)
+      case (DOUBLE, double: Double)                                   => gen.writeNumberField(name, double)
+      case (BOOLEAN, boolean: Boolean)                                =>
         gen.writeBooleanField(name, boolean)
-      case _                                                  =>
+      case _                                                          =>
         gen.writeFieldName(name)
         provider
           .findValueSerializer(
@@ -221,14 +221,14 @@ class AvroJsonSerializer
       gen: JsonGenerator,
       provider: SerializerProvider): Unit = {
     (schema.getType, value) match {
-      case (_, null | None)                => gen.writeNull()
-      case (_, Some(v))                    =>
+      case (_, null | None)                                           => gen.writeNull()
+      case (_, Some(v))                                               =>
         _serializeElement(name, key, v, schema, gen, provider)
-      case (RECORD, record: GenericRecord) =>
+      case (RECORD, record: GenericRecord)                            =>
         serialize(record, gen, provider)
-      case (ENUM, ord: Int)                =>
+      case (ENUM, ord: Int)                                           =>
         gen.writeString(schema.getEnumSymbols.get(ord))
-      case (ARRAY, seq: Seq[_])            =>
+      case (ARRAY, seq: Seq[_])                                       =>
         seq.zipWithIndex.foreach { case (e, i) =>
           _serializeElement(
             name,
@@ -250,8 +250,8 @@ class AvroJsonSerializer
             provider
           )
         }
-      case (MAP, _)                        => gen.writeObject(value)
-      case (UNION, _)                      =>
+      case (MAP, _)                                                   => gen.writeObject(value)
+      case (UNION, _)                                                 =>
         _serializeElement(
           name,
           key,
@@ -264,12 +264,12 @@ class AvroJsonSerializer
           gen,
           provider
         )
-      case (STRING, string: String)        => gen.writeString(string)
-      case (INT, int: Int)                 => gen.writeNumber(int)
-      case (LONG, long: Long)              => gen.writeNumber(long)
-      case (DOUBLE, double: Double)        => gen.writeNumber(double)
-      case (BOOLEAN, boolean: Boolean)     => gen.writeBoolean(boolean)
-      case _                               =>
+      case (STRING, string: String)                                   => gen.writeString(string)
+      case (INT, int: Int)                                            => gen.writeNumber(int)
+      case (LONG, long: Long)                                         => gen.writeNumber(long)
+      case (DOUBLE, double: Double)                                   => gen.writeNumber(double)
+      case (BOOLEAN, boolean: Boolean)                                => gen.writeBoolean(boolean)
+      case _                                                          =>
         logger.error(
           s"no serializer found for $name[$key] element with type ${schema.getType
               .name()} and value $value"

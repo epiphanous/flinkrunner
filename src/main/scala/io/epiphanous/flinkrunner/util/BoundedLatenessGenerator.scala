@@ -2,11 +2,7 @@ package io.epiphanous.flinkrunner.util
 
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.FlinkEvent
-import org.apache.flink.api.common.eventtime.{
-  Watermark,
-  WatermarkGenerator,
-  WatermarkOutput
-}
+import org.apache.flink.api.common.eventtime.{Watermark, WatermarkGenerator, WatermarkOutput}
 
 import java.time.Instant
 import scala.collection.mutable

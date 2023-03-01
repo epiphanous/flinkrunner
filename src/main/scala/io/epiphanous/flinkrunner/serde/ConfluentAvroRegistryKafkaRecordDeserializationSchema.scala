@@ -3,16 +3,8 @@ package io.epiphanous.flinkrunner.serde
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.KafkaInfoHeader._
 import io.epiphanous.flinkrunner.model.source.KafkaSourceConfig
-import io.epiphanous.flinkrunner.model.{
-  EmbeddedAvroRecord,
-  EmbeddedAvroRecordInfo,
-  FlinkEvent
-}
-import io.epiphanous.flinkrunner.util.AvroUtils.{
-  isSpecific,
-  schemaOf,
-  toEmbeddedAvroInstance
-}
+import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, EmbeddedAvroRecordInfo, FlinkEvent}
+import io.epiphanous.flinkrunner.util.AvroUtils.{isSpecific, schemaOf, toEmbeddedAvroInstance}
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.{TypeHint, TypeInformation}
 import org.apache.flink.connector.kafka.source.reader.deserializer.KafkaRecordDeserializationSchema

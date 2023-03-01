@@ -1,10 +1,7 @@
 package io.epiphanous.flinkrunner.model.source
 
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.serde.{
-  ConfluentAvroRegistryKafkaRecordDeserializationSchema,
-  JsonKafkaRecordDeserializationSchema
-}
+import io.epiphanous.flinkrunner.serde.{ConfluentAvroRegistryKafkaRecordDeserializationSchema, JsonKafkaRecordDeserializationSchema}
 import io.epiphanous.flinkrunner.util.ConfigToProps
 import io.epiphanous.flinkrunner.util.ConfigToProps._
 import org.apache.avro.generic.GenericRecord

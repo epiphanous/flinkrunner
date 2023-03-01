@@ -3,12 +3,7 @@ package io.epiphanous.flinkrunner.serde
 import com.fasterxml.jackson.databind._
 import com.fasterxml.jackson.databind.json.JsonMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
-import com.fasterxml.jackson.dataformat.csv.{
-  CsvGenerator,
-  CsvMapper,
-  CsvParser,
-  CsvSchema
-}
+import com.fasterxml.jackson.dataformat.csv.{CsvGenerator, CsvMapper, CsvParser, CsvSchema}
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.github.pjfanning.jackson.reflect.ScalaReflectExtensions

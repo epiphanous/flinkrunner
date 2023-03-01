@@ -1,7 +1,7 @@
 package io.epiphanous.flinkrunner.util
 
-import java.time.{Instant, ZoneOffset}
 import java.time.format.DateTimeFormatter
+import java.time.{Instant, ZoneOffset}
 
 object InstantUtils {
 

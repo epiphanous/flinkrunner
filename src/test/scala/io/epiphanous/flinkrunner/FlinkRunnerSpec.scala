@@ -1,12 +1,7 @@
 package io.epiphanous.flinkrunner
 
 import io.epiphanous.flinkrunner.flink.{AvroStreamJob, StreamJob}
-import io.epiphanous.flinkrunner.model.{
-  CheckResults,
-  EmbeddedAvroRecord,
-  FlinkConfig,
-  FlinkEvent
-}
+import io.epiphanous.flinkrunner.model.{CheckResults, EmbeddedAvroRecord, FlinkConfig, FlinkEvent}
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
 

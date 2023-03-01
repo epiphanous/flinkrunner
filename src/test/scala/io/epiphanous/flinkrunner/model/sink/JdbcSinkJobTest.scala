@@ -1,12 +1,7 @@
 package io.epiphanous.flinkrunner.model.sink
 
 import com.dimafeng.testcontainers.PostgreSQLContainer
-import io.epiphanous.flinkrunner.model.{
-  BRecord,
-  BWrapper,
-  SimpleB,
-  StreamFormatName
-}
+import io.epiphanous.flinkrunner.model.{BWrapper, SimpleB, StreamFormatName}
 import org.apache.flink.api.scala.createTypeInformation
 
 import java.time.Instant

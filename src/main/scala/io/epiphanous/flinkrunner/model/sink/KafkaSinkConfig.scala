@@ -2,19 +2,13 @@ package io.epiphanous.flinkrunner.model.sink
 
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.serde.{
-  ConfluentAvroRegistryKafkaRecordSerializationSchema,
-  JsonKafkaRecordSerializationSchema
-}
+import io.epiphanous.flinkrunner.serde.{ConfluentAvroRegistryKafkaRecordSerializationSchema, JsonKafkaRecordSerializationSchema}
 import io.epiphanous.flinkrunner.util.ConfigToProps
 import io.epiphanous.flinkrunner.util.ConfigToProps.getFromEither
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.connector.base.DeliveryGuarantee
-import org.apache.flink.connector.kafka.sink.{
-  KafkaRecordSerializationSchema,
-  KafkaSink
-}
+import org.apache.flink.connector.kafka.sink.{KafkaRecordSerializationSchema, KafkaSink}
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
 

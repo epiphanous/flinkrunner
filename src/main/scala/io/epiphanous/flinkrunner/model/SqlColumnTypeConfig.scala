@@ -1,9 +1,5 @@
 package io.epiphanous.flinkrunner.model
-import io.epiphanous.flinkrunner.model.SqlColumnTypeConfig.{
-  PREC_SC_NN,
-  PREC_SC_YN,
-  PREC_SC_YY
-}
+import io.epiphanous.flinkrunner.model.SqlColumnTypeConfig.{PREC_SC_NN, PREC_SC_YN, PREC_SC_YY}
 
 import scala.collection.BitSet
 

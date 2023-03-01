@@ -1,11 +1,7 @@
 package io.epiphanous.flinkrunner.model.source
 
 import com.amazonaws.regions.Regions
-import io.epiphanous.flinkrunner.model.{
-  FlinkConfig,
-  FlinkConnectorName,
-  FlinkEvent
-}
+import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkConnectorName, FlinkEvent}
 import io.epiphanous.flinkrunner.serde.JsonKinesisDeserializationSchema
 import io.epiphanous.flinkrunner.util.ConfigToProps.getFromEither
 import org.apache.flink.api.common.typeinfo.TypeInformation
