@@ -1,12 +1,7 @@
 package io.epiphanous.flinkrunner.util
 
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.model.{
-  EmbeddedAvroRecord,
-  EmbeddedAvroRecordInfo,
-  FlinkConfig,
-  FlinkEvent
-}
+import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, EmbeddedAvroRecordInfo, FlinkConfig, FlinkEvent}
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
 import org.apache.avro.specific.SpecificRecordBase
@@ -144,12 +139,12 @@ object AvroUtils extends LazyLogging {
             case array: java.util.List[_] =>
               val convertedArray = array.asScala.map {
                 case rec: GenericRecord => convertEmbeddedRecord(rec)
-                case v => v
+                case v                  => v
               }
               a.put(f, convertedArray.asJava)
-            case rec: GenericRecord =>
+            case rec: GenericRecord       =>
               a.put(f, convertEmbeddedRecord(rec))
-            case v                  => a.put(f, v)
+            case v                        => a.put(f, v)
           }
           a
         }
