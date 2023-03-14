@@ -39,15 +39,17 @@ case class CassandraSinkConfig[ADT <: FlinkEvent](
 
   /** Don't convert to single abstract method...flink will complain
     */
-  val clusterBuilder: ClusterBuilder = (builder: Cluster.Builder) =>
-    builder
-      .addContactPoint(host)
-      .withPort(port)
-      .withoutJMXReporting()
-      .withCodecRegistry(
-        new CodecRegistry().register(InstantCodec.instance)
-      )
-      .build()
+  val clusterBuilder: ClusterBuilder = new ClusterBuilder {
+    override def buildCluster(builder: Cluster.Builder): Cluster =
+      builder
+        .addContactPoint(host)
+        .withPort(port)
+        .withoutJMXReporting()
+        .withCodecRegistry(
+          new CodecRegistry().register(InstantCodec.instance)
+        )
+        .build()
+  }
 
   def getSink[E <: ADT: TypeInformation](
       stream: DataStream[E]): DataStreamSink[E] = {
