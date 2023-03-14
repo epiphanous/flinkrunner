@@ -2,19 +2,13 @@ package io.epiphanous.flinkrunner.model.sink
 
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.serde.{
-  ConfluentAvroRegistryKafkaRecordSerializationSchema,
-  JsonKafkaRecordSerializationSchema
-}
+import io.epiphanous.flinkrunner.serde.{ConfluentAvroRegistryKafkaRecordSerializationSchema, JsonKafkaRecordSerializationSchema}
 import io.epiphanous.flinkrunner.util.ConfigToProps
 import io.epiphanous.flinkrunner.util.ConfigToProps.getFromEither
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.connector.base.DeliveryGuarantee
-import org.apache.flink.connector.kafka.sink.{
-  KafkaRecordSerializationSchema,
-  KafkaSink
-}
+import org.apache.flink.connector.kafka.sink.{KafkaRecordSerializationSchema, KafkaSink}
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
 
@@ -139,18 +133,22 @@ case class KafkaSinkConfig[ADT <: FlinkEvent: TypeInformation](
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](
       dataStream: DataStream[E]): DataStreamSink[E] =
-    dataStream.sinkTo(_getSink[E](getAvroSerializationSchema[E, A]))
+    dataStream
+      .sinkTo(_getSink[E](getAvroSerializationSchema[E, A]))
+      .setParallelism(parallelism)
 
   override def getSink[E <: ADT: TypeInformation](
       dataStream: DataStream[E]): DataStreamSink[E] =
-    dataStream.sinkTo(_getSink[E](getSerializationSchema[E]))
+    dataStream
+      .sinkTo(_getSink[E](getSerializationSchema[E]))
+      .setParallelism(parallelism)
 
   def _getSink[E <: ADT: TypeInformation](
       serializer: KafkaRecordSerializationSchema[E]): KafkaSink[E] =
     KafkaSink
       .builder()
       .setBootstrapServers(bootstrapServers)
-      .setDeliverGuarantee(deliveryGuarantee)
+      .setDeliveryGuarantee(deliveryGuarantee)
       .setTransactionalIdPrefix(transactionalIdPrefix)
       .setKafkaProducerConfig(properties)
       .setRecordSerializer(serializer)

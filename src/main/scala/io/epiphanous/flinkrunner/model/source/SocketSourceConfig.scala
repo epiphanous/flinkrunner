@@ -1,22 +1,9 @@
 package io.epiphanous.flinkrunner.model.source
 
-import io.epiphanous.flinkrunner.model.{
-  FlinkConfig,
-  FlinkConnectorName,
-  FlinkEvent,
-  StreamFormatName
-}
-import io.epiphanous.flinkrunner.serde.{
-  DelimitedConfig,
-  DelimitedRowDecoder,
-  JsonRowDecoder,
-  RowDecoder
-}
+import io.epiphanous.flinkrunner.model.{FlinkConfig, FlinkConnectorName, FlinkEvent, StreamFormatName}
+import io.epiphanous.flinkrunner.serde.{DelimitedConfig, DelimitedRowDecoder, JsonRowDecoder, RowDecoder}
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.streaming.api.scala.{
-  DataStream,
-  StreamExecutionEnvironment
-}
+import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
 
 /** A socket source configuration.
   * @param name
@@ -59,9 +46,9 @@ case class SocketSourceConfig[ADT <: FlinkEvent](
     env
       .socketTextStream(host, port)
       .name(s"raw:$label")
-      .uid(s"raw:$label")
+      .uid(s"raw:$uid")
       .flatMap(line => decoder.decode(line))
-      .uid(label)
-      .name(label)
+      .uid(uid)
+      .name(uid)
   }
 }

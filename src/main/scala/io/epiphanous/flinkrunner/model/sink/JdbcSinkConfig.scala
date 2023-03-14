@@ -1,16 +1,9 @@
 package io.epiphanous.flinkrunner.model.sink
 
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.model.SupportedDatabase.{
-  Postgresql,
-  Snowflake
-}
+import io.epiphanous.flinkrunner.model.SupportedDatabase.{Postgresql, Snowflake}
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.model.sink.JdbcSinkConfig.{
-  DEFAULT_CONNECTION_TIMEOUT,
-  DEFAULT_TIMESCALE_CHUNK_TIME_INTERVAL,
-  DEFAULT_TIMESCALE_NUMBER_PARTITIONS
-}
+import io.epiphanous.flinkrunner.model.sink.JdbcSinkConfig.{DEFAULT_CONNECTION_TIMEOUT, DEFAULT_TIMESCALE_CHUNK_TIME_INTERVAL, DEFAULT_TIMESCALE_NUMBER_PARTITIONS}
 import io.epiphanous.flinkrunner.operator.CreateTableJdbcSinkFunction
 import io.epiphanous.flinkrunner.serde.JsonRowEncoder
 import io.epiphanous.flinkrunner.util.SqlBuilder
@@ -21,11 +14,7 @@ import org.apache.flink.api.scala.createTypeInformation
 import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat
 import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat.StatementExecutorFactory
 import org.apache.flink.connector.jdbc.internal.executor.JdbcBatchStatementExecutor
-import org.apache.flink.connector.jdbc.{
-  JdbcConnectionOptions,
-  JdbcExecutionOptions,
-  JdbcStatementBuilder
-}
+import org.apache.flink.connector.jdbc.{JdbcConnectionOptions, JdbcExecutionOptions, JdbcStatementBuilder}
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
 
@@ -294,11 +283,11 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
     sqlBuilder.append(")\nSELECT ")
     Range(0, columns.length).foreach { i =>
       (columns(i).dataType, product) match {
-        case (SqlColumnType.JSON, SupportedDatabase.Snowflake) =>
+        case (SqlColumnType.JSON, SupportedDatabase.Snowflake)  =>
           sqlBuilder.append("PARSE_JSON(?)")
         case (SqlColumnType.JSON, SupportedDatabase.Postgresql) =>
           sqlBuilder.append("CAST(? AS JSON)")
-        case _                                                 => sqlBuilder.append("?")
+        case _                                                  => sqlBuilder.append("?")
       }
       if (i < columns.length - 1) sqlBuilder.append(", ")
     }
@@ -645,7 +634,7 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
         try
           encoder.encode(m).get
         catch {
-          case _ =>
+          case _: Throwable =>
             println(s"Failure to encode map: $m")
             null
         }

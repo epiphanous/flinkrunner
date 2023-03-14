@@ -76,13 +76,15 @@ case class SocketSinkConfig[ADT <: FlinkEvent](
   def _getSink[E <: ADT: TypeInformation](
       dataStream: DataStream[E],
       serializationSchema: SerializationSchema[E]): DataStreamSink[E] =
-    dataStream.addSink(
-      new SocketClientSink[E](
-        host,
-        port,
-        serializationSchema,
-        maxRetries,
-        autoFlush
+    dataStream
+      .addSink(
+        new SocketClientSink[E](
+          host,
+          port,
+          serializationSchema,
+          maxRetries,
+          autoFlush
+        )
       )
-    )
+      .setParallelism(parallelism)
 }

@@ -1,5 +1,6 @@
 package io.epiphanous.flinkrunner.model.source
 
+import com.google.common.hash.Hashing
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.FlinkConnectorName._
 import io.epiphanous.flinkrunner.model._
@@ -12,6 +13,7 @@ import org.apache.flink.api.connector.source.{Source, SourceSplit}
 import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.flink.streaming.api.scala._
 
+import java.nio.charset.StandardCharsets
 import java.time.Duration
 import java.util
 import java.util.Properties
@@ -56,6 +58,23 @@ trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
 
   def connector: FlinkConnectorName
 
+  lazy val label: String =
+    s"${config.jobName.toLowerCase}/${connector.entryName.toLowerCase}/$name"
+
+  lazy val stdUid: String = Hashing
+    .sha256()
+    .hashString(
+      label,
+      StandardCharsets.UTF_8
+    )
+    .toString
+
+  lazy val uid: String = config.getStringOpt(pfx("uid")).getOrElse(stdUid)
+
+  lazy val parallelism: Int = config
+    .getIntOpt(pfx("parallelism"))
+    .getOrElse(config.globalParallelism)
+
   def pfx(path: String = ""): String = Seq(
     Some("sources"),
     Some(name),
@@ -66,8 +85,6 @@ trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
 
   lazy val propertiesMap: util.HashMap[String, String] =
     properties.asJavaMap
-
-  lazy val label: String = s"${connector.entryName.toLowerCase}/$name"
 
   val watermarkStrategy: String =
     Try(config.getString(pfx("watermark.strategy")))
@@ -151,7 +168,8 @@ trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
             .name(label),
         s => env.fromSource(s, getWatermarkStrategy, label)
       )
-      .uid(label)
+      .uid(uid)
+      .setParallelism(parallelism)
   }
 
   /** Flinkrunner calls this method to create a source stream from
@@ -225,12 +243,14 @@ trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
             .name(label),
         s => env.fromSource(s, getWatermarkStrategy, label)
       )
-      .uid(label)
+      .uid(uid)
+      .setParallelism(parallelism)
 
   /** Flinkrunner calls this method to create an avro source stream. This
     * method uses the default implementation in
     * getAvroSourceStreamDefault(). Subclasses can provide their own
     * implementations.
+    *
     * @param env
     *   a flink stream execution environment
     * @param fromKV
