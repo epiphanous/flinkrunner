@@ -38,7 +38,7 @@ import scala.util.Try
 abstract class AvroTableStreamJob[
     OUT <: ADT with EmbeddedAvroRecord[
       A
-    ] with EmbeddedRowType: TypeInformation,
+    ]: TypeInformation,
     A <: GenericRecord: TypeInformation,
     ADT <: FlinkEvent: TypeInformation](runner: FlinkRunner[ADT])
     extends TableStreamJob[OUT, ADT](runner) {

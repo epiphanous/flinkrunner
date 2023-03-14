@@ -1,6 +1,9 @@
 package io.epiphanous.flinkrunner.model
 
 import org.apache.avro.generic.GenericRecord
+import org.apache.flink.types.Row
+
+import scala.collection.JavaConverters._
 
 /** Event types that wrap avro records should implement this trait. This
   * trait works with other avro related features in Flinkrunner, such as
@@ -15,10 +18,14 @@ import org.apache.avro.generic.GenericRecord
   * will have to provide a schema at runtime, which is sometimes less
   * convenient.
   *
+  * Note: EmbeddedAvroRecords automatically inherit from EmbeddedRowType,
+  * which means they have a `toRow` method and can be used with
+  * AvroTableStreamJobs.
+  *
   * @tparam A
   *   An avro record type
   */
-trait EmbeddedAvroRecord[A <: GenericRecord] {
+trait EmbeddedAvroRecord[A <: GenericRecord] extends EmbeddedRowType {
 
   /** An optional embedded record key - if present, used as the key when
     * stored in kafka. Defaults to None.
@@ -47,4 +54,12 @@ trait EmbeddedAvroRecord[A <: GenericRecord] {
     */
   def toKV(config: FlinkConfig): EmbeddedAvroRecordInfo[A] =
     EmbeddedAvroRecordInfo($record, config, $recordKey, $recordHeaders)
+
+  def toRow: Row =
+    $record.getSchema.getFields.asScala
+      .map(_.name())
+      .foldLeft(Row.withNames(rowKind)) { case (row, field) =>
+        row.setField(field, $record.get(field))
+        row
+      }
 }

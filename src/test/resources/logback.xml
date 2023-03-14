@@ -38,5 +38,6 @@
     <logger name="com.dimafeng.testcontainers" level="DEBUG"/>
     <logger name="org.testcontainers.containers" level="DEBUG"/>
     <logger name="org.apache.iceberg" level="DEBUG"/>
+    <logger name="org.apache.flink.api.java.ClosureCleaner" level="DEBUG"/>
 
 </configuration>

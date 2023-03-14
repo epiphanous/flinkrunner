@@ -1,28 +1,13 @@
 package io.epiphanous.flinkrunner.model.sink
 
-import io.epiphanous.flinkrunner.flink.{AvroStreamJob, StreamJob}
+import io.epiphanous.flinkrunner.{FlinkRunnerSpec, PropSpec}
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.{FlinkRunner, FlinkRunnerSpec}
 import org.apache.flink.api.scala.createTypeInformation
-import org.apache.flink.streaming.api.scala.DataStream
 
-class FileSinkJobTest extends FlinkRunnerSpec {
-
-  class IdentityJob(runner: FlinkRunner[MySimpleADT], input: Seq[SimpleB])
-      extends StreamJob[SimpleB, MySimpleADT](runner) {
-    override def transform: DataStream[SimpleB] =
-      runner.env.fromCollection(input)
-  }
-
-  class IdentityAvroJob(
-      runner: FlinkRunner[MyAvroADT],
-      input: Seq[BWrapper])
-      extends AvroStreamJob[BWrapper, BRecord, MyAvroADT](runner) {
-    override def transform: DataStream[BWrapper] =
-      runner.env.fromCollection(input)
-  }
+class FileSinkJobTest extends PropSpec {
 
   property("write avro json results to sink") {
+    val input     = genPop[BWrapper]()
     val configStr =
       """
         |sinks {
@@ -38,12 +23,10 @@ class FileSinkJobTest extends FlinkRunnerSpec {
         |}
         |execution.runtime-mode = batch
         |""".stripMargin
-    val input     = genPop[BWrapper]()
-    val factory   =
-      (runner: FlinkRunner[MyAvroADT]) =>
-        new IdentityAvroJob(runner, input)
-    testAvroStreamJob(configStr, factory)
-
+    getIdentityAvroStreamJobRunner[BWrapper, BRecord, MyAvroADT](
+      configStr,
+      input
+    ).process()
   }
 
   property("write avro delimited results to sink") {
@@ -62,11 +45,10 @@ class FileSinkJobTest extends FlinkRunnerSpec {
         |}
         |execution.runtime-mode = batch
         |""".stripMargin
-    val input     = genPop[BWrapper]()
-    val factory   =
-      (runner: FlinkRunner[MyAvroADT]) =>
-        new IdentityAvroJob(runner, input)
-    testAvroStreamJob(configStr, factory)
+    getIdentityAvroStreamJobRunner[BWrapper, BRecord, MyAvroADT](
+      configStr,
+      genPop[BWrapper]()
+    ).process()
   }
 
   property("write simple json results to sink") {
@@ -85,10 +67,10 @@ class FileSinkJobTest extends FlinkRunnerSpec {
         |}
         |execution.runtime-mode = batch
         |""".stripMargin
-    val input     = genPop[SimpleB]()
-    val factory   =
-      (runner: FlinkRunner[MySimpleADT]) => new IdentityJob(runner, input)
-    testStreamJob(configStr, factory)
+    getIdentityStreamJobRunner[SimpleA, MySimpleADT](
+      configStr,
+      genPop[SimpleA]()
+    ).process()
   }
 
   property("write simple delimited results to sink") {
@@ -107,10 +89,10 @@ class FileSinkJobTest extends FlinkRunnerSpec {
         |}
         |execution.runtime-mode = batch
         |""".stripMargin
-    val input     = genPop[SimpleB]()
-    val factory   =
-      (runner: FlinkRunner[MySimpleADT]) => new IdentityJob(runner, input)
-    testStreamJob(configStr, factory)
+    getIdentityStreamJobRunner[SimpleA, MySimpleADT](
+      configStr,
+      genPop[SimpleA]()
+    ).process()
   }
 
 }

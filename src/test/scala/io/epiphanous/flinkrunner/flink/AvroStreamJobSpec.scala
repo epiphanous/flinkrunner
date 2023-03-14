@@ -1,12 +1,12 @@
 package io.epiphanous.flinkrunner.flink
 
+import io.epiphanous.flinkrunner.{IdentityMap, PropSpec}
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.{FlinkRunner, PropSpec}
-import org.apache.flink.connector.file.src.reader.StreamFormat
-import org.apache.flink.formats.parquet.avro.AvroParquetReaders
 import org.apache.flink.streaming.api.scala._
 
+import java.io.Serializable
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 class AvroStreamJobSpec extends PropSpec {
 
@@ -58,7 +58,7 @@ class AvroStreamJobSpec extends PropSpec {
   }
 
   property("singleAvroSource property") {
-    val cfg    =
+    val cfg =
       """
         |sources {
         |  kafka_source {
@@ -68,7 +68,9 @@ class AvroStreamJobSpec extends PropSpec {
         |  }
         |}
         |sinks {
-        |  mock_sink {
+        |  kafka_sink {
+        |    topic = bogus2
+        |    bootstrap.servers = "localhost:9092"
         |  }
         |}
         |jobs {
@@ -77,16 +79,18 @@ class AvroStreamJobSpec extends PropSpec {
         |}
         |execution.runtime-mode = batch
         |""".stripMargin
-    val getJob =
-      (_: String, r: FlinkRunner[MyAvroADT]) => new SingleAvroSourceJob(r)
 
     // this creates and runs the job
-    getAvroJobRunner[SingleAvroSourceJob, AWrapper, ARecord, MyAvroADT](
-      Array("SingleAvroSourceJob"),
-      cfg,
-      new MyAvroCheckResults(),
-      getJob
-    ).process()
+    val checkResults = new MyAvroCheckResults()
+    val times2       = new TimesTwo()
+    getAvroStreamJobRunner[
+      AWrapper,
+      ARecord,
+      AWrapper,
+      ARecord,
+      MyAvroADT
+    ](cfg, times2, checkResults.inA, Some(checkResults))
+      .process()
   }
 
   property("connectedAvroSource property") {}
@@ -97,22 +101,14 @@ class AvroStreamJobSpec extends PropSpec {
 
 }
 
-class SingleAvroSourceJob(runner: FlinkRunner[MyAvroADT])(implicit
-    fromKV: EmbeddedAvroRecordInfo[ARecord] => AWrapper)
-    extends AvroStreamJob[AWrapper, ARecord, MyAvroADT](runner) {
-  implicit val avroParquetRecordFormat: StreamFormat[ARecord] =
-    AvroParquetReaders.forSpecificRecord(classOf[ARecord])
-  override def transform: DataStream[AWrapper]                =
-    singleAvroSource[AWrapper, ARecord]().map { a =>
-      val (a0, a1, a2, a3) =
-        (a.$record.a0, a.$record.a1, a.$record.a2, a.$record.a3)
-      AWrapper(
-        a.$record.copy(
-          a0 + a0,
-          2 * a1,
-          2 * a2,
-          Instant.ofEpochMilli(a3.toEpochMilli + 2 * 86400000)
-        )
+class TimesTwo() extends IdentityMap[AWrapper] {
+  override def map(a: AWrapper): AWrapper =
+    a.copy(
+      a.$record.copy(
+        a.$record.a0 * 2,
+        a.$record.a1 * 2,
+        a.$record.a2 * 2,
+        a.$record.a3.plus(2, ChronoUnit.DAYS)
       )
-    }
+    )
 }

@@ -6,7 +6,7 @@ import com.dimafeng.testcontainers.{
   PostgreSQLContainer
 }
 import io.epiphanous.flinkrunner.UnitSpec
-import io.epiphanous.flinkrunner.model.MyAvroADT
+import io.epiphanous.flinkrunner.model.{FlinkConfig, MyAvroADT}
 import org.apache.flink.api.scala.createTypeInformation
 
 class JdbcSinkCreateTableTest extends UnitSpec {
@@ -23,7 +23,7 @@ class JdbcSinkCreateTableTest extends UnitSpec {
       jdbcUrl: String,
       username: String,
       password: String) = {
-    val runner     = getRunner[MyAvroADT](
+    val config     = new FlinkConfig(
       Array.empty[String],
       Some(s"""
               |sinks {
@@ -68,7 +68,7 @@ class JdbcSinkCreateTableTest extends UnitSpec {
               |""".stripMargin)
     )
     val sinkConfig =
-      new JdbcSinkConfig[MyAvroADT]("jdbc-test", runner.config)
+      new JdbcSinkConfig[MyAvroADT]("jdbc-test", config)
     sinkConfig.maybeCreateTable()
   }
 
@@ -78,7 +78,7 @@ class JdbcSinkCreateTableTest extends UnitSpec {
       jdbcUrl: String,
       username: String,
       password: String): Unit = {
-    val runner     = getRunner[MyAvroADT](
+    val config     = new FlinkConfig(
       Array.empty[String],
       Some(s"""
            |sinks {
@@ -121,7 +121,7 @@ class JdbcSinkCreateTableTest extends UnitSpec {
            |""".stripMargin)
     )
     val sinkConfig =
-      new JdbcSinkConfig[MyAvroADT]("jdbc-test", runner.config)
+      new JdbcSinkConfig[MyAvroADT]("jdbc-test", config)
     sinkConfig.maybeCreateTable()
   }
 

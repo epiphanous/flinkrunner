@@ -37,7 +37,7 @@ class FileSourceConfigTest extends PropSpec with AvroFileTestUtils {
     getTempFile(format).map { path =>
       val file      = path.toString
       writeFile(file, format, in)
-      val optConfig =
+      val configStr =
         s"""
            |execution.runtime-mode = batch
            |jobs {
@@ -51,12 +51,13 @@ class FileSourceConfigTest extends PropSpec with AvroFileTestUtils {
            |  }
            |}
            |""".stripMargin
-      getAvroJobRunner[TestIdentityJob, BWrapper, BRecord, MyAvroADT](
-        Array(s"$fmtName-test-job"),
-        optConfig,
-        new TestCheckResults(in, path),
-        (_, runner) => new TestIdentityJob(runner)
-      ).process()
+      getIdentityAvroStreamJobRunner[BWrapper, BRecord, MyAvroADT](
+        configStr,
+        in,
+        Some(new TestCheckResults(in, path)),
+        Array(s"$fmtName-test-job")
+      )
+        .process()
     }
   }
 

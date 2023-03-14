@@ -18,7 +18,10 @@ import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.functions.RuntimeContext
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.scala.createTypeInformation
-import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat
+import org.apache.flink.connector.jdbc.internal.{
+  GenericJdbcSinkFunction,
+  JdbcOutputFormat
+}
 import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat.StatementExecutorFactory
 import org.apache.flink.connector.jdbc.internal.executor.JdbcBatchStatementExecutor
 import org.apache.flink.connector.jdbc.{
@@ -679,9 +682,10 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
         },
         JdbcOutputFormat.RecordExtractor.identity[E]
       )
+    maybeCreateTable()
     dataStream
       .addSink(
-        new CreateTableJdbcSinkFunction[E, ADT](this, jdbcOutputFormat)
+        new GenericJdbcSinkFunction[E](jdbcOutputFormat)
       )
       .uid(label)
       .name(label)

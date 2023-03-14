@@ -76,10 +76,8 @@ abstract class TableStreamJob[
   }
 
   override def sink(out: DataStream[OUT]): Unit = {
-    val rows    = out.map((e: OUT) => e.toRow)
-    val rowType = getRowType
     runner.getSinkNames.foreach(name =>
-      runner.addRowSink(rows, name, rowType)
+      runner.addRowSink(out.map((e: OUT) => e.toRow), name, getRowType)
     )
   }
 }

@@ -7,9 +7,10 @@ import com.dimafeng.testcontainers.{
   LocalStackV2Container
 }
 import io.epiphanous.flinkrunner.PropSpec
-import io.epiphanous.flinkrunner.model.{BRecord, MyAvroADT}
+import io.epiphanous.flinkrunner.model.{BRecord, FlinkConfig, MyAvroADT}
 import io.epiphanous.flinkrunner.util.AvroUtils.rowTypeOf
 import org.apache.flink.api.scala.createTypeInformation
+import org.apache.flink.kinesis.shaded.software.amazon.awssdk.core.sync.ResponseTransformer
 import org.apache.flink.table.types.logical.RowType
 import org.testcontainers.containers.Network
 import org.testcontainers.containers.localstack.LocalStackContainer.Service
@@ -18,9 +19,12 @@ import requests.Response
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.{
   CreateBucketRequest,
+  GetObjectRequest,
+  GetObjectResponse,
   ListObjectsV2Request
 }
 
+import java.nio.charset.StandardCharsets
 import scala.collection.JavaConverters._
 
 class IcebergSinkConfigSpec extends PropSpec with TestContainersForAll {
@@ -117,7 +121,7 @@ class IcebergSinkConfigSpec extends PropSpec with TestContainersForAll {
       ls: LocalStackV2Container,
       ib: GenericContainer,
       rowType: RowType): Unit = {
-    val runner     = getRunner[MyAvroADT](
+    val config     = new FlinkConfig(
       Array.empty[String],
       Some(s"""
            |sinks {
@@ -137,7 +141,7 @@ class IcebergSinkConfigSpec extends PropSpec with TestContainersForAll {
            |""".stripMargin)
     )
     val sinkConfig =
-      new IcebergSinkConfig[MyAvroADT]("iceberg-test", runner.config)
+      new IcebergSinkConfig[MyAvroADT]("iceberg-test", config)
     val table      =
       sinkConfig.maybeCreateTable(sinkConfig.getFlinkTableSchema(rowType))
     table should be a 'Success
@@ -180,9 +184,24 @@ class IcebergSinkConfigSpec extends PropSpec with TestContainersForAll {
       val r       = s3.listObjectsV2(
         ListObjectsV2Request.builder().bucket(bucketName).build()
       )
-      if (r.hasContents) println("Got Some!")
-      logger.debug(r.toString)
-      r.contents().asScala.foreach(o => println(o.toString))
+      r.contents().asScala.foreach { o =>
+        println(o.key())
+        println(
+          s3.getObjectAsBytes(
+            GetObjectRequest
+              .builder()
+              .bucket(bucketName)
+              .key(o.key())
+              .build()
+          ).asString(StandardCharsets.UTF_8)
+        )
+      }
+    }
+  }
+
+  property("can write some rows") {
+    withContainers { case ls and ib =>
+
     }
   }
 

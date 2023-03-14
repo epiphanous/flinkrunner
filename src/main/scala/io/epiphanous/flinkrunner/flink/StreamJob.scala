@@ -35,11 +35,28 @@ import squants.Quantity
 abstract class StreamJob[
     OUT <: ADT: TypeInformation,
     ADT <: FlinkEvent: TypeInformation](runner: FlinkRunner[ADT])
-    extends LazyLogging {
+    extends LazyLogging
+    with Serializable {
 
   val config: FlinkConfig = runner.config
 
   def transform: DataStream[OUT]
+
+  def seqOrSingleSource[IN <: ADT: TypeInformation](
+      seq: Seq[IN] = Seq.empty,
+      name: Option[String] = None): DataStream[IN] =
+    if (seq.nonEmpty) runner.env.fromCollection(seq)
+    else singleSource[IN](name.getOrElse(runner.getDefaultSourceName))
+
+  def seqOrSingleAvroSource[
+      IN <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+      A <: GenericRecord: TypeInformation](
+      seq: Seq[IN] = Seq.empty,
+      name: Option[String] = None)(implicit
+      fromKV: EmbeddedAvroRecordInfo[A] => IN): DataStream[IN] =
+    if (seq.nonEmpty) runner.env.fromCollection(seq)
+    else
+      singleAvroSource[IN, A](name.getOrElse(runner.getDefaultSourceName))
 
   /** Configure a single input source stream.
     * @param name
