@@ -142,9 +142,16 @@ case class KinesisSourceConfig[ADT <: FlinkEvent](
     config.getStringOpt
   ).getOrElse(s"${config.jobName}.$name")
 
+  val efoRegistrationType : String = getFromEither(
+    pfx(),
+    Seq("efo.registration.type", "flink.stream.efo.registration.type", EFO_REGISTRATION_TYPE),
+    config.getStringOpt
+  ).getOrElse(EFORegistrationType.LAZY.name())
+
   if (useEfo) {
     properties.setProperty(RECORD_PUBLISHER_TYPE, "EFO")
     properties.setProperty(EFO_CONSUMER_NAME, efoConsumer)
+    properties.setProperty(EFO_REGISTRATION_TYPE, efoRegistrationType)
   }
 
   /** Returns a deserialization schema for kinesis. This implementation
