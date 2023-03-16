@@ -2,6 +2,7 @@ package io.epiphanous.flinkrunner.model.source
 
 import io.epiphanous.flinkrunner.PropSpec
 import io.epiphanous.flinkrunner.model.{FlinkConfig, MySimpleADT}
+import org.apache.flink.streaming.connectors.kinesis.config.ConsumerConfigConstants.EFORegistrationType
 
 class KinesisSourceConfigSpec extends PropSpec {
 
@@ -86,6 +87,15 @@ class KinesisSourceConfigSpec extends PropSpec {
 
   property("useEfo true by default property") {
     defaultConfig.useEfo shouldBe true
+  }
+
+  property("LazyRegistration is used by default") {
+    defaultConfig.efoRegistrationType shouldBe EFORegistrationType.LAZY.name()
+  }
+  property("Registration property is passed in properly") {
+    defaultConfigPlus("efo.registration.type = EAGER").efoRegistrationType shouldBe EFORegistrationType.EAGER.name()
+    defaultConfigPlus("efo.registration.type = LAZY").efoRegistrationType shouldBe EFORegistrationType.LAZY.name()
+    defaultConfigPlus("efo.registration.type = NONE").efoRegistrationType shouldBe EFORegistrationType.NONE.name()
   }
 
   property("useEfo property") {
