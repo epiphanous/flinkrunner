@@ -17,6 +17,7 @@ import org.apache.flink.streaming.connectors.kinesis.config.ConsumerConfigConsta
 import org.apache.flink.streaming.connectors.kinesis.serialization.KinesisDeserializationSchema
 
 import scala.util.Try
+import scala.collection.JavaConverters._
 
 /** A source config for kinesis streams. For example, the following config
   * can be used to read from a topic in kafka that contains confluent avro
@@ -35,7 +36,11 @@ import scala.util.Try
   * Configuration options:
   *   - `connector`: `kafka` (required only if it can't be inferred from
   *     the source name)
-  *   - `stream`: the name of the kinesis stream
+  *   - `stream` (`streams`): the name of the kinesis stream or streams to
+  *     consume. If you want to read from multiple streams, either use the
+  *     `stream` property and separate stream names with commas (`stream =
+  *     a,b,c`), or use the `streams` property and configure an array
+  *     (`streams = [ a, b, c ]`).
   *   - `starting.position`: the starting position of the stream; one of:
   *     - `TRIM_HORIZON`: the position of the earliest data in a shard
   *     - `LATEST`: the position after the most recent data in a shard
@@ -47,7 +52,8 @@ import scala.util.Try
   *   - `efo.consumer`: name of the efo consumer (defaults to
   *     `jobName`.`sourceName`)
   *   - `aws.region`: AWS region of your kinesis endpoint
-  *   - `config`: optional config to pass to kinesis client
+  *   - `config`: optional config to pass to kinesis client (see
+  *     [[org.apache.flink.streaming.connectors.kinesis.config.ConsumerConfigConstants]])
   *
   * @param name
   *   name of the source
@@ -69,14 +75,19 @@ case class KinesisSourceConfig[ADT <: FlinkEvent](
     )
   properties.setProperty(AWS_REGION, awsRegion)
 
-  val stream: String = Try(config.getString(pfx("stream"))).fold(
-    t =>
-      throw new RuntimeException(
-        s"kinesis source $name is missing required 'stream' property",
-        t
-      ),
-    s => s
-  )
+  val streams: Seq[String] =
+    Try(config.getStringList(pfx("streams"))).fold(
+      _ =>
+        Try(config.getString(pfx("stream"))).fold(
+          t =>
+            throw new RuntimeException(
+              s"kinesis source $name is missing required 'stream' or 'streams' property",
+              t
+            ),
+          s => s.split("\\w*[,;|]\\w*").toSeq
+        ),
+      s => s
+    )
 
   val startPos: String = {
     val pos = getFromEither(
@@ -162,7 +173,7 @@ case class KinesisSourceConfig[ADT <: FlinkEvent](
       : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] =
     Left(
       new FlinkKinesisConsumer[E](
-        stream,
+        streams.asJava,
         getDeserializationSchema,
         properties
       )
