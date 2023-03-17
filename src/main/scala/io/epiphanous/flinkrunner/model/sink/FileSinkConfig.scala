@@ -111,15 +111,17 @@ case class FileSinkConfig[ADT <: FlinkEvent](
     */
   override def getSink[E <: ADT: TypeInformation](
       dataStream: DataStream[E]): DataStreamSink[E] =
-    dataStream.sinkTo(
-      FileSink
-        .forRowFormat(destination, getRowEncoder[E])
-        .withBucketAssigner(getBucketAssigner)
-        .withBucketCheckInterval(getBucketCheckInterval)
-        .withRollingPolicy(getCheckpointRollingPolicy)
-        .withOutputFileConfig(getOutputFileConfig)
-        .build()
-    ).setParallelism(parallelism)
+    dataStream
+      .sinkTo(
+        FileSink
+          .forRowFormat(destination, getRowEncoder[E])
+          .withBucketAssigner(getBucketAssigner)
+          .withBucketCheckInterval(getBucketCheckInterval)
+          .withRollingPolicy(getCheckpointRollingPolicy)
+          .withOutputFileConfig(getOutputFileConfig)
+          .build()
+      )
+      .setParallelism(parallelism)
 
   /** Create an bulk avro parquet file sink and send the data stream to it.
     * @param dataStream

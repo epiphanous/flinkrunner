@@ -58,7 +58,11 @@ case class RabbitMQSinkConfig[ADT <: FlinkEvent: TypeInformation](
             )
         }
     }
-    dataStream.addSink(sink).uid(label).name(label).setParallelism(parallelism)
+    dataStream
+      .addSink(sink)
+      .uid(label)
+      .name(label)
+      .setParallelism(parallelism)
   }
 
   override def getSink[E <: ADT: TypeInformation](
