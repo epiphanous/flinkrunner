@@ -16,8 +16,8 @@ import org.apache.flink.streaming.connectors.kinesis.FlinkKinesisConsumer
 import org.apache.flink.streaming.connectors.kinesis.config.ConsumerConfigConstants._
 import org.apache.flink.streaming.connectors.kinesis.serialization.KinesisDeserializationSchema
 
-import scala.util.Try
 import scala.collection.JavaConverters._
+import scala.util.Try
 
 /** A source config for kinesis streams. For example, the following config
   * can be used to read from a topic in kafka that contains confluent avro
@@ -75,19 +75,35 @@ case class KinesisSourceConfig[ADT <: FlinkEvent](
     )
   properties.setProperty(AWS_REGION, awsRegion)
 
-  val streams: Seq[String] =
-    Try(config.getStringList(pfx("streams"))).fold(
-      _ =>
-        Try(config.getString(pfx("stream"))).fold(
-          t =>
-            throw new RuntimeException(
-              s"kinesis source $name is missing required 'stream' or 'streams' property",
-              t
-            ),
-          s => s.split("\\w*[,;|]\\w*").toSeq
-        ),
-      s => s
-    )
+  val streams: List[String] = {
+
+    val streamOpt: Option[String] = Try(
+      config
+        .getString(pfx("stream"))
+    ).toOption.orElse(Try(config.getString(pfx("streams"))).toOption)
+
+    val streamsOpt: Option[List[String]] =
+      Try(config.getStringList(pfx("stream"))).toOption.orElse(
+        Try(config.getStringList(pfx("streams"))).toOption
+      )
+
+    if (streamOpt.isEmpty && streamsOpt.isEmpty) {
+      throw new RuntimeException(
+        s"Kinesis source $name is missing required 'stream' or 'streams' property"
+      )
+    }
+
+    if (streamOpt.nonEmpty && streamsOpt.nonEmpty) {
+      throw new RuntimeException(
+        s"Kinesis source $name has both 'stream' and 'streams' properties. Please specify one or the other."
+      )
+    }
+
+    (streamOpt.map(
+      _.split("\\s*[,;|]\\s*").toList
+    ) ++ streamsOpt).flatten.toList
+
+  }
 
   val startPos: String = {
     val pos = getFromEither(

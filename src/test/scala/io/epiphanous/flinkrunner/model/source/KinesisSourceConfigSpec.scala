@@ -31,21 +31,39 @@ class KinesisSourceConfigSpec extends PropSpec {
       |stream = test
       |""".stripMargin
 
-  def defaultConfig: KinesisSourceConfig[MySimpleADT] = getConfig(
-    requiredProps
-  )
+  val requiredProps1: String =
+    """
+      |streams = test
+      |""".stripMargin
+
+  val requiredPropsMulti1: String =
+    """
+      |stream = "test1, test2"
+      |""".stripMargin
+
+  val requiredPropsMulti2: String =
+    """
+      |streams = [test1, test2]
+      |""".stripMargin
+
+  def defaultConfig(
+      reqProps: String = requiredProps): KinesisSourceConfig[MySimpleADT] =
+    getConfig(
+      reqProps
+    )
 
   def defaultConfigPlus(
       str: String,
-      job: String = "test"): KinesisSourceConfig[MySimpleADT] =
-    getConfig(requiredProps + str, job)
+      job: String = "test",
+      reqProps: String = requiredProps): KinesisSourceConfig[MySimpleADT] =
+    getConfig(reqProps + str, job)
 
   def noProvidedConfig: KinesisSourceConfig[MySimpleADT] = getConfig(
     "config={}"
   )
 
   property("default startPos property") {
-    defaultConfig.startPos shouldEqual "LATEST"
+    defaultConfig().startPos shouldEqual "LATEST"
   }
 
   property("bad startPos property") {
@@ -85,7 +103,7 @@ class KinesisSourceConfigSpec extends PropSpec {
   }
 
   property("useEfo true by default property") {
-    defaultConfig.useEfo shouldBe true
+    defaultConfig().useEfo shouldBe true
   }
 
   property("useEfo property") {
@@ -97,6 +115,32 @@ class KinesisSourceConfigSpec extends PropSpec {
   property("parallelism property") {
     defaultConfigPlus("parallelism = 10").parallelism shouldBe 10
     defaultConfigPlus("parallelism = 10.5").parallelism shouldBe 10
+  }
+
+  property("multi streams via stream property") {
+    defaultConfig(requiredPropsMulti1).streams shouldBe Seq(
+      "test1",
+      "test2"
+    )
+  }
+
+  property("multi streams via streams property") {
+    defaultConfig(requiredPropsMulti2).streams shouldBe List(
+      "test1",
+      "test2"
+    )
+  }
+
+  property("single stream via streams property") {
+    defaultConfig(requiredProps1).streams shouldBe List(
+      "test"
+    )
+  }
+
+  property("single stream via stream property") {
+    defaultConfig(requiredProps).streams shouldBe List(
+      "test"
+    )
   }
 
   property("missing stream property") {
