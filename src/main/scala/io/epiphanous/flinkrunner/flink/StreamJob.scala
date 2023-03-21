@@ -2,12 +2,12 @@ package io.epiphanous.flinkrunner.flink
 
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.FlinkRunner
+import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.model.aggregate.{
   Aggregate,
   AggregateAccumulator,
   WindowedAggregationInitializer
 }
-import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.util.StreamUtils.Pipe
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.state.MapStateDescriptor
@@ -16,7 +16,6 @@ import org.apache.flink.streaming.api.scala._
 import org.apache.flink.streaming.api.windowing.time.Time
 import org.apache.flink.streaming.api.windowing.windows.Window
 import org.apache.flink.table.data.RowData
-import org.apache.flink.types.Row
 import org.apache.flink.util.Collector
 import squants.Quantity
 

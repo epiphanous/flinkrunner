@@ -8,7 +8,7 @@ import java.sql.PreparedStatement
 class JdbcSinkAvroStatementBuilder[
     E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
     A <: GenericRecord: TypeInformation,
-    ADT <: FlinkEvent: TypeInformation](columns: Seq[JdbcSinkColumn])
+    ADT <: FlinkEvent](columns: Seq[JdbcSinkColumn])
     extends JdbcSinkStatementBuilder[E, ADT](columns) {
   override def accept(statement: PreparedStatement, event: E): Unit = {
     _fillInStatement(

@@ -14,7 +14,6 @@ import io.epiphanous.flinkrunner.model.sink.JdbcSinkConfig.{
 import io.epiphanous.flinkrunner.util.SqlBuilder
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.api.scala.createTypeInformation
 import org.apache.flink.connector.jdbc.internal.executor.JdbcBatchStatementExecutor
 import org.apache.flink.connector.jdbc.internal.{
   GenericJdbcSinkFunction,

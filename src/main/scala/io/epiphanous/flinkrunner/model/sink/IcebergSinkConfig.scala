@@ -2,10 +2,8 @@ package io.epiphanous.flinkrunner.model.sink
 
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.util.AvroUtils.rowTypeOf
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.api.scala.createTypeInformation
 import org.apache.flink.streaming.api.scala.DataStream
 import org.apache.flink.table.api.TableSchema
 import org.apache.flink.table.types.logical.RowType
