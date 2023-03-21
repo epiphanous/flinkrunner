@@ -55,7 +55,6 @@ case class CassandraSinkConfig[ADT <: FlinkEvent](
           new CodecRegistry().register(InstantCodec.instance)
         )
         .build()
-
   }
 
   def addSink[E <: ADT: TypeInformation](stream: DataStream[E]): Unit = {
@@ -63,6 +62,7 @@ case class CassandraSinkConfig[ADT <: FlinkEvent](
       .addSink(new CassandraScalaProductSink[E](query, clusterBuilder))
       .uid(label)
       .name(label)
+      .setParallelism(parallelism)
   }
 
   override def addAvroSink[

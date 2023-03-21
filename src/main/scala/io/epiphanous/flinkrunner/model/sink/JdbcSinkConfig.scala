@@ -646,7 +646,7 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
         try
           encoder.encode(m).get
         catch {
-          case _ =>
+          case _: Throwable =>
             println(s"Failure to encode map: $m")
             null
         }

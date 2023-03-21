@@ -167,7 +167,10 @@ class AvroJsonSerializer
           )
         }
         gen.writeEndArray()
-      case (ARRAY, arr: Wrappers.MutableBufferWrapper[GenericRecord]) =>
+      case (
+            ARRAY,
+            arr: Wrappers.MutableBufferWrapper[GenericRecord] @unchecked
+          ) =>
         gen.writeArrayFieldStart(name)
         arr.asScala.zipWithIndex.foreach { case (e, i) =>
           _serializeElement(
@@ -243,7 +246,10 @@ class AvroJsonSerializer
             provider
           )
         }
-      case (ARRAY, arr: Wrappers.MutableBufferWrapper[GenericRecord]) =>
+      case (
+            ARRAY,
+            arr: Wrappers.MutableBufferWrapper[GenericRecord] @unchecked
+          ) =>
         arr.asScala.zipWithIndex.foreach { case (e, i) =>
           _serializeElement(
             name,

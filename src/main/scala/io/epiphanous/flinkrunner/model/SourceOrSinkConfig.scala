@@ -1,10 +1,12 @@
 package io.epiphanous.flinkrunner.model
 
+import com.google.common.hash.Hashing
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.util.StreamUtils.RichProps
 import org.apache.flink.table.types.logical.utils.LogicalTypeParser
 import org.apache.flink.table.types.logical.{LogicalTypeRoot, RowType}
 
+import java.nio.charset.StandardCharsets
 import java.util
 import java.util.Properties
 import scala.util.Try
@@ -31,7 +33,18 @@ trait SourceOrSinkConfig extends LazyLogging {
   lazy val propertiesMap: util.HashMap[String, String] =
     properties.asJavaMap
 
-  lazy val label: String = s"${connector.entryName.toLowerCase}/$name"
+  lazy val label: String =
+    s"${config.jobName.toLowerCase}/${connector.entryName.toLowerCase}/$name"
+
+  lazy val stdUid: String = Hashing
+    .sha256()
+    .hashString(
+      label,
+      StandardCharsets.UTF_8
+    )
+    .toString
+
+  lazy val uid: String = config.getStringOpt(pfx("uid")).getOrElse(stdUid)
 
   lazy val parallelism: Int = config
     .getIntOpt(pfx("parallelism"))

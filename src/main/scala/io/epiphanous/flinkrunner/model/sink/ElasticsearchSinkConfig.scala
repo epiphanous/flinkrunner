@@ -93,7 +93,11 @@ case class ElasticsearchSinkConfig[ADT <: FlinkEvent](
     bulkFlushMaxActions.foreach(esb.setBulkFlushMaxActions)
     bulkFlushMaxSizeMb.foreach(esb.setBulkFlushMaxSizeMb)
     bulkFlushIntervalMs.foreach(esb.setBulkFlushInterval)
-    dataStream.sinkTo(esb.build()).uid(label).name(label)
+    dataStream
+      .sinkTo(esb.build())
+      .uid(label)
+      .name(label)
+      .setParallelism(parallelism)
   }
 
   override def addSink[E <: ADT: TypeInformation](

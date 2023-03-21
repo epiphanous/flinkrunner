@@ -132,7 +132,7 @@ trait SourceConfig[ADT <: FlinkEvent] extends SourceOrSinkConfig {
             .name(label),
         s => env.fromSource(s, getWatermarkStrategy, label)
       )
-      .uid(label)
+      .uid(uid)
       .setParallelism(parallelism)
   }
 
@@ -207,13 +207,14 @@ trait SourceConfig[ADT <: FlinkEvent] extends SourceOrSinkConfig {
             .name(label),
         s => env.fromSource(s, getWatermarkStrategy, label)
       )
-      .uid(label)
+      .uid(uid)
       .setParallelism(parallelism)
 
   /** Flinkrunner calls this method to create an avro source stream. This
     * method uses the default implementation in
     * getAvroSourceStreamDefault(). Subclasses can provide their own
     * implementations.
+    *
     * @param env
     *   a flink stream execution environment
     * @param fromKV
