@@ -33,7 +33,7 @@ import scala.util.Try
   */
 trait SinkConfig[ADT <: FlinkEvent] extends SourceOrSinkConfig {
 
-  override val _sourceOrSink = "sinks"
+  override val _sourceOrSink = "sink"
 
   def addSink[E <: ADT: TypeInformation](stream: DataStream[E]): Unit
 

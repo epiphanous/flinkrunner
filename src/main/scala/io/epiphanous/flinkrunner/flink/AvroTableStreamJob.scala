@@ -6,7 +6,12 @@ import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.scala.DataStream
 
-/** A job class to generate streaming output tables.
+/** A job class to generate streaming output tables from an event that
+  * contains an embedded avro type. The advantage of this class, versus
+  * [[TableStreamJob]] is the row type of the output is inferred from the
+  * avro type and doesn't require you to specify it in the sink
+  * configuration.
+  *
   * @param runner
   *   an instance of [[FlinkRunner]]
   * @tparam OUT
