@@ -43,24 +43,21 @@ case class CassandraSinkConfig[ADT <: FlinkEvent](
   val port: Int     = config.getIntOpt(pfx("port")).getOrElse(9042)
   val query: String = config.getString(pfx("query"))
 
-  /** Don't convert to single abstract method...flink will complain
-    */
-  lazy val clusterBuilder: ClusterBuilder = new ClusterBuilder {
-    override def buildCluster(builder: Cluster.Builder): Cluster =
-      builder
-        .addContactPoint(host)
-        .withPort(port)
-        .withoutJMXReporting()
-        .withCodecRegistry(
-          new CodecRegistry().register(InstantCodec.instance)
-        )
-        .build()
+  def getClusterBuilder: ClusterBuilder = new ClusterBuilder() {
+    override def buildCluster(builder: Cluster.Builder): Cluster = builder
+      .addContactPoint(host)
+      .withPort(port)
+      .withoutJMXReporting()
+      .withCodecRegistry(
+        new CodecRegistry().register(InstantCodec.instance)
+      )
+      .build()
   }
 
   def addSink[E <: ADT: TypeInformation](stream: DataStream[E]): Unit =
     CassandraSink
       .addSink(stream)
-      .setClusterBuilder(clusterBuilder)
+      .setClusterBuilder(getClusterBuilder)
       .setQuery(query)
       .build()
 
@@ -71,7 +68,7 @@ case class CassandraSinkConfig[ADT <: FlinkEvent](
       .addSink(
         new AbstractCassandraTupleSink[E](
           query,
-          clusterBuilder,
+          getClusterBuilder,
           CassandraSinkBaseConfig.newBuilder().build(),
           new NoOpCassandraFailureHandler()
         ) {
@@ -87,7 +84,7 @@ case class CassandraSinkConfig[ADT <: FlinkEvent](
       stream: DataStream[Row],
       rowType: RowType): Unit = {
     stream.addSink(
-      new CassandraRowSink(rowType.getFieldCount, query, clusterBuilder)
+      new CassandraRowSink(rowType.getFieldCount, query, getClusterBuilder)
     )
     ()
   }
