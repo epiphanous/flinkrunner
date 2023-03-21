@@ -32,13 +32,13 @@
     <logger name="org.apache.kafka" level="ERROR"/>
     <logger name="org.apache.hadoop" level="ERROR"/>
     <logger name="org.apache.zookeeper" level="ERROR"/>
-    <logger name="org.apache.flink" level="DEBUG"/>
+    <logger name="org.apache.flink" level="ERROR"/>
     <logger name="io.confluent.kafka" level="ERROR"/>
     <logger name="io.epiphanous" level="TRACE"/>
-    <logger name="com.dimafeng.testcontainers" level="DEBUG"/>
-    <logger name="org.testcontainers.containers" level="DEBUG"/>
-    <logger name="com.datastax.driver" level="DEBUG"/>
-    <logger name="org.apache.iceberg" level="DEBUG"/>
-    <logger name="org.apache.flink.api.java.ClosureCleaner" level="DEBUG"/>
+    <logger name="com.dimafeng.testcontainers" level="ERROR"/>
+    <logger name="org.testcontainers.containers" level="ERRIR"/>
+    <logger name="com.datastax.driver" level="ERROR"/>
+    <logger name="org.apache.iceberg" level="ERROR"/>
+    <logger name="org.apache.flink.api.java.ClosureCleaner" level="ERROR"/>
 
 </configuration>
