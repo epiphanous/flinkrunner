@@ -11,13 +11,10 @@ import io.epiphanous.flinkrunner.model.sink.JdbcSinkConfig.{
   DEFAULT_TIMESCALE_CHUNK_TIME_INTERVAL,
   DEFAULT_TIMESCALE_NUMBER_PARTITIONS
 }
-import io.epiphanous.flinkrunner.serde.JsonRowEncoder
 import io.epiphanous.flinkrunner.util.SqlBuilder
 import org.apache.avro.generic.GenericRecord
-import org.apache.flink.api.common.functions.RuntimeContext
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.scala.createTypeInformation
-import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat.StatementExecutorFactory
 import org.apache.flink.connector.jdbc.internal.executor.JdbcBatchStatementExecutor
 import org.apache.flink.connector.jdbc.internal.{
   GenericJdbcSinkFunction,
@@ -30,9 +27,7 @@ import org.apache.flink.connector.jdbc.{
 }
 import org.apache.flink.streaming.api.scala.DataStream
 
-import java.sql.{Connection, DriverManager, PreparedStatement, Timestamp}
-import java.time.Instant
-import java.util.function.{Function => JavaFunction}
+import java.sql.{Connection, DriverManager}
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
@@ -576,84 +571,6 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
     jcoBuilder.build()
   }
 
-  /** Creates a statement builder based on the target table columns and the
-    * values in an event
-    * @tparam E
-    *   the event type
-    * @return
-    *   JdbcStatementBuilder[E]
-    */
-  def getStatementBuilder[E <: ADT]: JdbcStatementBuilder[E] =
-    new JdbcStatementBuilder[E] {
-      override def accept(statement: PreparedStatement, element: E): Unit =
-        _fillInStatement(
-          fieldValuesOf(element),
-          statement,
-          element
-        )
-    }
-
-  def fieldValuesOf[T <: Product](product: T): Map[String, Any] = {
-    product.getClass.getDeclaredFields
-      .map(_.getName)
-      .zip(product.productIterator.toIndexedSeq)
-      .toMap
-  }
-
-  def getAvroStatementBuilder[
-      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
-      A <: GenericRecord: TypeInformation]: JdbcStatementBuilder[E] =
-    new JdbcStatementBuilder[E] {
-      override def accept(
-          statement: PreparedStatement,
-          element: E): Unit = {
-        println(s"XXX: $element")
-        _fillInStatement[E](
-          fieldValuesOf(element.$record.asInstanceOf[Product]),
-          statement,
-          element
-        )
-      }
-    }
-
-  def _fillInStatement[E <: ADT](
-      data: Map[String, Any],
-      statement: PreparedStatement,
-      element: E): Unit = {
-    columns.zipWithIndex.map(x => (x._1, x._2 + 1)).foreach {
-      case (column, i) =>
-        data.get(column.name) match {
-          case Some(v) =>
-            val value = v match {
-              case null | None => null
-              case Some(x)     => _matcher(x)
-              case x           => _matcher(x)
-            }
-            statement.setObject(i, value, column.dataType.jdbcType)
-          case None    =>
-            throw new RuntimeException(
-              s"value for field ${column.name} is not in $element"
-            )
-        }
-    }
-  }
-
-  def _matcher(value: Any): Any = {
-    lazy val encoder = new JsonRowEncoder[Map[String, Any]]()
-    value match {
-      case ts: Instant         => Timestamp.from(ts)
-      case m: Map[String, Any] =>
-        try
-          encoder.encode(m).get
-        catch {
-          case _: Throwable =>
-            println(s"Failure to encode map: $m")
-            null
-        }
-      case _                   => value
-    }
-  }
-
   def _addSink[E <: ADT: TypeInformation](
       dataStream: DataStream[E],
       statementBuilder: JdbcStatementBuilder[E]): Unit = {
@@ -664,21 +581,10 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
           properties
         ),
         getJdbcExecutionOptions,
-        // =================================
-        // NOTE: following line should NOT be converted to a Single Abstract Method
-        // in order to prevent flink's closure container from complaining about
-        // serialization.
-        // ==================================
-        new StatementExecutorFactory[JdbcBatchStatementExecutor[E]] {
-          override def apply(
-              t: RuntimeContext): JdbcBatchStatementExecutor[E] = {
-            JdbcBatchStatementExecutor.simple(
-              queryDml,
-              statementBuilder,
-              JavaFunction.identity[E]
-            )
-          }
-        },
+        new JdbcSinkStatementExecutorFactory[E, ADT](
+          queryDml,
+          statementBuilder
+        ),
         JdbcOutputFormat.RecordExtractor.identity[E]
       )
     maybeCreateTable()
@@ -692,13 +598,16 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
 
   override def addSink[E <: ADT: TypeInformation](
       dataStream: DataStream[E]): Unit =
-    _addSink(dataStream, getStatementBuilder[E])
+    _addSink(dataStream, new JdbcSinkStatementBuilder[E, ADT](columns))
 
   override def addAvroSink[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](
       dataStream: DataStream[E]): Unit =
-    _addSink(dataStream, getAvroStatementBuilder[E, A])
+    _addSink(
+      dataStream,
+      new JdbcSinkAvroStatementBuilder[E, A, ADT](columns)
+    )
 }
 
 object JdbcSinkConfig {

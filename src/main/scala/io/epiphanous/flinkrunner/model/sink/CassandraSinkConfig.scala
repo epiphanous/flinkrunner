@@ -3,6 +3,7 @@ package io.epiphanous.flinkrunner.model.sink
 import com.datastax.driver.core.{Cluster, CodecRegistry}
 import com.datastax.driver.extras.codecs.jdk8.InstantCodec
 import io.epiphanous.flinkrunner.model.{
+  CassandraClusterBuilder,
   EmbeddedAvroRecord,
   FlinkConfig,
   FlinkConnectorName,
@@ -43,21 +44,12 @@ case class CassandraSinkConfig[ADT <: FlinkEvent](
   val port: Int     = config.getIntOpt(pfx("port")).getOrElse(9042)
   val query: String = config.getString(pfx("query"))
 
-  def getClusterBuilder: ClusterBuilder = new ClusterBuilder() {
-    override def buildCluster(builder: Cluster.Builder): Cluster = builder
-      .addContactPoint(host)
-      .withPort(port)
-      .withoutJMXReporting()
-      .withCodecRegistry(
-        new CodecRegistry().register(InstantCodec.instance)
-      )
-      .build()
-  }
+  val clusterBuilder = new CassandraClusterBuilder(host, port)
 
   def addSink[E <: ADT: TypeInformation](stream: DataStream[E]): Unit =
     CassandraSink
       .addSink(stream)
-      .setClusterBuilder(getClusterBuilder)
+      .setClusterBuilder(clusterBuilder)
       .setQuery(query)
       .build()
 
@@ -68,7 +60,7 @@ case class CassandraSinkConfig[ADT <: FlinkEvent](
       .addSink(
         new AbstractCassandraTupleSink[E](
           query,
-          getClusterBuilder,
+          clusterBuilder,
           CassandraSinkBaseConfig.newBuilder().build(),
           new NoOpCassandraFailureHandler()
         ) {
@@ -83,9 +75,11 @@ case class CassandraSinkConfig[ADT <: FlinkEvent](
   override def _addRowSink(
       stream: DataStream[Row],
       rowType: RowType): Unit = {
-    stream.addSink(
-      new CassandraRowSink(rowType.getFieldCount, query, getClusterBuilder)
-    )
+    CassandraSink
+      .addSink(stream)
+      .setClusterBuilder(clusterBuilder)
+      .setQuery(query)
+      .build()
     ()
   }
 }

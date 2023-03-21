@@ -145,5 +145,8 @@ class IdentityAvroTableStreamJobFactory[
 
 @SerialVersionUID(1L)
 class IdentityMap[A] extends MapFunction[A, A] {
-  override def map(value: A): A = value
+  override def map(value: A): A = {
+    println(s"IdentityMap: $value")
+    value
+  }
 }
