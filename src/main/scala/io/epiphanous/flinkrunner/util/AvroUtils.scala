@@ -11,7 +11,6 @@ import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
 import org.apache.avro.specific.SpecificRecordBase
 import org.apache.flink.formats.avro.typeutils.AvroSchemaConverter
-import org.apache.flink.table.types.FieldsDataType
 import org.apache.flink.table.types.logical.RowType
 
 import scala.collection.JavaConverters._

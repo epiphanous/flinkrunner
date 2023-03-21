@@ -11,19 +11,18 @@ import io.epiphanous.flinkrunner.model.sink.JdbcSinkConfig.{
   DEFAULT_TIMESCALE_CHUNK_TIME_INTERVAL,
   DEFAULT_TIMESCALE_NUMBER_PARTITIONS
 }
-import io.epiphanous.flinkrunner.operator.CreateTableJdbcSinkFunction
 import io.epiphanous.flinkrunner.serde.JsonRowEncoder
 import io.epiphanous.flinkrunner.util.SqlBuilder
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.functions.RuntimeContext
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.scala.createTypeInformation
+import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat.StatementExecutorFactory
+import org.apache.flink.connector.jdbc.internal.executor.JdbcBatchStatementExecutor
 import org.apache.flink.connector.jdbc.internal.{
   GenericJdbcSinkFunction,
   JdbcOutputFormat
 }
-import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat.StatementExecutorFactory
-import org.apache.flink.connector.jdbc.internal.executor.JdbcBatchStatementExecutor
 import org.apache.flink.connector.jdbc.{
   JdbcConnectionOptions,
   JdbcExecutionOptions,

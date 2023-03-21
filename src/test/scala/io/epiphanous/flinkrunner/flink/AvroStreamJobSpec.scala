@@ -1,10 +1,9 @@
 package io.epiphanous.flinkrunner.flink
 
-import io.epiphanous.flinkrunner.{IdentityMap, PropSpec}
 import io.epiphanous.flinkrunner.model._
+import io.epiphanous.flinkrunner.{IdentityMap, PropSpec}
 import org.apache.flink.streaming.api.scala._
 
-import java.io.Serializable
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 

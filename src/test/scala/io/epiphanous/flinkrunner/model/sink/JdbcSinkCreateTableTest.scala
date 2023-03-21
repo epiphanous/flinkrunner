@@ -7,7 +7,6 @@ import com.dimafeng.testcontainers.{
 }
 import io.epiphanous.flinkrunner.UnitSpec
 import io.epiphanous.flinkrunner.model.{FlinkConfig, MyAvroADT}
-import org.apache.flink.api.scala.createTypeInformation
 
 class JdbcSinkCreateTableTest extends UnitSpec {
 

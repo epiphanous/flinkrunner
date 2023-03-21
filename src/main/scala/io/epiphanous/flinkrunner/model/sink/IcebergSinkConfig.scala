@@ -2,29 +2,23 @@ package io.epiphanous.flinkrunner.model.sink
 
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.model.sink.IcebergSinkConfig.{
-  ICEBERG_IMPL,
-  NESSIE_IMPL
-}
+import io.epiphanous.flinkrunner.util.AvroUtils.rowTypeOf
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.api.scala.createTypeInformation
 import org.apache.flink.streaming.api.scala.DataStream
 import org.apache.flink.table.api.TableSchema
 import org.apache.flink.table.types.logical.RowType
 import org.apache.flink.table.types.utils.TypeConversions
 import org.apache.flink.types.Row
-import org.apache.hadoop.conf.Configuration
-import org.apache.iceberg.catalog.{Namespace, TableIdentifier}
 import org.apache.iceberg.flink.sink.FlinkSink
 import org.apache.iceberg.flink.{
-  CatalogLoader,
   FlinkSchemaUtil,
   FlinkWriteOptions,
   TableLoader
 }
 import org.apache.iceberg.{PartitionSpec, Schema, Table}
 
-import java.util
 import scala.collection.JavaConverters._
 import scala.util.Try
 
@@ -44,58 +38,7 @@ case class IcebergSinkConfig[ADT <: FlinkEvent](
 
   override def connector: FlinkConnectorName = FlinkConnectorName.Iceberg
 
-  val hadoopConf = new Configuration()
-
-  val namespace: Namespace =
-    Namespace.of(
-      config
-        .getStringOpt(pfx("namespace"))
-        .getOrElse("default")
-        .split("\\."): _*
-    )
-
-  val tableName: String = config.getString(pfx("table"))
-
-  val tableIdentifier: TableIdentifier =
-    TableIdentifier.of(namespace, tableName)
-
-  val (
-    catalogName: String,
-    catalogType: String,
-    catalogProperties: util.Map[String, String]
-  ) =
-    (
-      config
-        .getStringOpt(pfx("catalog.name"))
-        .getOrElse("default"),
-      config.getStringOpt(pfx("catalog.type")).getOrElse("iceberg"),
-      config
-        .getProperties(pfx("catalog"))
-        .asScala
-        .filterKeys(k => !Seq("name", "type").contains(k))
-        .foldLeft(Map.empty[String, String]) { case (m, kv) => m + kv }
-        .asJava
-    )
-
-  val catalogLoader: CatalogLoader = catalogType.toLowerCase match {
-    case "hive"   =>
-      catalogProperties.put("type", "hive")
-      CatalogLoader.hive(catalogName, hadoopConf, catalogProperties)
-    case "hadoop" =>
-      catalogProperties.put("type", "hadoop")
-      CatalogLoader.hadoop(catalogName, hadoopConf, catalogProperties)
-    case impl     =>
-      CatalogLoader.custom(
-        catalogName,
-        catalogProperties,
-        hadoopConf,
-        impl match {
-          case "iceberg" => ICEBERG_IMPL
-          case "nessie"  => NESSIE_IMPL
-          case _         => catalogType
-        }
-      )
-  }
+  val icebergCommonConfig: IcebergCommonConfig = IcebergCommonConfig(this)
 
   val primaryKey: Seq[String] = config.getStringListOpt(pfx("primary.key"))
 
@@ -150,7 +93,7 @@ case class IcebergSinkConfig[ADT <: FlinkEvent](
     val t = Try {
       val icebergSchema: Schema = FlinkSchemaUtil.convert(flinkTableSchema)
       logger.debug(icebergSchema.toString)
-      val catalog               = catalogLoader.loadCatalog()
+      val catalog               = icebergCommonConfig.catalogLoader.loadCatalog()
       logger.debug(catalog.toString)
       val ps                    =
         if (partitionSpecConfig.nonEmpty)
@@ -162,12 +105,12 @@ case class IcebergSinkConfig[ADT <: FlinkEvent](
             .build()
         else PartitionSpec.unpartitioned()
       logger.debug(ps.toString)
-      logger.debug(tableIdentifier.toString)
-      if (catalog.tableExists(tableIdentifier))
-        catalog.loadTable(tableIdentifier)
+      logger.debug(icebergCommonConfig.tableIdentifier.toString)
+      if (catalog.tableExists(icebergCommonConfig.tableIdentifier))
+        catalog.loadTable(icebergCommonConfig.tableIdentifier)
       else
         catalog.createTable(
-          tableIdentifier,
+          icebergCommonConfig.tableIdentifier,
           icebergSchema,
           ps
         )
@@ -176,31 +119,38 @@ case class IcebergSinkConfig[ADT <: FlinkEvent](
     t
   }
 
-  /** Add an iceberg row sink for the given data stream and row type
-    * @param dataStream
-    *   a datastream of Row events
+  /** Add an iceberg row sink for the given avro data stream and row type
+    *
+    * @param rows
+    *   a stream of rows
     * @param rowType
-    *   RowType - the type of Row events
+    *   configured or inferred from avro row type
     */
-  override def addRowSink(
-      dataStream: DataStream[Row],
+  override def _addRowSink(
+      rows: DataStream[Row],
       rowType: RowType): Unit = {
     val flinkTableSchema = getFlinkTableSchema(rowType)
     maybeCreateTable(flinkTableSchema).fold(
       err =>
         throw new RuntimeException(
-          s"Failed to create iceberg table $tableIdentifier",
+          s"Failed to create iceberg table ${icebergCommonConfig.tableIdentifier}",
           err
         ),
       table => logger.info(s"iceberg table $table ready")
     )
     FlinkSink
-      .forRow(dataStream.javaStream, flinkTableSchema)
+      .forRow(rows.javaStream, flinkTableSchema)
       .set(FlinkWriteOptions.WRITE_FORMAT.toString, writeFormat)
       .upsert(primaryKey.nonEmpty)
       .writeParallelism(writeParallelism)
-      .tableLoader(TableLoader.fromCatalog(catalogLoader, tableIdentifier))
+      .tableLoader(
+        TableLoader.fromCatalog(
+          icebergCommonConfig.catalogLoader,
+          icebergCommonConfig.tableIdentifier
+        )
+      )
       .append()
+
   }
 
   override def addAvroSink[
@@ -211,9 +161,4 @@ case class IcebergSinkConfig[ADT <: FlinkEvent](
   override def addSink[E <: ADT: TypeInformation](
       dataStream: DataStream[E]): Unit =
     notImplementedError("addSink")
-}
-
-object IcebergSinkConfig {
-  final val NESSIE_IMPL  = "org.apache.iceberg.nessie.NessieCatalog"
-  final val ICEBERG_IMPL = "org.apache.iceberg.rest.RESTCatalog"
 }

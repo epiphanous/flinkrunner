@@ -9,8 +9,6 @@ import com.dimafeng.testcontainers.{
 import io.epiphanous.flinkrunner.PropSpec
 import io.epiphanous.flinkrunner.model.{BRecord, FlinkConfig, MyAvroADT}
 import io.epiphanous.flinkrunner.util.AvroUtils.rowTypeOf
-import org.apache.flink.api.scala.createTypeInformation
-import org.apache.flink.kinesis.shaded.software.amazon.awssdk.core.sync.ResponseTransformer
 import org.apache.flink.table.types.logical.RowType
 import org.testcontainers.containers.Network
 import org.testcontainers.containers.localstack.LocalStackContainer.Service
@@ -20,7 +18,6 @@ import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.{
   CreateBucketRequest,
   GetObjectRequest,
-  GetObjectResponse,
   ListObjectsV2Request
 }
 

@@ -1,7 +1,6 @@
 package io.epiphanous.flinkrunner.util
 
 import com.google.common.collect.Maps
-import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
 
 import java.util

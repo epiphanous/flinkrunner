@@ -1,13 +1,21 @@
 package io.epiphanous.flinkrunner.serde
 
 import io.confluent.kafka.schemaregistry.avro.AvroSchema
-import io.confluent.kafka.schemaregistry.client.{MockSchemaRegistryClient, SchemaMetadata, SchemaRegistryClient}
+import io.confluent.kafka.schemaregistry.client.{
+  MockSchemaRegistryClient,
+  SchemaMetadata,
+  SchemaRegistryClient
+}
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.model.sink.KafkaSinkConfig
 import io.epiphanous.flinkrunner.model.source.KafkaSourceConfig
 import io.epiphanous.flinkrunner.{FlinkRunner, PropSpec}
 import org.apache.avro.Schema
-import org.apache.avro.generic.{GenericContainer, GenericDatumWriter, GenericRecord}
+import org.apache.avro.generic.{
+  GenericContainer,
+  GenericDatumWriter,
+  GenericRecord
+}
 import org.apache.avro.io.{DecoderFactory, EncoderFactory}
 import org.apache.avro.specific.SpecificDatumReader
 import org.apache.flink.api.common.typeinfo.TypeInformation

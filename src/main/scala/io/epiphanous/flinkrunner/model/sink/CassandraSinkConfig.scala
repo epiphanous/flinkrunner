@@ -84,7 +84,7 @@ case class CassandraSinkConfig[ADT <: FlinkEvent](
       .name(label)
   }
 
-  override def addRowSink(
+  override def _addRowSink(
       stream: DataStream[Row],
       rowType: RowType): Unit = {
     stream.addSink(

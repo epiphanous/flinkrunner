@@ -1,6 +1,6 @@
 package io.epiphanous.flinkrunner.model.sink
 
-import io.epiphanous.flinkrunner.{FlinkRunnerSpec, PropSpec}
+import io.epiphanous.flinkrunner.PropSpec
 import io.epiphanous.flinkrunner.model._
 import org.apache.flink.api.scala.createTypeInformation
 

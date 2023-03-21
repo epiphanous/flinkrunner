@@ -1,20 +1,17 @@
 package io.epiphanous.flinkrunner.model.source
 
-import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.FlinkConnectorName._
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.util.BoundedLatenessWatermarkStrategy
-import io.epiphanous.flinkrunner.util.StreamUtils._
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.eventtime.WatermarkStrategy
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.connector.source.{Source, SourceSplit}
 import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.flink.streaming.api.scala._
+import org.apache.flink.table.data.RowData
 
 import java.time.Duration
-import java.util
-import java.util.Properties
 import scala.util.Try
 
 /** A flinkrunner source configuration trait. All source configs have a few
@@ -49,25 +46,9 @@ import scala.util.Try
   * @tparam ADT
   *   flinkrunner algebraic data type
   */
-trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
-  def name: String
+trait SourceConfig[ADT <: FlinkEvent] extends SourceOrSinkConfig {
 
-  def config: FlinkConfig
-
-  def connector: FlinkConnectorName
-
-  def pfx(path: String = ""): String = Seq(
-    Some("sources"),
-    Some(name),
-    if (path.isEmpty) None else Some(path)
-  ).flatten.mkString(".")
-
-  val properties: Properties = config.getProperties(pfx("config"))
-
-  lazy val propertiesMap: util.HashMap[String, String] =
-    properties.asJavaMap
-
-  lazy val label: String = s"${connector.entryName.toLowerCase}/$name"
+  override val _sourceOrSink = "source"
 
   val watermarkStrategy: String =
     Try(config.getString(pfx("watermark.strategy")))
@@ -152,6 +133,7 @@ trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
         s => env.fromSource(s, getWatermarkStrategy, label)
       )
       .uid(label)
+      .setParallelism(parallelism)
   }
 
   /** Flinkrunner calls this method to create a source stream from
@@ -226,6 +208,7 @@ trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
         s => env.fromSource(s, getWatermarkStrategy, label)
       )
       .uid(label)
+      .setParallelism(parallelism)
 
   /** Flinkrunner calls this method to create an avro source stream. This
     * method uses the default implementation in
@@ -248,6 +231,24 @@ trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
       env: StreamExecutionEnvironment)(implicit
       fromKV: EmbeddedAvroRecordInfo[A] => E): DataStream[E] =
     getAvroSourceStreamDefault[E, A](env)
+
+  def getRowSource(env: StreamExecutionEnvironment): DataStream[RowData] =
+    ???
+
+  def getRowSourceStreamDefault[E <: ADT: TypeInformation](
+      env: StreamExecutionEnvironment)(implicit
+      fromRowData: RowData => E): DataStream[E] =
+    getRowSource(env)
+      .map(fromRowData)
+      .assignTimestampsAndWatermarks(getWatermarkStrategy[E])
+      .name(label)
+      .uid(label)
+      .setParallelism(parallelism)
+
+  def getRowSourceStream[E <: ADT: TypeInformation](
+      env: StreamExecutionEnvironment)(implicit
+      fromRowData: RowData => E): DataStream[E] =
+    getRowSourceStreamDefault[E](env)
 }
 
 object SourceConfig {

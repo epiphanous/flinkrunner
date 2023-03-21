@@ -86,7 +86,7 @@ case class SocketSinkConfig[ADT <: FlinkEvent](
         }
     }
 
-  override def addRowSink(
+  override def _addRowSink(
       stream: DataStream[Row],
       rowType: RowType): Unit =
     _addSink[Row](stream, getRowSerializationSchema(rowType))
