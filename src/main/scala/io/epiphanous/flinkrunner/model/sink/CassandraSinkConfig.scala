@@ -45,7 +45,7 @@ case class CassandraSinkConfig[ADT <: FlinkEvent](
 
   /** Don't convert to single abstract method...flink will complain
     */
-  val clusterBuilder: ClusterBuilder = new ClusterBuilder {
+  lazy val clusterBuilder: ClusterBuilder = new ClusterBuilder {
     override def buildCluster(builder: Cluster.Builder): Cluster =
       builder
         .addContactPoint(host)
@@ -57,13 +57,12 @@ case class CassandraSinkConfig[ADT <: FlinkEvent](
         .build()
   }
 
-  def addSink[E <: ADT: TypeInformation](stream: DataStream[E]): Unit = {
-    stream
-      .addSink(new CassandraScalaProductSink[E](query, clusterBuilder))
-      .uid(label)
-      .name(label)
-      .setParallelism(parallelism)
-  }
+  def addSink[E <: ADT: TypeInformation](stream: DataStream[E]): Unit =
+    CassandraSink
+      .addSink(stream)
+      .setClusterBuilder(clusterBuilder)
+      .setQuery(query)
+      .build()
 
   override def addAvroSink[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
