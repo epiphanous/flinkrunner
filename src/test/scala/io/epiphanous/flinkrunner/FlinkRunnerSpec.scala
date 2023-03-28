@@ -6,6 +6,8 @@ import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.functions.MapFunction
 import org.apache.flink.api.common.typeinfo.TypeInformation
 
+import scala.reflect.runtime.{universe => ru}
+
 trait FlinkRunnerSpec {
 
   def getRunner[
@@ -95,7 +97,7 @@ trait FlinkRunnerSpec {
 
   def getTableStreamJobRunner[
       IN <: ADT: TypeInformation,
-      OUT <: ADT with EmbeddedRowType: TypeInformation,
+      OUT <: ADT with EmbeddedRowType: TypeInformation: ru.TypeTag,
       ADT <: FlinkEvent: TypeInformation](
       configStr: String,
       transformer: MapFunction[IN, OUT],
@@ -110,7 +112,7 @@ trait FlinkRunnerSpec {
     )
 
   def getIdentityTableStreamJobRunner[
-      OUT <: ADT with EmbeddedRowType: TypeInformation,
+      OUT <: ADT with EmbeddedRowType: TypeInformation: ru.TypeTag,
       ADT <: FlinkEvent: TypeInformation](
       configStr: String,
       input: Seq[OUT] = Seq.empty,
@@ -123,45 +125,45 @@ trait FlinkRunnerSpec {
       args
     )
 
-  def getAvroTableStreamJobRunner[
-      IN <: ADT with EmbeddedAvroRecord[INA]: TypeInformation,
-      INA <: GenericRecord: TypeInformation,
-      OUT <: ADT with EmbeddedAvroRecord[
-        OUTA
-      ] with EmbeddedRowType: TypeInformation,
-      OUTA <: GenericRecord: TypeInformation,
-      ADT <: FlinkEvent: TypeInformation](
-      configStr: String,
-      transformer: MapFunction[IN, OUT],
-      input: Seq[IN] = Seq.empty,
-      checkResultsOpt: Option[CheckResults[ADT]] = None,
-      args: Array[String] = Array("testJob"))(implicit
-      fromKV: EmbeddedAvroRecordInfo[INA] => IN): FlinkRunner[ADT] =
-    getRunner(
-      configStr,
-      new AvroTableStreamJobFactory[IN, INA, OUT, OUTA, ADT](
-        transformer,
-        input
-      ),
-      checkResultsOpt,
-      args
-    )
-
-  def getIdentityAvroTableStreamJobRunner[
-      OUT <: ADT with EmbeddedAvroRecord[
-        OUTA
-      ] with EmbeddedRowType: TypeInformation,
-      OUTA <: GenericRecord: TypeInformation,
-      ADT <: FlinkEvent: TypeInformation](
-      configStr: String,
-      input: Seq[OUT] = Seq.empty,
-      checkResultsOpt: Option[CheckResults[ADT]] = None,
-      args: Array[String] = Array("testJob"))(implicit
-      fromKV: EmbeddedAvroRecordInfo[OUTA] => OUT): FlinkRunner[ADT] =
-    getRunner(
-      configStr,
-      new IdentityAvroTableStreamJobFactory[OUT, OUTA, ADT](input),
-      checkResultsOpt,
-      args
-    )
+//  def getAvroTableStreamJobRunner[
+//      IN <: ADT with EmbeddedAvroRecord[INA]: TypeInformation,
+//      INA <: GenericRecord: TypeInformation,
+//      OUT <: ADT with EmbeddedAvroRecord[
+//        OUTA
+//      ] with EmbeddedRowType: TypeInformation,
+//      OUTA <: GenericRecord: TypeInformation,
+//      ADT <: FlinkEvent: TypeInformation](
+//      configStr: String,
+//      transformer: MapFunction[IN, OUT],
+//      input: Seq[IN] = Seq.empty,
+//      checkResultsOpt: Option[CheckResults[ADT]] = None,
+//      args: Array[String] = Array("testJob"))(implicit
+//      fromKV: EmbeddedAvroRecordInfo[INA] => IN): FlinkRunner[ADT] =
+//    getRunner(
+//      configStr,
+//      new AvroTableStreamJobFactory[IN, INA, OUT, OUTA, ADT](
+//        transformer,
+//        input
+//      ),
+//      checkResultsOpt,
+//      args
+//    )
+//
+//  def getIdentityAvroTableStreamJobRunner[
+//      OUT <: ADT with EmbeddedAvroRecord[
+//        OUTA
+//      ] with EmbeddedRowType: TypeInformation,
+//      OUTA <: GenericRecord: TypeInformation,
+//      ADT <: FlinkEvent: TypeInformation](
+//      configStr: String,
+//      input: Seq[OUT] = Seq.empty,
+//      checkResultsOpt: Option[CheckResults[ADT]] = None,
+//      args: Array[String] = Array("testJob"))(implicit
+//      fromKV: EmbeddedAvroRecordInfo[OUTA] => OUT): FlinkRunner[ADT] =
+//    getRunner(
+//      configStr,
+//      new IdentityAvroTableStreamJobFactory[OUT, OUTA, ADT](input),
+//      checkResultsOpt,
+//      args
+//    )
 }

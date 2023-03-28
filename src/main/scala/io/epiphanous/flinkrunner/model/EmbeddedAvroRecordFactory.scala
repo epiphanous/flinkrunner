@@ -2,6 +2,8 @@ package io.epiphanous.flinkrunner.model
 
 import org.apache.avro.generic.GenericRecord
 
+import scala.language.implicitConversions
+
 /** Companion objects of event types that wrap avro records should
   * implement this trait to support avro deserialization. A companion
   * trait, EmbeddedAvroRecord, can be used to support serializing avro
@@ -23,4 +25,5 @@ trait EmbeddedAvroRecordFactory[
     *   New event of type E
     */
   implicit def fromKV(recordInfo: EmbeddedAvroRecordInfo[A]): E
+
 }

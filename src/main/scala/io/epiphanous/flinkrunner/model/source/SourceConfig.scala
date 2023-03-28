@@ -46,7 +46,7 @@ import scala.util.Try
   * @tparam ADT
   *   flinkrunner algebraic data type
   */
-trait SourceConfig[ADT <: FlinkEvent] extends SourceOrSinkConfig {
+trait SourceConfig[ADT <: FlinkEvent] extends SourceOrSinkConfig[ADT] {
 
   override val _sourceOrSink = "source"
 
@@ -236,7 +236,8 @@ trait SourceConfig[ADT <: FlinkEvent] extends SourceOrSinkConfig {
   def getRowSource(env: StreamExecutionEnvironment): DataStream[RowData] =
     ???
 
-  def getRowSourceStreamDefault[E <: ADT: TypeInformation](
+  def getRowSourceStreamDefault[
+      E <: ADT with EmbeddedRowType: TypeInformation](
       env: StreamExecutionEnvironment)(implicit
       fromRowData: RowData => E): DataStream[E] =
     getRowSource(env)
@@ -246,7 +247,7 @@ trait SourceConfig[ADT <: FlinkEvent] extends SourceOrSinkConfig {
       .uid(label)
       .setParallelism(parallelism)
 
-  def getRowSourceStream[E <: ADT: TypeInformation](
+  def getRowSourceStream[E <: ADT with EmbeddedRowType: TypeInformation](
       env: StreamExecutionEnvironment)(implicit
       fromRowData: RowData => E): DataStream[E] =
     getRowSourceStreamDefault[E](env)
@@ -270,6 +271,7 @@ object SourceConfig {
       case Kinesis   => KinesisSourceConfig[ADT](name, config)
       case RabbitMQ  => RabbitMQSourceConfig[ADT](name, config)
       case Socket    => SocketSourceConfig[ADT](name, config)
+      case Iceberg   => IcebergSourceConfig(name, config)
       case Generator =>
         generatorFactoryOpt
           .map(factory =>

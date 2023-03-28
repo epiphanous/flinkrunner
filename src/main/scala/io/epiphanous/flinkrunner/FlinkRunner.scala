@@ -15,6 +15,7 @@ import org.apache.flink.table.api.bridge.scala.StreamTableEnvironment
 import org.apache.flink.table.data.RowData
 
 import scala.collection.JavaConverters._
+import scala.reflect.runtime.{universe => ru}
 
 /** FlinkRunner base class. All users of Flinkrunner will create their own
   * subclass. The only required parameter is a FlinkConfig object. Two
@@ -281,16 +282,10 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
       sinkName: String): Unit =
     getSinkConfig(sinkName).addAvroSink[E, A](stream)
 
-  def addRowSink[E <: ADT with EmbeddedRowType: TypeInformation](
+  def addRowSink[
+      E <: ADT with EmbeddedRowType: TypeInformation: ru.TypeTag](
       stream: DataStream[E],
       sinkName: String = getDefaultSinkName): Unit =
     getSinkConfig(sinkName).addRowSink[E](stream)
-
-  def addAvroRowSink[
-      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
-      A <: GenericRecord: TypeInformation](
-      stream: DataStream[E],
-      sinkName: String = getDefaultSinkName): Unit =
-    getSinkConfig(sinkName).addAvroRowSink[E, A](stream)
 
 }

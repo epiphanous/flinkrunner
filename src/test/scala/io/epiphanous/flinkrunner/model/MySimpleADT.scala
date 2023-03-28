@@ -1,13 +1,17 @@
 package io.epiphanous.flinkrunner.model
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
+import org.apache.flink.table.annotation.DataTypeHint
+import org.apache.flink.table.data.RowData
 
 import java.time.Instant
+import scala.language.implicitConversions
 
-sealed trait MySimpleADT extends FlinkEvent
+sealed trait MySimpleADT extends FlinkEvent with EmbeddedRowType
 
 case class SimpleA(id: String, a0: String, a1: Int, ts: Instant)
-    extends MySimpleADT {
+    extends MySimpleADT
+    with EmbeddedRowType {
   override def $id: String = id
 
   override def $key: String = a0
@@ -38,16 +42,30 @@ case class SimpleB(
     id: String,
     b0: String,
     b1: Double,
-    @JsonDeserialize(contentAs = classOf[java.lang.Integer]) b2: Option[
+    @JsonDeserialize(contentAs = classOf[java.lang.Integer])
+    @DataTypeHint("INT")
+    b2: Option[
       Int
     ],
     ts: Instant)
-    extends MySimpleADT {
+    extends MySimpleADT
+    with EmbeddedRowType {
   override def $id: String = id
 
   override def $key: String = b0
 
   override def $timestamp: Long = ts.toEpochMilli
+}
+
+object SimpleB extends EmbeddedRowTypeFactory[SimpleB] {
+
+  override implicit def fromRowData(rowData: RowData): SimpleB = SimpleB(
+    rowData.getString(0).toString,
+    rowData.getString(1).toString,
+    rowData.getDouble(2),
+    Option(rowData.getInt(3)),
+    rowData.getTimestamp(4, 3).toInstant
+  )
 }
 
 case class SimpleC(
@@ -56,10 +74,12 @@ case class SimpleC(
     c2: Double,
     c3: Int,
     ts: Instant)
-    extends MySimpleADT {
+    extends MySimpleADT
+    with EmbeddedRowType {
   override def $id: String = id
 
   override def $key: String = c1
 
   override def $timestamp: Long = ts.toEpochMilli
+
 }

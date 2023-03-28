@@ -15,8 +15,9 @@ object IcebergCommonConfig {
   final val NESSIE_IMPL  = "org.apache.iceberg.nessie.NessieCatalog"
   final val ICEBERG_IMPL = "org.apache.iceberg.rest.RESTCatalog"
 
-  def apply(
-      icebergSourceConfig: SourceOrSinkConfig): IcebergCommonConfig = {
+  def apply[ADT <: FlinkEvent](
+      icebergSourceConfig: SourceOrSinkConfig[ADT])
+      : IcebergCommonConfig = {
     val config     = icebergSourceConfig.config
     val pfx        = s => icebergSourceConfig.pfx(s)
     val hadoopConf = new Configuration()

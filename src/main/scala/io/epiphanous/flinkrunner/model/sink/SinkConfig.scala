@@ -2,7 +2,7 @@ package io.epiphanous.flinkrunner.model.sink
 
 import io.epiphanous.flinkrunner.model.FlinkConnectorName._
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.util.AvroUtils.rowTypeOf
+import io.epiphanous.flinkrunner.util.RowUtils.rowTypeOf
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.scala.createTypeInformation
@@ -10,7 +10,7 @@ import org.apache.flink.streaming.api.scala.DataStream
 import org.apache.flink.table.types.logical.RowType
 import org.apache.flink.types.Row
 
-import scala.util.Try
+import scala.reflect.runtime.{universe => ru}
 
 /** A flinkrunner sink configuration trait. All sink configs have a few
   * common configuration options.
@@ -31,7 +31,7 @@ import scala.util.Try
   * @tparam ADT
   *   the flinkrunner algebraic data type
   */
-trait SinkConfig[ADT <: FlinkEvent] extends SourceOrSinkConfig {
+trait SinkConfig[ADT <: FlinkEvent] extends SourceOrSinkConfig[ADT] {
 
   override val _sourceOrSink = "sink"
 
@@ -44,41 +44,20 @@ trait SinkConfig[ADT <: FlinkEvent] extends SourceOrSinkConfig {
       stream: DataStream[E]
   ): Unit
 
-  def addRowSink[E <: ADT with EmbeddedRowType: TypeInformation](
+  def addRowSink[
+      E <: ADT with EmbeddedRowType: TypeInformation: ru.TypeTag](
       stream: DataStream[E]): Unit =
-    _addRowSinkStream[E](stream, configuredRowType)
+    _addRowSink(
+      stream
+        .map((e: E) => e.toRow)
+        .name(s"row:${stream.name}")
+        .uid(s"row:${stream.name}")
+        .setParallelism(stream.parallelism),
+      rowTypeOf[E]
+    )
 
   def _addRowSink(rows: DataStream[Row], rowType: RowType): Unit = ???
 
-  def _addRowSinkStream[E <: ADT with EmbeddedRowType](
-      dataStream: DataStream[E],
-      maybeRowType: Try[RowType]): Unit = {
-    maybeRowType.fold(
-      t =>
-        throw new RuntimeException(
-          s"can't determine row.type for iceberg sink $name",
-          t
-        ),
-      rowType =>
-        _addRowSink(
-          dataStream
-            .map((e: E) => e.toRow)
-            .name(s"row:${dataStream.name}")
-            .uid(s"row:${dataStream.name}")
-            .setParallelism(dataStream.parallelism),
-          rowType
-        )
-    )
-  }
-
-  def addAvroRowSink[
-      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
-      A <: GenericRecord: TypeInformation](stream: DataStream[E]): Unit =
-    _addRowSinkStream(
-      stream,
-      configuredRowType
-        .orElse(rowTypeOf(implicitly[TypeInformation[A]].getTypeClass))
-    )
 }
 
 object SinkConfig {
@@ -102,6 +81,7 @@ object SinkConfig {
       case Elasticsearch =>
         ElasticsearchSinkConfig(name, config)
       case RabbitMQ      => RabbitMQSinkConfig(name, config)
+      case Iceberg       => IcebergSinkConfig(name, config)
       case connector     =>
         throw new RuntimeException(
           s"Don't know how to configure ${connector.entryName} sink connector $name (job ${config.jobName}"

@@ -2,12 +2,11 @@ package io.epiphanous.flinkrunner.model
 
 import org.apache.flink.table.data.RowData
 
-/** Companion objects of event types that wrap row-based records should
-  * implement this trait to support row deserialization. A companion trait,
-  * EmbeddedRowType, can be used to support serializing row records from
-  * the flink events that implement it.
+/** Companion objects of event types that implement EmbeddedRowType and
+  * require Row-based sources should implement this trait to support row
+  * deserialization.
   * @tparam E
-  *   a flink event that implements EmbeddedRowType
+  *   a flink event type that implements EmbeddedRowType
   */
 trait EmbeddedRowTypeFactory[E <: FlinkEvent with EmbeddedRowType] {
 

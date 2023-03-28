@@ -5,6 +5,8 @@ import io.epiphanous.flinkrunner.model.{EmbeddedRowType, FlinkEvent}
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.scala.DataStream
 
+import scala.reflect.runtime.{universe => ru}
+
 /** A job class to generate streaming output tables.
   * @param runner
   *   an instance of [[FlinkRunner]]
@@ -14,7 +16,7 @@ import org.apache.flink.streaming.api.scala.DataStream
   *   the algebraic data type of the [[FlinkRunner]] instance
   */
 abstract class TableStreamJob[
-    OUT <: ADT with EmbeddedRowType: TypeInformation,
+    OUT <: ADT with EmbeddedRowType: TypeInformation: ru.TypeTag,
     ADT <: FlinkEvent: TypeInformation](runner: FlinkRunner[ADT])
     extends StreamJob[OUT, ADT](runner) {
 
