@@ -19,6 +19,16 @@ case class SimpleA(id: String, a0: String, a1: Int, ts: Instant)
   override def $timestamp: Long = ts.toEpochMilli
 }
 
+object SimpleA extends EmbeddedRowTypeFactory[SimpleA] {
+  override implicit def fromRowData(rowData: RowData): SimpleA = SimpleA(
+    rowData.getString(0).toString,
+    rowData.getString(1).toString,
+    rowData.getInt(2),
+    rowData.getTimestamp(3, 3).toInstant
+  )
+
+}
+
 /** Simple Class. Note this has a field (b2) that is an Option[Int]. If we
   * plan on deserializing this with Jackson (ie, with our json or csv
   * decoding classes), such wrapped types must be annotated with
@@ -81,5 +91,16 @@ case class SimpleC(
   override def $key: String = c1
 
   override def $timestamp: Long = ts.toEpochMilli
+
+}
+
+object SimpleC extends EmbeddedRowTypeFactory[SimpleC] {
+  override implicit def fromRowData(rowData: RowData): SimpleC = SimpleC(
+    rowData.getString(0).toString,
+    rowData.getString(1).toString,
+    rowData.getDouble(2),
+    rowData.getInt(3),
+    rowData.getTimestamp(4, 3).toInstant
+  )
 
 }
