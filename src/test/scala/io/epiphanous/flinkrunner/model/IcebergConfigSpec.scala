@@ -2,16 +2,23 @@ package io.epiphanous.flinkrunner.model
 
 import com.dimafeng.testcontainers.lifecycle.and
 import com.dimafeng.testcontainers.scalatest.TestContainersForAll
-import com.dimafeng.testcontainers.{GenericContainer, LocalStackV2Container}
+import com.dimafeng.testcontainers.{
+  GenericContainer,
+  LocalStackV2Container
+}
 import io.epiphanous.flinkrunner.PropSpec
+import io.epiphanous.flinkrunner.util.RowUtils.rowTypeOf
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.scala.createTypeInformation
+import org.apache.flink.table.data.RowData
 import org.apache.flink.table.types.logical.RowType
+import org.apache.iceberg.data.IcebergGenerics
 import org.testcontainers.containers.Network
 import org.testcontainers.containers.localstack.LocalStackContainer.Service
 import org.testcontainers.utility.Base58
 import requests.Response
+import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest
 
@@ -75,6 +82,7 @@ class IcebergConfigSpec extends PropSpec with TestContainersForAll {
       .builder()
       .region(ls.region)
       .endpointOverride(ls.endpointOverride(Service.S3))
+      .httpClient(UrlConnectionHttpClient.builder().build())
       .credentialsProvider(ls.staticCredentialsProvider)
       .forcePathStyle(true)
       .build()
@@ -109,14 +117,12 @@ class IcebergConfigSpec extends PropSpec with TestContainersForAll {
   def getIcebergConfig[E](
       ls: LocalStackV2Container,
       ib: GenericContainer,
-      rowType: RowType,
       tableName: String,
       isSink: Boolean): String = {
     val sourceOrSink: String = if (isSink) "sink" else "source"
     s"""|${sourceOrSink}s {
         |   iceberg-$sourceOrSink {
         |    connector = iceberg
-        |    row.type = "$rowType"
         |    catalog {
         |      name = iceberg
         |      uri = "${icebergEndpoint(ib)}"
@@ -132,17 +138,21 @@ class IcebergConfigSpec extends PropSpec with TestContainersForAll {
   }
 
   def writeRows[E <: MySimpleADT: TypeInformation: ru.TypeTag](
-      rows: Seq[E],
-      rowType: RowType,
+      data: Seq[E],
       tableName: String,
       ls: LocalStackV2Container,
-      ib: GenericContainer): Unit = {
+      ib: GenericContainer)(implicit fromRowData: RowData => E): Unit = {
     val configStr =
       s"""
          |jobs { testJob {} }
-         |${getIcebergConfig(ls, ib, rowType, tableName, isSink = true)}
+         |${getIcebergConfig(
+          ls,
+          ib,
+          tableName,
+          isSink = true
+        )}
          |""".stripMargin
-    getIdentityTableStreamJobRunner[E, MySimpleADT](configStr, rows)
+    getIdentityTableStreamJobRunner[E, MySimpleADT](configStr, data)
       .process()
   }
 
@@ -150,7 +160,6 @@ class IcebergConfigSpec extends PropSpec with TestContainersForAll {
       E <: MyAvroADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](
       rows: Seq[E],
-      rowType: RowType,
       tableName: String,
       ls: LocalStackV2Container,
       ib: GenericContainer)(implicit
@@ -158,9 +167,30 @@ class IcebergConfigSpec extends PropSpec with TestContainersForAll {
     val configStr =
       s"""
          |jobs { testJob {} }
-         |${getIcebergConfig(ls, ib, rowType, tableName, isSink = true)}
+         |${getIcebergConfig(ls, ib, tableName, isSink = true)}
          |""".stripMargin
     getIdentityAvroStreamJobRunner[E, A, MyAvroADT](configStr, rows)
       .process()
+  }
+
+  def readRows[E <: MySimpleADT: TypeInformation: ru.TypeTag](
+      tableName: String,
+      ls: LocalStackV2Container,
+      ib: GenericContainer)(implicit fromRowData: RowData => E): Seq[E] = {
+    val configStr =
+      s"""
+         |runtime.mode = batch
+         |jobs { testJob {} }
+         |${getIcebergConfig(
+          ls,
+          ib,
+          tableName,
+          isSink = false
+        )}
+         |sinks { print-sink {} }
+         |""".stripMargin
+    getIdentityTableStreamJobRunner[E, MySimpleADT](configStr)
+      .process()
+    Seq.empty
   }
 }

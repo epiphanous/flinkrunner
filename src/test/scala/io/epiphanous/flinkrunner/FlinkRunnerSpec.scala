@@ -5,6 +5,7 @@ import io.epiphanous.flinkrunner.model._
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.functions.MapFunction
 import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.table.data.RowData
 
 import scala.reflect.runtime.{universe => ru}
 
@@ -96,14 +97,15 @@ trait FlinkRunnerSpec {
     )
 
   def getTableStreamJobRunner[
-      IN <: ADT: TypeInformation,
+      IN <: ADT with EmbeddedRowType: TypeInformation: ru.TypeTag,
       OUT <: ADT with EmbeddedRowType: TypeInformation: ru.TypeTag,
       ADT <: FlinkEvent: TypeInformation](
       configStr: String,
       transformer: MapFunction[IN, OUT],
       input: Seq[IN] = Seq.empty,
       checkResultsOpt: Option[CheckResults[ADT]] = None,
-      args: Array[String] = Array("testJob")): FlinkRunner[ADT] =
+      args: Array[String] = Array("testJob"))(implicit
+      fromRowData: RowData => IN): FlinkRunner[ADT] =
     getRunner(
       configStr,
       new TableStreamJobFactory[IN, OUT, ADT](transformer, input),
@@ -117,7 +119,8 @@ trait FlinkRunnerSpec {
       configStr: String,
       input: Seq[OUT] = Seq.empty,
       checkResultsOpt: Option[CheckResults[ADT]] = None,
-      args: Array[String] = Array("testJob")): FlinkRunner[ADT] =
+      args: Array[String] = Array("testJob"))(implicit
+      fromRowData: RowData => OUT): FlinkRunner[ADT] =
     getRunner(
       configStr,
       new IdentityTableStreamJobFactory[OUT, ADT](input),

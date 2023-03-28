@@ -26,7 +26,7 @@ class IcebergSinkConfigSpec extends IcebergConfigSpec {
       rowType: RowType): Unit = {
     val config     = new FlinkConfig(
       Array.empty[String],
-      Some(getIcebergConfig(ls, ib, rowType, "brecord", isSink = true))
+      Some(getIcebergConfig(ls, ib, "brecord", isSink = true))
     )
     val sinkConfig =
       new IcebergSinkConfig[MyAvroADT]("iceberg-sink", config)
@@ -82,7 +82,9 @@ class IcebergSinkConfigSpec extends IcebergConfigSpec {
 
   property("can write some rows") {
     withContainers { case ls and ib =>
-      writeRows(genPop[SimpleB](), RowType.of(), "simpleb", ls, ib)
+      val data = genPop[SimpleB]()
+      writeRows(data, "simple_b", ls, ib)
+      readRows[SimpleB]("simple_b", ls, ib)
     }
   }
 

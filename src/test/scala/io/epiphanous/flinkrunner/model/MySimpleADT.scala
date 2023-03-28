@@ -69,13 +69,16 @@ case class SimpleB(
 
 object SimpleB extends EmbeddedRowTypeFactory[SimpleB] {
 
-  override implicit def fromRowData(rowData: RowData): SimpleB = SimpleB(
-    rowData.getString(0).toString,
-    rowData.getString(1).toString,
-    rowData.getDouble(2),
-    Option(rowData.getInt(3)),
-    rowData.getTimestamp(4, 3).toInstant
-  )
+  override implicit def fromRowData(rowData: RowData): SimpleB = {
+    println(s"*** $rowData")
+    SimpleB(
+      rowData.getString(0).toString,
+      rowData.getString(1).toString,
+      rowData.getDouble(2),
+      if (rowData.isNullAt(3)) None else Some(rowData.getInt(3)),
+      rowData.getTimestamp(4, 3).toInstant
+    )
+  }
 }
 
 case class SimpleC(

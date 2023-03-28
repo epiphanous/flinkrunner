@@ -82,6 +82,7 @@ object SinkConfig {
         ElasticsearchSinkConfig(name, config)
       case RabbitMQ      => RabbitMQSinkConfig(name, config)
       case Iceberg       => IcebergSinkConfig(name, config)
+      case Print         => PrintSinkConfig(name, config)
       case connector     =>
         throw new RuntimeException(
           s"Don't know how to configure ${connector.entryName} sink connector $name (job ${config.jobName}"

@@ -15,6 +15,7 @@ import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.functions.MapFunction
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.scala.DataStream
+import org.apache.flink.table.data.RowData
 
 import scala.reflect.runtime.{universe => ru}
 
@@ -86,11 +87,11 @@ class IdentityAvroStreamJobFactory[
 
 @SerialVersionUID(1L)
 class TableStreamJobFactory[
-    IN <: ADT: TypeInformation,
+    IN <: ADT with EmbeddedRowType: TypeInformation: ru.TypeTag,
     OUT <: ADT with EmbeddedRowType: TypeInformation: ru.TypeTag,
     ADT <: FlinkEvent: TypeInformation](
     transformer: MapFunction[IN, OUT],
-    input: Seq[IN] = Seq.empty)
+    input: Seq[IN] = Seq.empty)(implicit fromRowData: RowData => IN)
     extends JobFactory[TableStreamJob[OUT, ADT], IN, OUT, ADT](
       transformer,
       input
@@ -98,14 +99,15 @@ class TableStreamJobFactory[
   def getJob(runner: FlinkRunner[ADT]): TableStreamJob[OUT, ADT] =
     new TableStreamJob[OUT, ADT](runner) {
       override def transform: DataStream[OUT] =
-        seqOrSingleSource(input).map(transformer)
+        seqOrSingleRowSource(input).map(transformer)
     }
 }
 
 @SerialVersionUID(1L)
 class IdentityTableStreamJobFactory[
     OUT <: ADT with EmbeddedRowType: TypeInformation: ru.TypeTag,
-    ADT <: FlinkEvent: TypeInformation](input: Seq[OUT] = Seq.empty)
+    ADT <: FlinkEvent: TypeInformation](input: Seq[OUT] = Seq.empty)(
+    implicit fromRowData: RowData => OUT)
     extends TableStreamJobFactory[OUT, OUT, ADT](
       new IdentityMap[OUT],
       input

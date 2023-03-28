@@ -46,7 +46,7 @@ val V = new {
   val squants             = "1.8.3"
   val confluentAvroSerde  = "7.1.1"
   val parquet             = "1.12.3"
-  val awsSdk              = "1.12.411"
+  val awsSdk              = "1.12.429"
   val jdbcMysql           = "8.0.32"
   val jdbcPg              = "42.5.4"
   val jdbcMssql           = "11.2.0.jre11"
@@ -56,7 +56,7 @@ val V = new {
   val iceberg             = "1.1.0"
   val jna                 = "5.12.1" // needed for testcontainers in some jvms
   val minio               = "8.5.2"
-  val awsSdk2             = "2.20.8"
+  val awsSdk2             = "2.20.26"
 }
 
 val flinkDeps =
@@ -147,7 +147,8 @@ val otherDeps = Seq(
   "org.scalatest"                   %% "scalatest"                              % V.scalaTest           % Test,
   "org.scalatestplus"               %% "scalacheck-1-17"                        % V.scalaTestPlus       % Test,
   "org.typelevel"                   %% "squants"                                % V.squants,
-  "software.amazon.awssdk"           % "aws-sdk-java"                           % V.awsSdk2             % Test
+  "software.amazon.awssdk"           % "aws-sdk-java"                           % V.awsSdk2             % Test,
+  "software.amazon.awssdk"           % "url-connection-client"                  % V.awsSdk2             % Test
 ) ++
   Seq("org.apache.parquet" % "parquet-avro" % V.parquet % Provided).map(
     m =>
