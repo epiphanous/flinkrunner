@@ -118,11 +118,12 @@ class IcebergConfigSpec extends PropSpec with TestContainersForAll {
       ls: LocalStackV2Container,
       ib: GenericContainer,
       tableName: String,
-      isSink: Boolean): String = {
+      isSink: Boolean,
+      otherConfig: String = ""): String = {
     val sourceOrSink: String = if (isSink) "sink" else "source"
     s"""|${sourceOrSink}s {
         |   iceberg-$sourceOrSink {
-        |    connector = iceberg
+        |    $otherConfig
         |    catalog {
         |      name = iceberg
         |      uri = "${icebergEndpoint(ib)}"
@@ -185,7 +186,8 @@ class IcebergConfigSpec extends PropSpec with TestContainersForAll {
           ls,
           ib,
           tableName,
-          isSink = false
+          isSink = false,
+          "batch = true"
         )}
          |sinks { print-sink {} }
          |""".stripMargin

@@ -70,7 +70,6 @@ case class SimpleB(
 object SimpleB extends EmbeddedRowTypeFactory[SimpleB] {
 
   override implicit def fromRowData(rowData: RowData): SimpleB = {
-    println(s"*** $rowData")
     SimpleB(
       rowData.getString(0).toString,
       rowData.getString(1).toString,
