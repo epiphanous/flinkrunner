@@ -23,6 +23,10 @@ import org.testcontainers.containers.Network
 import org.testcontainers.containers.localstack.LocalStackContainer.Service
 import org.testcontainers.utility.Base58
 import requests.Response
+import software.amazon.awssdk.auth.credentials.{
+  AwsCredentials,
+  StaticCredentialsProvider
+}
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest
@@ -43,6 +47,11 @@ class IcebergConfigSpec extends PropSpec with TestContainersForAll {
 
   override type Containers = LocalStackV2Container and GenericContainer
 
+  def awsCreds(ls: LocalStackV2Container): AwsCredentials =
+    ls.staticCredentialsProvider.resolveCredentials()
+
+  def awsRegion(ls: LocalStackV2Container): String = ls.region.toString
+
   override def startContainers(): Containers = {
     val network    = Network.newNetwork()
     val localstack = LocalStackV2Container(
@@ -51,7 +60,7 @@ class IcebergConfigSpec extends PropSpec with TestContainersForAll {
     ).configure(_.withNetwork(network).withNetworkAliases(localstackHost))
     localstack.start()
 
-    val creds          = localstack.staticCredentialsProvider.resolveCredentials()
+    val creds          = awsCreds(localstack)
     val env            = Map(
       "CATALOG_S3_ACCESS__KEY__ID"     -> creds.accessKeyId(),
       "CATALOG_S3_SECRET__ACCESS__KEY" -> creds.secretAccessKey(),
@@ -61,7 +70,6 @@ class IcebergConfigSpec extends PropSpec with TestContainersForAll {
       "CATALOG_S3_ENDPOINT"            -> s3Endpoint(localstack, outside = false),
       "CATALOG_S3_PATH__STYLE__ACCESS" -> "true"
     )
-    logger.debug(env.toString)
     val icebergCatalog = GenericContainer(
       dockerImage = icebergImage,
       exposedPorts = Seq(icebergRESTPort),
@@ -188,12 +196,15 @@ class IcebergConfigSpec extends PropSpec with TestContainersForAll {
   def getCatalog(
       ls: LocalStackV2Container,
       ib: GenericContainer): RESTCatalog = {
+    val creds   = awsCreds(ls)
     val props   = Map(
-      CatalogProperties.CATALOG_IMPL       -> "org.apache.iceberg.rest.RESTCatalog",
-      CatalogProperties.URI                -> icebergEndpoint(ib),
-      CatalogProperties.WAREHOUSE_LOCATION -> s"s3://$bucketName",
-      CatalogProperties.FILE_IO_IMPL       -> "org.apache.iceberg.aws.s3.S3FileIO",
-      AwsProperties.S3FILEIO_ENDPOINT      -> s3Endpoint(ls)
+      AwsProperties.S3FILEIO_ACCESS_KEY_ID     -> creds.accessKeyId(),
+      AwsProperties.S3FILEIO_SECRET_ACCESS_KEY -> creds.secretAccessKey(),
+      CatalogProperties.CATALOG_IMPL           -> "org.apache.iceberg.rest.RESTCatalog",
+      CatalogProperties.URI                    -> icebergEndpoint(ib),
+      CatalogProperties.WAREHOUSE_LOCATION     -> s"s3://$bucketName",
+      CatalogProperties.FILE_IO_IMPL           -> "org.apache.iceberg.aws.s3.S3FileIO",
+      AwsProperties.S3FILEIO_ENDPOINT          -> s3Endpoint(ls)
     ).asJava
     val catalog = new RESTCatalog()
     catalog.setConf(new Configuration())
