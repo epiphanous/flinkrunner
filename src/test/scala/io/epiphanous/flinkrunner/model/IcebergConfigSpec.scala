@@ -7,13 +7,18 @@ import com.dimafeng.testcontainers.{
   LocalStackV2Container
 }
 import io.epiphanous.flinkrunner.PropSpec
-import io.epiphanous.flinkrunner.util.RowUtils.rowTypeOf
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.scala.createTypeInformation
 import org.apache.flink.table.data.RowData
-import org.apache.flink.table.types.logical.RowType
-import org.apache.iceberg.data.IcebergGenerics
+import org.apache.hadoop.conf.Configuration
+import org.apache.iceberg.aws.AwsProperties
+import org.apache.iceberg.catalog.{Namespace, TableIdentifier}
+import org.apache.iceberg.data.parquet.GenericParquetWriter
+import org.apache.iceberg.data.{IcebergGenerics, Record}
+import org.apache.iceberg.parquet.Parquet
+import org.apache.iceberg.rest.RESTCatalog
+import org.apache.iceberg.{CatalogProperties, PartitionSpec, Schema, Table}
 import org.testcontainers.containers.Network
 import org.testcontainers.containers.localstack.LocalStackContainer.Service
 import org.testcontainers.utility.Base58
@@ -22,7 +27,10 @@ import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest
 
+import java.util.UUID
+import scala.collection.JavaConverters._
 import scala.reflect.runtime.{universe => ru}
+import scala.util.Try
 
 class IcebergConfigSpec extends PropSpec with TestContainersForAll {
   val bucketName      = "warehouse"
@@ -138,7 +146,7 @@ class IcebergConfigSpec extends PropSpec with TestContainersForAll {
         |""".stripMargin
   }
 
-  def writeRows[E <: MySimpleADT: TypeInformation: ru.TypeTag](
+  def writeRowsAsJob[E <: MySimpleADT: TypeInformation: ru.TypeTag](
       data: Seq[E],
       tableName: String,
       ls: LocalStackV2Container,
@@ -157,7 +165,56 @@ class IcebergConfigSpec extends PropSpec with TestContainersForAll {
       .process()
   }
 
-  def writeAvroRows[
+  def writeRowsDirectly[E <: MySimpleADT](
+      seq: Seq[E],
+      table: Table,
+      schema: Schema): Try[Unit] =
+    Try {
+      val filepath   = table.location() + "/" + UUID.randomUUID().toString
+      val file       = table.io().newOutputFile(filepath)
+      val dataWriter = Parquet
+        .writeData(file)
+        .schema(schema)
+        .createWriterFunc(GenericParquetWriter.buildWriter)
+        .overwrite()
+        .withSpec(PartitionSpec.unpartitioned())
+        .build[org.apache.iceberg.data.GenericRecord]()
+      seq.map(_.toIcebergRecord).foreach(dataWriter.write)
+      dataWriter.close()
+      table.newAppend().appendFile(dataWriter.toDataFile).commit()
+      println(s"wrote ${seq.size} rows to $table")
+    }
+
+  def getCatalog(
+      ls: LocalStackV2Container,
+      ib: GenericContainer): RESTCatalog = {
+    val props   = Map(
+      CatalogProperties.CATALOG_IMPL       -> "org.apache.iceberg.rest.RESTCatalog",
+      CatalogProperties.URI                -> icebergEndpoint(ib),
+      CatalogProperties.WAREHOUSE_LOCATION -> s"s3://$bucketName",
+      CatalogProperties.FILE_IO_IMPL       -> "org.apache.iceberg.aws.s3.S3FileIO",
+      AwsProperties.S3FILEIO_ENDPOINT      -> s3Endpoint(ls)
+    ).asJava
+    val catalog = new RESTCatalog()
+    catalog.setConf(new Configuration())
+    catalog.initialize("test", props)
+    catalog
+  }
+
+  def createTable(
+      catalog: RESTCatalog,
+      schema: Schema,
+      name: String): Table = {
+    val tblId = TableIdentifier.of(Namespace.of("testing", "tables"), name)
+    catalog.createTable(tblId, schema, PartitionSpec.unpartitioned())
+  }
+
+  def loadTable(catalog: RESTCatalog, name: String): Table = {
+    val tblId = TableIdentifier.of(Namespace.of("testing", "tables"), name)
+    catalog.loadTable(tblId)
+  }
+
+  def writeAvroRowsAsJob[
       E <: MyAvroADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](
       rows: Seq[E],
@@ -174,10 +231,11 @@ class IcebergConfigSpec extends PropSpec with TestContainersForAll {
       .process()
   }
 
-  def readRows[E <: MySimpleADT: TypeInformation: ru.TypeTag](
+  def readRowsAsJob[E <: MySimpleADT: TypeInformation: ru.TypeTag](
       tableName: String,
+      checkResults: CheckResults[MySimpleADT],
       ls: LocalStackV2Container,
-      ib: GenericContainer)(implicit fromRowData: RowData => E): Seq[E] = {
+      ib: GenericContainer)(implicit fromRowData: RowData => E): Unit = {
     val configStr =
       s"""
          |runtime.mode = batch
@@ -191,8 +249,20 @@ class IcebergConfigSpec extends PropSpec with TestContainersForAll {
         )}
          |sinks { print-sink {} }
          |""".stripMargin
-    getIdentityTableStreamJobRunner[E, MySimpleADT](configStr)
+    getIdentityTableStreamJobRunner[E, MySimpleADT](
+      configStr,
+      checkResultsOpt = Some(checkResults)
+    )
       .process()
-    Seq.empty
+  }
+
+  def readRowsDirectly[E <: FlinkEvent](
+      tableName: String,
+      ls: LocalStackV2Container,
+      ib: GenericContainer)(implicit
+      fromIcebergRecord: Record => E): Try[Iterable[E]] = Try {
+    val catalog = getCatalog(ls, ib)
+    val table   = loadTable(catalog, tableName)
+    IcebergGenerics.read(table).build().asScala.map(fromIcebergRecord)
   }
 }

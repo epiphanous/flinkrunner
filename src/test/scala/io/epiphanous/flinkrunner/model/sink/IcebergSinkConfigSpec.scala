@@ -82,9 +82,10 @@ class IcebergSinkConfigSpec extends IcebergConfigSpec {
 
   property("can write some rows") {
     withContainers { case ls and ib =>
-      val data = genPop[SimpleB]()
-      writeRows(data, "simple_b", ls, ib)
-      readRows[SimpleB]("simple_b", ls, ib)
+      val data     = genPop[SimpleB]()
+      writeRowsAsJob(data, "simple_b", ls, ib)
+      val readRows = readRowsDirectly[SimpleB]("simple_b", ls, ib)
+      readRows.success.value.toList.sortBy(_.id) shouldBe data.sortBy(_.id)
     }
   }
 

@@ -19,7 +19,7 @@ case class PrintSinkConfig[ADT <: FlinkEvent](
 ) extends SinkConfig[ADT]
     with LazyLogging {
 
-  override def connector: FlinkConnectorName = FlinkConnectorName.Print
+  override val connector: FlinkConnectorName = FlinkConnectorName.Print
 
   def _print[T](stream: DataStream[T]): Unit = {
     stream.print()

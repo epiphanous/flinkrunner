@@ -1,13 +1,30 @@
 package io.epiphanous.flinkrunner.model
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
+import io.epiphanous.flinkrunner.model.SimpleA.ICEBERG_SCHEMA
 import org.apache.flink.table.annotation.DataTypeHint
 import org.apache.flink.table.data.RowData
+import org.apache.iceberg.Schema
+import org.apache.iceberg.data.{GenericRecord, Record}
+import org.apache.iceberg.types.Types
 
-import java.time.Instant
+import java.time.{Instant, LocalDateTime, OffsetDateTime, ZoneOffset}
+import java.time.temporal.ChronoUnit
 import scala.language.implicitConversions
 
-sealed trait MySimpleADT extends FlinkEvent with EmbeddedRowType
+trait ToIceberg {
+  def toIcebergRecord: GenericRecord
+}
+
+trait FromIcebergRecord[E <: FlinkEvent] {
+  def ICEBERG_SCHEMA: Schema
+  implicit def fromIcebergRecord(r: Record): E
+}
+
+sealed trait MySimpleADT
+    extends FlinkEvent
+    with EmbeddedRowType
+    with ToIceberg
 
 case class SimpleA(id: String, a0: String, a1: Int, ts: Instant)
     extends MySimpleADT
@@ -17,9 +34,20 @@ case class SimpleA(id: String, a0: String, a1: Int, ts: Instant)
   override def $key: String = a0
 
   override def $timestamp: Long = ts.toEpochMilli
+
+  override def toIcebergRecord: GenericRecord = {
+    val record = GenericRecord.create(SimpleA.ICEBERG_SCHEMA)
+    record.setField("id", id)
+    record.setField("a0", a0)
+    record.setField("a1", a1)
+    record.setField("ts", ts)
+    record
+  }
 }
 
-object SimpleA extends EmbeddedRowTypeFactory[SimpleA] {
+object SimpleA
+    extends EmbeddedRowTypeFactory[SimpleA]
+    with FromIcebergRecord[SimpleA] {
   override implicit def fromRowData(rowData: RowData): SimpleA = SimpleA(
     rowData.getString(0).toString,
     rowData.getString(1).toString,
@@ -27,6 +55,14 @@ object SimpleA extends EmbeddedRowTypeFactory[SimpleA] {
     rowData.getTimestamp(3, 3).toInstant
   )
 
+  override val ICEBERG_SCHEMA: Schema = new Schema(
+    Types.NestedField.required(1, "id", Types.StringType.get()),
+    Types.NestedField.required(2, "a0", Types.StringType.get()),
+    Types.NestedField.required(3, "a1", Types.IntegerType.get()),
+    Types.NestedField.required(4, "ts", Types.TimestampType.withoutZone())
+  )
+
+  override implicit def fromIcebergRecord(r: Record): SimpleA = ???
 }
 
 /** Simple Class. Note this has a field (b2) that is an Option[Int]. If we
@@ -65,9 +101,21 @@ case class SimpleB(
   override def $key: String = b0
 
   override def $timestamp: Long = ts.toEpochMilli
+
+  override def toIcebergRecord: GenericRecord = {
+    val record = GenericRecord.create(SimpleB.ICEBERG_SCHEMA)
+    record.setField("id", id)
+    record.setField("b0", b0)
+    record.setField("b1", b1)
+    record.setField("b2", b2.orNull)
+    record.setField("ts", LocalDateTime.ofInstant(ts, ZoneOffset.UTC))
+    record
+  }
 }
 
-object SimpleB extends EmbeddedRowTypeFactory[SimpleB] {
+object SimpleB
+    extends EmbeddedRowTypeFactory[SimpleB]
+    with FromIcebergRecord[SimpleB] {
 
   override implicit def fromRowData(rowData: RowData): SimpleB = {
     SimpleB(
@@ -78,6 +126,23 @@ object SimpleB extends EmbeddedRowTypeFactory[SimpleB] {
       rowData.getTimestamp(4, 3).toInstant
     )
   }
+
+  implicit def fromIcebergRecord(record: Record): SimpleB =
+    SimpleB(
+      record.getField("id").asInstanceOf[String],
+      record.getField("b0").asInstanceOf[String],
+      record.getField("b1").asInstanceOf[Double],
+      Option(record.getField("b2")).map(_.asInstanceOf[Int]),
+      record.getField("ts").asInstanceOf[OffsetDateTime].toInstant
+    )
+
+  override val ICEBERG_SCHEMA: Schema = new Schema(
+    Types.NestedField.required(1, "id", Types.StringType.get()),
+    Types.NestedField.required(2, "b0", Types.StringType.get()),
+    Types.NestedField.required(3, "b1", Types.DoubleType.get()),
+    Types.NestedField.optional(4, "b2", Types.IntegerType.get()),
+    Types.NestedField.required(5, "ts", Types.TimestampType.withoutZone())
+  )
 }
 
 case class SimpleC(
@@ -94,9 +159,12 @@ case class SimpleC(
 
   override def $timestamp: Long = ts.toEpochMilli
 
+  override def toIcebergRecord: GenericRecord = ???
 }
 
-object SimpleC extends EmbeddedRowTypeFactory[SimpleC] {
+object SimpleC
+    extends EmbeddedRowTypeFactory[SimpleC]
+    with FromIcebergRecord[SimpleC] {
   override implicit def fromRowData(rowData: RowData): SimpleC = SimpleC(
     rowData.getString(0).toString,
     rowData.getString(1).toString,
@@ -105,4 +173,13 @@ object SimpleC extends EmbeddedRowTypeFactory[SimpleC] {
     rowData.getTimestamp(4, 3).toInstant
   )
 
+  override val ICEBERG_SCHEMA: Schema = new Schema(
+    Types.NestedField.required(1, "id", Types.StringType.get()),
+    Types.NestedField.required(2, "c1", Types.StringType.get()),
+    Types.NestedField.required(3, "c2", Types.DoubleType.get()),
+    Types.NestedField.required(4, "c3", Types.IntegerType.get()),
+    Types.NestedField.required(5, "ts", Types.TimestampType.withoutZone())
+  )
+
+  override implicit def fromIcebergRecord(r: Record): SimpleC = ???
 }

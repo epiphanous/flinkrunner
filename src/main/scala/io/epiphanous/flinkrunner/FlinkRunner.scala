@@ -193,6 +193,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
       sourceConfig: SourceConfig[ADT]): DataStream[E] =
     checkResultsOpt
       .map(c => c.getInputEvents[E](sourceConfig.name))
+      .filter(_.nonEmpty)
       .fold(sourceConfig.getSourceStream[E](env))(
         _mockSource(sourceConfig, _)
       )
@@ -222,6 +223,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
       fromKV: EmbeddedAvroRecordInfo[A] => E): DataStream[E] =
     checkResultsOpt
       .map(c => c.getInputEvents[E](sourceConfig.name))
+      .filter(_.nonEmpty)
       .fold(sourceConfig.getAvroSourceStream[E, A](env))(
         _mockSource(sourceConfig, _)
       )
@@ -241,6 +243,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
       fromRowData: RowData => E): DataStream[E] = {
     checkResultsOpt
       .map(c => c.getInputEvents[E](sourceConfig.name))
+      .filter(_.nonEmpty)
       .fold(sourceConfig.getRowSourceStream[E](env))(
         _mockSource(sourceConfig, _)
       )
