@@ -239,8 +239,6 @@ Compile / run / fork := true
 Global / cancelable  := true
 Test / fork          := true
 
-Test / javaOptions ++= Seq("-Daws.region=us-east-1")
-
 Compile / run := Defaults
   .runTask(
     Compile / fullClasspath,
