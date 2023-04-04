@@ -96,6 +96,8 @@ case class IcebergSourceConfig[ADT <: FlinkEvent](
         TableLoader
           .fromCatalog(common.catalogLoader, common.tableIdentifier)
       )
+    logger.debug(s"setting properties: $propertiesMap")
+    sourceBuilder.setAll(propertiesMap)
     if (!batch) {
       streamingStartingStrategy.foreach(ss =>
         sourceBuilder.streamingStartingStrategy(ss)

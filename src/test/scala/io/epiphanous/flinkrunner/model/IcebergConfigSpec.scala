@@ -137,6 +137,7 @@ class IcebergConfigSpec extends PropSpec with TestContainersForAll {
       isSink: Boolean,
       otherConfig: String = ""): String = {
     val sourceOrSink: String = if (isSink) "sink" else "source"
+    val creds                = awsCreds(ls)
     s"""|${sourceOrSink}s {
         |   iceberg-$sourceOrSink {
         |    $otherConfig
@@ -145,6 +146,8 @@ class IcebergConfigSpec extends PropSpec with TestContainersForAll {
         |      uri = "${icebergEndpoint(ib)}"
         |      io-impl = "org.apache.iceberg.aws.s3.S3FileIO"
         |      s3.endpoint = "${s3Endpoint(ls)}"
+        |      s3.access-key-id = "${creds.accessKeyId()}"
+        |      s3.secret-access-key = "${creds.secretAccessKey()}"
         |      warehouse = "s3://$bucketName"
         |    }
         |    namespace = "testing.tables"
@@ -200,8 +203,8 @@ class IcebergConfigSpec extends PropSpec with TestContainersForAll {
     val props   = Map(
       AwsProperties.S3FILEIO_ACCESS_KEY_ID     -> creds.accessKeyId(),
       AwsProperties.S3FILEIO_SECRET_ACCESS_KEY -> creds.secretAccessKey(),
-      AwsProperties.S3FILEIO_PATH_STYLE_ACCESS -> true,
-      AwsProperties.CLIENT_ASSUME_ROLE_REGION  -> ls.region.toString,
+      AwsProperties.S3FILEIO_PATH_STYLE_ACCESS -> "true",
+      "client.region"                          -> ls.region.toString,
       CatalogProperties.CATALOG_IMPL           -> "org.apache.iceberg.rest.RESTCatalog",
       CatalogProperties.URI                    -> icebergEndpoint(ib),
       CatalogProperties.WAREHOUSE_LOCATION     -> s"s3://$bucketName",
@@ -262,6 +265,7 @@ class IcebergConfigSpec extends PropSpec with TestContainersForAll {
         )}
          |sinks { print-sink {} }
          |""".stripMargin
+    println(s"CONFIG: $configStr")
     getIdentityTableStreamJobRunner[E, MySimpleADT](
       configStr,
       checkResultsOpt = Some(checkResults)
