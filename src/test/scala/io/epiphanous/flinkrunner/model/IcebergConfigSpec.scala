@@ -200,6 +200,8 @@ class IcebergConfigSpec extends PropSpec with TestContainersForAll {
     val props   = Map(
       AwsProperties.S3FILEIO_ACCESS_KEY_ID     -> creds.accessKeyId(),
       AwsProperties.S3FILEIO_SECRET_ACCESS_KEY -> creds.secretAccessKey(),
+      AwsProperties.S3FILEIO_PATH_STYLE_ACCESS -> true,
+      AwsProperties.CLIENT_ASSUME_ROLE_REGION  -> ls.region.toString,
       CatalogProperties.CATALOG_IMPL           -> "org.apache.iceberg.rest.RESTCatalog",
       CatalogProperties.URI                    -> icebergEndpoint(ib),
       CatalogProperties.WAREHOUSE_LOCATION     -> s"s3://$bucketName",
