@@ -1,6 +1,5 @@
 package io.epiphanous.flinkrunner.model.sink
 
-import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model._
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
@@ -31,8 +30,7 @@ import scala.util.Try
 case class IcebergSinkConfig[ADT <: FlinkEvent](
     name: String,
     config: FlinkConfig
-) extends SinkConfig[ADT]
-    with LazyLogging {
+) extends SinkConfig[ADT] {
 
   override def connector: FlinkConnectorName = FlinkConnectorName.Iceberg
 

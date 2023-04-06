@@ -1,6 +1,5 @@
 package io.epiphanous.flinkrunner.model.sink
 
-import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.serde.{
   EmbeddedAvroJsonSerializationSchema,
@@ -18,8 +17,7 @@ import org.apache.flink.streaming.connectors.rabbitmq.{
 case class RabbitMQSinkConfig[ADT <: FlinkEvent: TypeInformation](
     name: String,
     config: FlinkConfig)
-    extends SinkConfig[ADT]
-    with LazyLogging {
+    extends SinkConfig[ADT] {
 
   override val connector: FlinkConnectorName = FlinkConnectorName.RabbitMQ
 

@@ -1,6 +1,5 @@
 package io.epiphanous.flinkrunner.model.sink
 
-import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.SupportedDatabase.{
   Postgresql,
   Snowflake
@@ -110,8 +109,7 @@ import scala.util.{Failure, Success, Try}
 case class JdbcSinkConfig[ADT <: FlinkEvent](
     name: String,
     config: FlinkConfig)
-    extends SinkConfig[ADT]
-    with LazyLogging {
+    extends SinkConfig[ADT] {
 
   override val connector: FlinkConnectorName = FlinkConnectorName.Jdbc
 

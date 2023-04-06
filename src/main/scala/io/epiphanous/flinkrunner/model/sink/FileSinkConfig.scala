@@ -1,6 +1,5 @@
 package io.epiphanous.flinkrunner.model.sink
 
-import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.serde._
 import io.epiphanous.flinkrunner.util.AvroUtils.instanceOf
@@ -80,8 +79,7 @@ import scala.collection.JavaConverters._
 case class FileSinkConfig[ADT <: FlinkEvent](
     name: String,
     config: FlinkConfig
-) extends SinkConfig[ADT]
-    with LazyLogging {
+) extends SinkConfig[ADT] {
 
   override def connector: FlinkConnectorName = FlinkConnectorName.File
 

@@ -1,6 +1,5 @@
 package io.epiphanous.flinkrunner.model.sink
 
-import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.{
   EmbeddedAvroRecord,
   FlinkConfig,
@@ -47,8 +46,7 @@ import scala.collection.JavaConverters._
 case class ElasticsearchSinkConfig[ADT <: FlinkEvent](
     name: String,
     config: FlinkConfig
-) extends SinkConfig[ADT]
-    with LazyLogging {
+) extends SinkConfig[ADT] {
 
   override val connector: FlinkConnectorName =
     FlinkConnectorName.Elasticsearch

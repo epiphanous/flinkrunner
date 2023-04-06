@@ -1,6 +1,5 @@
 package io.epiphanous.flinkrunner.model.sink
 
-import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.{
   EmbeddedAvroRecord,
   FlinkConfig,
@@ -16,8 +15,7 @@ import org.apache.flink.types.Row
 case class PrintSinkConfig[ADT <: FlinkEvent](
     name: String,
     config: FlinkConfig
-) extends SinkConfig[ADT]
-    with LazyLogging {
+) extends SinkConfig[ADT] {
 
   override val connector: FlinkConnectorName = FlinkConnectorName.Print
 

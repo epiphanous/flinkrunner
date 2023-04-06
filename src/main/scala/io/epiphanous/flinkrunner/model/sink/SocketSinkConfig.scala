@@ -1,6 +1,5 @@
 package io.epiphanous.flinkrunner.model.sink
 
-import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.serde._
 import org.apache.avro.generic.GenericRecord
@@ -20,8 +19,7 @@ import scala.util.{Failure, Success}
 case class SocketSinkConfig[ADT <: FlinkEvent](
     name: String,
     config: FlinkConfig)
-    extends SinkConfig[ADT]
-    with LazyLogging {
+    extends SinkConfig[ADT] {
 
   override val connector: FlinkConnectorName = FlinkConnectorName.Socket
 
