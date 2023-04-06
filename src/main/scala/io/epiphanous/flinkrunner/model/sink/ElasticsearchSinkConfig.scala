@@ -1,22 +1,13 @@
 package io.epiphanous.flinkrunner.model.sink
 
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.model.{
-  EmbeddedAvroRecord,
-  FlinkConfig,
-  FlinkConnectorName,
-  FlinkEvent
-}
+import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, FlinkConfig, FlinkConnectorName, FlinkEvent}
 import io.epiphanous.flinkrunner.util.AvroUtils.RichGenericRecord
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.connector.sink2.SinkWriter
 import org.apache.flink.connector.elasticsearch.sink
-import org.apache.flink.connector.elasticsearch.sink.{
-  Elasticsearch7SinkBuilder,
-  ElasticsearchEmitter,
-  FlushBackoffType
-}
+import org.apache.flink.connector.elasticsearch.sink.{Elasticsearch7SinkBuilder, ElasticsearchEmitter, FlushBackoffType}
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
 import org.apache.http.HttpHost

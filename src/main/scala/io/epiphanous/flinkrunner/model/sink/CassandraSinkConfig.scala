@@ -2,12 +2,7 @@ package io.epiphanous.flinkrunner.model.sink
 
 import com.datastax.driver.core.{Cluster, CodecRegistry}
 import com.datastax.driver.extras.codecs.jdk8.InstantCodec
-import io.epiphanous.flinkrunner.model.{
-  EmbeddedAvroRecord,
-  FlinkConfig,
-  FlinkConnectorName,
-  FlinkEvent
-}
+import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, FlinkConfig, FlinkConnectorName, FlinkEvent}
 import io.epiphanous.flinkrunner.util.AvroUtils.RichGenericRecord
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
