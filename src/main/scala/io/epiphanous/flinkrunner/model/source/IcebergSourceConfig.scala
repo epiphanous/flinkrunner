@@ -7,7 +7,6 @@ import io.epiphanous.flinkrunner.model.{
   IcebergCommonConfig
 }
 import org.apache.flink.api.common.eventtime.WatermarkStrategy
-import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.scala.createTypeInformation
 import org.apache.flink.streaming.api.scala.{
   DataStream,

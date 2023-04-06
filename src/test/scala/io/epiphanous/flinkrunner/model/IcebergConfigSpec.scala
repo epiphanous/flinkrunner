@@ -23,10 +23,7 @@ import org.testcontainers.containers.Network
 import org.testcontainers.containers.localstack.LocalStackContainer.Service
 import org.testcontainers.utility.Base58
 import requests.Response
-import software.amazon.awssdk.auth.credentials.{
-  AwsCredentials,
-  StaticCredentialsProvider
-}
+import software.amazon.awssdk.auth.credentials.AwsCredentials
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest

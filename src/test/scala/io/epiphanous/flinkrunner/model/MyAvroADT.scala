@@ -2,6 +2,8 @@ package io.epiphanous.flinkrunner.model
 
 import io.epiphanous.flinkrunner.serde.{DelimitedConfig, JsonConfig}
 import org.apache.avro.generic.GenericRecord
+import org.apache.flink.formats.avro.typeutils.AvroSchemaConverter
+import org.apache.flink.table.types.logical.RowType
 
 import scala.collection.JavaConverters._
 import scala.language.implicitConversions
@@ -10,6 +12,10 @@ sealed trait MyAvroADT extends FlinkEvent {
   def toJson(
       jsonConfig: JsonConfig = JsonConfig(),
       record: Option[GenericRecord] = None): String
+}
+
+trait HasRowType {
+  def getRowType: RowType
 }
 
 trait TestSerializers[A <: GenericRecord] {
@@ -70,11 +76,18 @@ case class AWrapper(value: ARecord)
   override val $record: ARecord           = value
 }
 
-object AWrapper extends EmbeddedAvroRecordFactory[AWrapper, ARecord] {
+object AWrapper
+    extends EmbeddedAvroRecordFactory[AWrapper, ARecord]
+    with HasRowType {
   override implicit def fromKV(
       info: EmbeddedAvroRecordInfo[ARecord]): AWrapper = AWrapper(
     info.record
   )
+
+  override def getRowType: RowType = AvroSchemaConverter
+    .convertToDataType(ARecord.SCHEMA$.toString)
+    .getLogicalType
+    .asInstanceOf[RowType]
 }
 
 case class BWrapper(value: BRecord)
@@ -88,11 +101,19 @@ case class BWrapper(value: BRecord)
   override val $record: BRecord           = value
 }
 
-object BWrapper extends EmbeddedAvroRecordFactory[BWrapper, BRecord] {
+object BWrapper
+    extends EmbeddedAvroRecordFactory[BWrapper, BRecord]
+    with HasRowType {
   override implicit def fromKV(
       info: EmbeddedAvroRecordInfo[BRecord]): BWrapper = BWrapper(
     info.record
   )
+
+  override def getRowType: RowType = AvroSchemaConverter
+    .convertToDataType(BRecord.SCHEMA$.toString)
+    .getLogicalType
+    .asInstanceOf[RowType]
+
 }
 
 case class CWrapper(value: CRecord)
@@ -110,9 +131,17 @@ case class CWrapper(value: CRecord)
   override def $timestamp: Long = value.ts.toEpochMilli
 }
 
-object CWrapper extends EmbeddedAvroRecordFactory[CWrapper, CRecord] {
+object CWrapper
+    extends EmbeddedAvroRecordFactory[CWrapper, CRecord]
+    with HasRowType {
   override implicit def fromKV(
       info: EmbeddedAvroRecordInfo[CRecord]): CWrapper = CWrapper(
     info.record
   )
+
+  override def getRowType: RowType = AvroSchemaConverter
+    .convertToDataType(CRecord.SCHEMA$.toString)
+    .getLogicalType
+    .asInstanceOf[RowType]
+
 }

@@ -1,7 +1,6 @@
 package io.epiphanous.flinkrunner.model
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
-import io.epiphanous.flinkrunner.model.SimpleA.ICEBERG_SCHEMA
 import org.apache.flink.table.annotation.DataTypeHint
 import org.apache.flink.table.data.RowData
 import org.apache.iceberg.Schema
@@ -9,7 +8,6 @@ import org.apache.iceberg.data.{GenericRecord, Record}
 import org.apache.iceberg.types.Types
 
 import java.time.{Instant, LocalDateTime, OffsetDateTime, ZoneOffset}
-import java.time.temporal.ChronoUnit
 import scala.language.implicitConversions
 
 trait ToIceberg {

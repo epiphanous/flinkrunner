@@ -17,6 +17,20 @@ import scala.util.{Failure, Success, Try}
 
 object RowUtils extends LazyLogging {
 
+  /** Infer a RowType for a FlinkEvent of type E. The algorithm here
+    * leverages scala runtime reflection, so you need to make sure a
+    * TypeTag is available implicitly. Usually, you simply need to add a
+    * TypeTag bound on E where you declare your job.
+    *
+    * If the event type is an EmbeddedAvroRecord, it will extract the avro
+    * schema from the type definition and create a RowType from the avro
+    * schema. Otherwise, it will reflect on the class' primary constructor
+    * and define a schema for each field in its first param list.
+    * @tparam E
+    *   the flink event type
+    * @return
+    *   RowType
+    */
   def rowTypeOf[E <: FlinkEvent: ru.TypeTag]: RowType = {
     val t = ru.typeOf[E]
     t.decls
