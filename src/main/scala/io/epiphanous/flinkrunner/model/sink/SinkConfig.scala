@@ -22,6 +22,7 @@ import scala.reflect.runtime.{universe => ru}
   *     - [[FlinkConnectorName.Cassandra]]
   *     - [[FlinkConnectorName.Elasticsearch]]
   *     - [[FlinkConnectorName.File]]
+  *     - [[FlinkConnectorName.Firehose]]
   *     - [[FlinkConnectorName.Jdbc]]
   *     - [[FlinkConnectorName.Kafka]]
   *     - [[FlinkConnectorName.Kinesis]]
@@ -73,6 +74,7 @@ object SinkConfig {
       ) match {
       case Kafka         => KafkaSinkConfig(name, config)
       case Kinesis       => KinesisSinkConfig(name, config)
+      case Firehose      => FirehoseSinkConfig(name, config)
       case File          => FileSinkConfig(name, config)
       case Socket        => SocketSinkConfig(name, config)
       case Jdbc          => JdbcSinkConfig(name, config)
@@ -85,7 +87,7 @@ object SinkConfig {
       case Print         => PrintSinkConfig(name, config)
       case connector     =>
         throw new RuntimeException(
-          s"Don't know how to configure ${connector.entryName} sink connector $name (job ${config.jobName}"
+          s"Don't know how to configure ${connector.entryName} sink connector <$name> (in job <${config.jobName}>)"
         )
     }
   }

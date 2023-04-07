@@ -26,7 +26,7 @@ object D64 {
     val len  = data.length
     var hang = 0
     data.zipWithIndex.foreach { case (v, i) =>
-      val v2 = if (v < 0) v + 0x100 else v
+      val v2 = if (v < 0) v.toInt + 0x100 else v.toInt
       (i % 3: @switch) match {
         case 0 =>
           sb += chars(v2 >> 2)

@@ -31,21 +31,39 @@ class KinesisSourceConfigSpec extends PropSpec {
       |stream = test
       |""".stripMargin
 
-  def defaultConfig: KinesisSourceConfig[MySimpleADT] = getConfig(
-    requiredProps
-  )
+  val requiredProps1: String =
+    """
+      |streams = test
+      |""".stripMargin
+
+  val requiredPropsMulti1: String =
+    """
+      |stream = "test1, test2"
+      |""".stripMargin
+
+  val requiredPropsMulti2: String =
+    """
+      |streams = [test1, test2]
+      |""".stripMargin
+
+  def defaultConfig(
+      reqProps: String = requiredProps): KinesisSourceConfig[MySimpleADT] =
+    getConfig(
+      reqProps
+    )
 
   def defaultConfigPlus(
       str: String,
-      job: String = "test"): KinesisSourceConfig[MySimpleADT] =
-    getConfig(requiredProps + str, job)
+      job: String = "test",
+      reqProps: String = requiredProps): KinesisSourceConfig[MySimpleADT] =
+    getConfig(reqProps + str, job)
 
   def noProvidedConfig: KinesisSourceConfig[MySimpleADT] = getConfig(
     "config={}"
   )
 
   property("default startPos property") {
-    defaultConfig.startPos shouldEqual "LATEST"
+    defaultConfig().startPos shouldEqual "LATEST"
   }
 
   property("bad startPos property") {
@@ -66,12 +84,40 @@ class KinesisSourceConfigSpec extends PropSpec {
     ).startPos shouldEqual "TRIM_HORIZON"
   }
 
-  property("start.pos=at_timestamp property") {
+  property("start.pos=at_timestamp no timestamp property") {
     the[Exception] thrownBy {
       defaultConfigPlus("""
                            |start.pos = AT_TIMESTAMP
                            |""".stripMargin)
-    } should have message "kinesis sink kinesis-test set starting.position to AT_TIMESTAMP but provided no starting.timestamp"
+    } should have message "Kinesis source kinesis-test set starting.position to AT_TIMESTAMP but provided no starting.timestamp"
+  }
+
+  property("start.pos=at_timestamp bad timestamp format property") {
+    intercept[Exception] {
+      defaultConfigPlus("""
+          |start.pos = AT_TIMESTAMP
+          |start.ts = "2023-02-23T12:00:00"
+          |timestamp.format = bad-timestamp-format
+          |""".stripMargin)
+    }.getCause should have message "Illegal pattern character 'b'"
+  }
+
+  property("start.pos=at_timestamp bad timestamp property") {
+    intercept[Exception] {
+      defaultConfigPlus("""
+          |start.pos = AT_TIMESTAMP
+          |start.ts = bad-timestamp
+          |""".stripMargin)
+    }.getCause should have message "Unparseable date: \"bad-timestamp\""
+  }
+
+  property("start.pos=at_timestamp negative timestamp property") {
+    intercept[Exception] {
+      defaultConfigPlus("""
+          |start.pos = AT_TIMESTAMP
+          |start.ts = -100
+          |""".stripMargin)
+    }.getCause should have message "Kinesis source kinesis-test has negative starting timestamp value '-100.0'"
   }
 
   property("efoConsumer property") {
@@ -85,7 +131,7 @@ class KinesisSourceConfigSpec extends PropSpec {
   }
 
   property("useEfo true by default property") {
-    defaultConfig.useEfo shouldBe true
+    defaultConfig().useEfo shouldBe true
   }
 
   property("useEfo property") {
@@ -94,8 +140,39 @@ class KinesisSourceConfigSpec extends PropSpec {
     defaultConfigPlus("efo.enabled = false").useEfo shouldBe false
   }
 
+  property("parallelism property") {
+    defaultConfigPlus("parallelism = 10").parallelism shouldBe 10
+    defaultConfigPlus("parallelism = 10.5").parallelism shouldBe 10
+  }
+
+  property("multi streams via stream property") {
+    defaultConfig(requiredPropsMulti1).streams shouldBe Seq(
+      "test1",
+      "test2"
+    )
+  }
+
+  property("multi streams via streams property") {
+    defaultConfig(requiredPropsMulti2).streams shouldBe List(
+      "test1",
+      "test2"
+    )
+  }
+
+  property("single stream via streams property") {
+    defaultConfig(requiredProps1).streams shouldBe List(
+      "test"
+    )
+  }
+
+  property("single stream via stream property") {
+    defaultConfig(requiredProps).streams shouldBe List(
+      "test"
+    )
+  }
+
   property("missing stream property") {
-    the[Exception] thrownBy noProvidedConfig should have message "kinesis source kinesis-test is missing required 'stream' property"
+    the[Exception] thrownBy noProvidedConfig should have message "Kinesis source kinesis-test is missing required 'stream' or 'streams' property"
   }
 
 }
