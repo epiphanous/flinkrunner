@@ -36,11 +36,13 @@ class Id64Spec extends PropSpec {
     val i  = Id64.instantOf(id)
     val g  = Id64.GREGORIAN_OFFSET
     val e  = t - g
-    mc shouldEqual Math.floor(e / 10)
-    ms shouldEqual Math.floor(mc / 1000)
-    i.getEpochSecond shouldEqual Math.floor(
-      e / 10000000
-    )
+    mc shouldEqual Math.floor(e / 10.0).toLong
+    ms shouldEqual Math.floor(mc / 1000.0).toLong
+    i.getEpochSecond shouldEqual Math
+      .floor(
+        e / 10000000.0
+      )
+      .toLong
     i.getNano shouldEqual (e - 10000000 * i.getEpochSecond) * 100
   }
 
