@@ -15,7 +15,7 @@ import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.streaming.api.windowing.time.Time
 import org.apache.flink.streaming.api.windowing.windows.Window
-import org.apache.flink.table.data.RowData
+import org.apache.flink.table.data.{GenericRowData, RowData}
 import org.apache.flink.util.Collector
 import squants.Quantity
 
@@ -58,9 +58,12 @@ abstract class StreamJob[
       IN <: ADT with EmbeddedRowType: TypeInformation](
       seq: Seq[IN] = Seq.empty,
       name: Option[String] = None)(implicit
-      fromRowData: RowData => IN): DataStream[IN] = if (seq.nonEmpty)
-    runner.env.fromCollection[IN](seq)
-  else singleRowSource[IN](name.getOrElse(runner.getDefaultSourceName))
+      fromRowData: RowData => IN): DataStream[IN] = if (seq.nonEmpty) {
+    val rd = seq.zipWithIndex.map { case (_, i) =>
+      GenericRowData.of(Integer.valueOf(i))
+    }
+    runner.env.fromCollection(rd).map(g => seq(g.getInt(0)))
+  } else singleRowSource[IN](name.getOrElse(runner.getDefaultSourceName))
 
   /** Configure a single input source stream.
     * @param name
@@ -330,6 +333,8 @@ abstract class StreamJob[
   def maybeSink(out: DataStream[OUT]): Unit =
     if (runner.writeToSink) sink(out)
 
+  def buildJobGraph: DataStream[OUT] = transform |# maybeSink
+
   /** Runs the job, meaning it constructs the flow and executes it.
     */
   def run(): Unit = {
@@ -339,27 +344,31 @@ abstract class StreamJob[
     )
 
     // build the job graph
-    val stream = transform |# maybeSink
+    val stream = buildJobGraph
 
     if (config.showPlan)
       logger.info(s"\nPLAN:\n${runner.getExecutionPlan}\n")
 
-    runner.checkResultsOpt match {
+    if (runner.executeJob) {
+      runner.checkResultsOpt match {
 
-      case Some(checkResults) =>
-        logger.info(
-          s"routing job ${config.jobName} results back through CheckResults<${checkResults.name}>"
-        )
-        checkResults.checkOutputEvents[OUT](
-          stream.executeAndCollect(
-            config.jobName,
-            checkResults.collectLimit
+        case Some(checkResults) =>
+          logger.info(
+            s"routing job ${config.jobName} results back through CheckResults<${checkResults.name}>.checkOutputEvents"
           )
-        )
+          checkResults.checkOutputEvents[OUT](
+            stream.executeAndCollect(
+              config.jobName,
+              checkResults.collectLimit
+            )
+          )
 
-      case _ =>
-        val result = runner.execute
-        logger.info(result.toString)
+        case _ =>
+          val result = runner.execute
+          logger.info(result.toString)
+      }
+    } else {
+      logger.info("NOT EXECUTING JOB GRAPH")
     }
   }
 }

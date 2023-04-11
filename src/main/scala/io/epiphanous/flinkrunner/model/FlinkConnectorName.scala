@@ -10,6 +10,7 @@ sealed trait FlinkConnectorName extends EnumEntry with Snakecase
 object FlinkConnectorName extends Enum[FlinkConnectorName] {
   val values: immutable.IndexedSeq[FlinkConnectorName] = findValues
 
+  case object Empty  extends FlinkConnectorName
   case object Hybrid extends FlinkConnectorName
 
   case object Kinesis extends FlinkConnectorName

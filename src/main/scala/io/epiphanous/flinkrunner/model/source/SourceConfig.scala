@@ -265,6 +265,7 @@ object SourceConfig {
         config.jobName,
         config.getStringOpt(s"sources.$name.connector")
       ) match {
+      case Empty     => EmptySourceConfig[ADT](name, config)
       case File      => FileSourceConfig[ADT](name, config)
       case Hybrid    => HybridSourceConfig[ADT](name, config)
       case Kafka     => KafkaSourceConfig[ADT](name, config)

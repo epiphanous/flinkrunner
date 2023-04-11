@@ -10,6 +10,7 @@ import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.JobExecutionResult
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.formats.avro.utils.AvroKryoSerializerUtils.AvroSchemaSerializer
+import org.apache.flink.streaming.api.graph.StreamGraph
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.table.api.bridge.scala.StreamTableEnvironment
 import org.apache.flink.table.data.RowData
@@ -37,7 +38,8 @@ import scala.reflect.runtime.{universe => ru}
 abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     val config: FlinkConfig,
     val checkResultsOpt: Option[CheckResults[ADT]] = None,
-    val generatorFactoryOpt: Option[GeneratorFactory[ADT]] = None)
+    val generatorFactoryOpt: Option[GeneratorFactory[ADT]] = None,
+    val executeJob: Boolean = true)
     extends LazyLogging {
 
   val env: StreamExecutionEnvironment =
@@ -56,6 +58,20 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     *   String
     */
   def getExecutionPlan: String = env.getExecutionPlan
+
+  /** Get the stream graph for the configured job. This is primarily useful
+    * for testing the stream jobs constructed in flinkrunner. It will throw
+    * an exception if you call it before running a job against this runner.
+    * If you only are interested in the stream graph and don't need the job
+    * to be executed, you can set executeJob = false when constructing the
+    * FlinkRunner instance.
+    * @return
+    *   JobGraph
+    */
+  def getStreamGraph: StreamGraph = env.getStreamGraph(false)
+
+  def getStreamNodesInfo: Seq[StreamNodeInfo] =
+    StreamNodeInfo.from(getStreamGraph)
 
   /** Executes the job graph.
     * @return
@@ -232,7 +248,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     *
     * @param sourceConfig
     *   the source config
-    * @param fromRow
+    * @param fromRowData
     *   an implicit method to convert a Row into an event of type E
     * @tparam E
     *   the event data type
@@ -266,17 +282,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
   def addSink[E <: ADT: TypeInformation](
       stream: DataStream[E],
       sinkName: String): Unit =
-    getSinkConfig(sinkName) match {
-      case s: CassandraSinkConfig[ADT]     => s.addSink[E](stream)
-      case s: ElasticsearchSinkConfig[ADT] => s.addSink[E](stream)
-      case s: FileSinkConfig[ADT]          => s.addSink[E](stream)
-      case s: JdbcSinkConfig[ADT]          => s.addSink[E](stream)
-      case s: KafkaSinkConfig[ADT]         => s.addSink[E](stream)
-      case s: KinesisSinkConfig[ADT]       => s.addSink[E](stream)
-      case s: RabbitMQSinkConfig[ADT]      => s.addSink[E](stream)
-      case s: SocketSinkConfig[ADT]        => s.addSink[E](stream)
-      case s: IcebergSinkConfig[ADT]       => s.addSink[E](stream)
-    }
+    getSinkConfig(sinkName).addSink[E](stream)
 
   def addAvroSink[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
