@@ -14,7 +14,6 @@ import scala.collection.mutable
 class ConfluentAvroRegistryKafkaRecordDeserializationSchemaTest
     extends SerdeTestFixtures {
 
-  // ignore until set up testcontainers schema registry
   property("deserialize works for bwrapper") {
     val serde     = getDeserializerFor[BWrapper, BRecord]
     val collected = mutable.ArrayBuffer.empty[BWrapper]

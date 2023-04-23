@@ -1,14 +1,16 @@
 package io.epiphanous.flinkrunner.serde
 
-import com.google.common.cache.{CacheBuilder, CacheLoader, LoadingCache}
 import com.typesafe.scalalogging.LazyLogging
+import io.confluent.kafka.schemaregistry.client.{
+  CachedSchemaRegistryClient,
+  SchemaRegistryClient
+}
+import io.confluent.kafka.serializers.KafkaAvroSerializer
 import io.epiphanous.flinkrunner.model.sink.KafkaSinkConfig
 import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, FlinkEvent}
 import io.epiphanous.flinkrunner.util.SinkDestinationNameUtils.RichSinkDestinationName
-import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.connector.kafka.sink.KafkaRecordSerializationSchema
-import org.apache.flink.formats.avro.registry.confluent.ConfluentRegistryAvroSerializationSchema
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.header.internals.RecordHeaders
 
@@ -26,43 +28,27 @@ case class ConfluentAvroRegistryKafkaRecordSerializationSchema[
     A <: GenericRecord,
     ADT <: FlinkEvent
 ](
-    sinkConfig: KafkaSinkConfig[ADT]
+    sinkConfig: KafkaSinkConfig[ADT],
+    schemaRegistryClientOpt: Option[SchemaRegistryClient] = None
 ) extends KafkaRecordSerializationSchema[E]
     with LazyLogging {
 
-  @transient lazy val serializerCacheLoader
-      : CacheLoader[Schema, ConfluentRegistryAvroSerializationSchema[
-        GenericRecord
-      ]] =
-    new CacheLoader[Schema, ConfluentRegistryAvroSerializationSchema[
-      GenericRecord
-    ]] {
-      override def load(schema: Schema)
-          : ConfluentRegistryAvroSerializationSchema[GenericRecord] =
-        ConfluentRegistryAvroSerializationSchema
-          .forGeneric(
-            s"${schema.getFullName}-value",
-            schema,
-            sinkConfig.schemaRegistryConfig.url,
-            sinkConfig.schemaRegistryConfig.props
-          )
+  @transient
+  lazy val schemaRegistryClient: SchemaRegistryClient =
+    schemaRegistryClientOpt.getOrElse(
+      new CachedSchemaRegistryClient(
+        sinkConfig.schemaRegistryConfig.url,
+        sinkConfig.schemaRegistryConfig.cacheCapacity,
+        sinkConfig.schemaRegistryConfig.props,
+        sinkConfig.schemaRegistryConfig.headers
+      )
+    )
 
-    }
-
-  @transient lazy val serializerCache
-      : LoadingCache[Schema, ConfluentRegistryAvroSerializationSchema[
-        GenericRecord
-      ]] = {
-    val cacheBuilder = CacheBuilder
-      .newBuilder()
-      .concurrencyLevel(sinkConfig.cacheConcurrencyLevel)
-      .maximumSize(sinkConfig.cacheMaxSize)
-      .expireAfterWrite(sinkConfig.cacheExpireAfter)
-    if (sinkConfig.cacheRecordStats) cacheBuilder.recordStats()
-    cacheBuilder.build[Schema, ConfluentRegistryAvroSerializationSchema[
-      GenericRecord
-    ]](serializerCacheLoader)
-  }
+  @transient
+  lazy val serializer: KafkaAvroSerializer = new KafkaAvroSerializer(
+    schemaRegistryClient,
+    sinkConfig.schemaRegistryConfig.props
+  )
 
   override def serialize(
       element: E,
@@ -80,14 +66,14 @@ case class ConfluentAvroRegistryKafkaRecordSerializationSchema[
 
     val topic = sinkConfig.expandTemplate(info.record)
 
-    val key = info.keyOpt.map(_.getBytes(StandardCharsets.UTF_8))
+    val key = info.keyOpt.map(k => serializer.serialize(topic, k))
+
     logger.trace(
-      s"serializing ${info.record.getSchema.getFullName} record ${element.$id} to $topic ${if (sinkConfig.isKeyed) "with key"
+      s"serializing ${info.record.getSchema.getFullName} record ${element.$id} to topic <$topic> ${if (key.nonEmpty) "with key"
         else "without key"}, headers=${info.headers}"
     )
 
-    val value =
-      serializerCache.get(info.record.getSchema).serialize(info.record)
+    val value = serializer.serialize(topic, info.record)
 
     new ProducerRecord(
       topic,

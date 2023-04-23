@@ -18,13 +18,15 @@ class ConfluentAvroRegistryKafkaRecordSerializationSchemaTest
   }
 
   // ignore this until we set up testcontainers schema registry testing
-  ignore("serialize a MyAvroADT instance to a producer record") {
+  property("serialize a MyAvroADT instance to a producer record") {
     val serializer = getSerializerFor[BWrapper, BRecord]
     val serialized = serializer.serialize(
       bWrapper,
       null,
       Instant.now().toEpochMilli
     )
+//    showBytes("serialized key:", serialized.key())
+//    showBytes("serialized value:", serialized.value())
     serialized.key() shouldEqual bKeyBytes
     serialized.value() shouldEqual bValueBytes
     serialized.timestamp() shouldEqual bWrapper.$timestamp
