@@ -135,7 +135,8 @@ trait SerdeTestFixtures extends PropSpec {
       A,
       MyAvroADT
     ](
-      kafkaSourceConfig
+      kafkaSourceConfig,
+      schemaRegistryClientOpt = Some(schemaRegistryClient)
     )
     ds.open(null)
     ds
