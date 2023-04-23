@@ -54,8 +54,8 @@ class FileSourceConfigTest extends PropSpec with AvroFileTestUtils {
       getIdentityAvroStreamJobRunner[BWrapper, BRecord, MyAvroADT](
         configStr,
         in,
-        Some(new TestCheckResults(in, path)),
-        Array(s"$fmtName-test-job")
+        checkResultsOpt = Some(new TestCheckResults(in, path)),
+        args = Array(s"$fmtName-test-job")
       )
         .process()
     }

@@ -105,12 +105,6 @@ object AvroUtils extends LazyLogging {
         )
       )
 
-//  def rowTypeOf[A <: GenericRecord](typeClass: Class[A]): RowType =
-//    AvroSchemaConverter
-//      .convertToDataType(schemaOf(typeClass).toString)
-//      .getLogicalType
-//      .asInstanceOf[RowType]
-
   implicit class RichGenericRecord(genericRecord: GenericRecord) {
     def getDataAsSeq[A <: GenericRecord]: Seq[AnyRef] =
       genericRecord.getSchema.getFields.asScala.map(f =>

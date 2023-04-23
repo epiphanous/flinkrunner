@@ -1,7 +1,8 @@
 package io.epiphanous.flinkrunner.flink
 
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.{IdentityMap, PropSpec}
+import io.epiphanous.flinkrunner.PropSpec
+import io.epiphanous.flinkrunner.util.test.IdentityMap
 import org.apache.flink.streaming.api.scala._
 
 import java.time.Instant
@@ -88,7 +89,7 @@ class AvroStreamJobSpec extends PropSpec {
       AWrapper,
       ARecord,
       MyAvroADT
-    ](cfg, times2, checkResults.inA, Some(checkResults))
+    ](cfg, times2, checkResults.inA, checkResultsOpt = Some(checkResults))
       .process()
   }
 

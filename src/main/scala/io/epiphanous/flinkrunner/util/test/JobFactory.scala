@@ -1,5 +1,6 @@
-package io.epiphanous.flinkrunner
+package io.epiphanous.flinkrunner.util.test
 
+import io.epiphanous.flinkrunner.FlinkRunner
 import io.epiphanous.flinkrunner.flink.{
   AvroStreamJob,
   StreamJob,
@@ -25,7 +26,8 @@ abstract class JobFactory[
     OUT <: ADT: TypeInformation,
     ADT <: FlinkEvent: TypeInformation](
     transformer: MapFunction[IN, OUT],
-    input: Seq[IN] = Seq.empty)
+    input: Seq[IN] = Seq.empty,
+    sourceName: Option[String] = None)
     extends Serializable {
   def getJob(runner: FlinkRunner[ADT]): JF
 }
@@ -36,23 +38,31 @@ class StreamJobFactory[
     OUT <: ADT: TypeInformation,
     ADT <: FlinkEvent: TypeInformation](
     transformer: MapFunction[IN, OUT],
-    input: Seq[IN] = Seq.empty)
+    input: Seq[IN] = Seq.empty,
+    sourceName: Option[String] = None)
     extends JobFactory[StreamJob[OUT, ADT], IN, OUT, ADT](
       transformer,
-      input
+      input,
+      sourceName
     ) {
   def getJob(runner: FlinkRunner[ADT]): StreamJob[OUT, ADT] =
     new StreamJob[OUT, ADT](runner) {
       override def transform: DataStream[OUT] =
-        seqOrSingleSource(input).map(transformer)
+        seqOrSingleSource(input, sourceName).map(transformer)
     }
 }
 
 @SerialVersionUID(1L)
 class IdentityStreamJobFactory[
     OUT <: ADT: TypeInformation,
-    ADT <: FlinkEvent: TypeInformation](input: Seq[OUT] = Seq.empty)
-    extends StreamJobFactory[OUT, OUT, ADT](new IdentityMap[OUT], input)
+    ADT <: FlinkEvent: TypeInformation](
+    input: Seq[OUT] = Seq.empty,
+    sourceName: Option[String] = None)
+    extends StreamJobFactory[OUT, OUT, ADT](
+      new IdentityMap[OUT],
+      input,
+      sourceName
+    )
 
 @SerialVersionUID(1L)
 class AvroStreamJobFactory[
@@ -61,16 +71,20 @@ class AvroStreamJobFactory[
     OUT <: ADT with EmbeddedAvroRecord[OUTA]: TypeInformation,
     OUTA <: GenericRecord: TypeInformation,
     ADT <: FlinkEvent: TypeInformation
-](transformer: MapFunction[IN, OUT], input: Seq[IN] = Seq.empty)(implicit
+](
+    transformer: MapFunction[IN, OUT],
+    input: Seq[IN] = Seq.empty,
+    sourceName: Option[String] = None)(implicit
     fromKV: EmbeddedAvroRecordInfo[INA] => IN)
     extends JobFactory[AvroStreamJob[OUT, OUTA, ADT], IN, OUT, ADT](
       transformer,
-      input
+      input,
+      sourceName
     ) {
   def getJob(runner: FlinkRunner[ADT]): AvroStreamJob[OUT, OUTA, ADT] =
     new AvroStreamJob[OUT, OUTA, ADT](runner) {
       override def transform: DataStream[OUT] =
-        seqOrSingleAvroSource[IN, INA](input).map(transformer)
+        seqOrSingleAvroSource[IN, INA](input, sourceName).map(transformer)
     }
 }
 
@@ -78,11 +92,14 @@ class AvroStreamJobFactory[
 class IdentityAvroStreamJobFactory[
     OUT <: ADT with EmbeddedAvroRecord[OUTA]: TypeInformation,
     OUTA <: GenericRecord: TypeInformation,
-    ADT <: FlinkEvent: TypeInformation](input: Seq[OUT] = Seq.empty)(
-    implicit fromKV: EmbeddedAvroRecordInfo[OUTA] => OUT)
+    ADT <: FlinkEvent: TypeInformation](
+    input: Seq[OUT] = Seq.empty,
+    sourceName: Option[String] = None)(implicit
+    fromKV: EmbeddedAvroRecordInfo[OUTA] => OUT)
     extends AvroStreamJobFactory[OUT, OUTA, OUT, OUTA, ADT](
       new IdentityMap[OUT],
-      input
+      input,
+      sourceName
     )
 
 @SerialVersionUID(1L)
@@ -91,26 +108,31 @@ class TableStreamJobFactory[
     OUT <: ADT with EmbeddedRowType: TypeInformation: ru.TypeTag,
     ADT <: FlinkEvent: TypeInformation](
     transformer: MapFunction[IN, OUT],
-    input: Seq[IN] = Seq.empty)(implicit fromRowData: RowData => IN)
+    input: Seq[IN] = Seq.empty,
+    sourceName: Option[String] = None)(implicit fromRowData: RowData => IN)
     extends JobFactory[TableStreamJob[OUT, ADT], IN, OUT, ADT](
       transformer,
-      input
+      input,
+      sourceName
     ) {
   def getJob(runner: FlinkRunner[ADT]): TableStreamJob[OUT, ADT] =
     new TableStreamJob[OUT, ADT](runner) {
       override def transform: DataStream[OUT] =
-        seqOrSingleRowSource[IN](input).map(transformer)
+        seqOrSingleRowSource[IN](input, sourceName).map(transformer)
     }
 }
 
 @SerialVersionUID(1L)
 class IdentityTableStreamJobFactory[
     OUT <: ADT with EmbeddedRowType: TypeInformation: ru.TypeTag,
-    ADT <: FlinkEvent: TypeInformation](input: Seq[OUT] = Seq.empty)(
-    implicit fromRowData: RowData => OUT)
+    ADT <: FlinkEvent: TypeInformation](
+    input: Seq[OUT] = Seq.empty,
+    sourceName: Option[String] = None)(implicit
+    fromRowData: RowData => OUT)
     extends TableStreamJobFactory[OUT, OUT, ADT](
       new IdentityMap[OUT],
-      input
+      input,
+      sourceName
     )
 
 @SerialVersionUID(1L)

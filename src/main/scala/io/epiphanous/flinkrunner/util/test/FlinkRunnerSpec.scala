@@ -1,7 +1,15 @@
-package io.epiphanous.flinkrunner
+package io.epiphanous.flinkrunner.util.test
 
+import io.epiphanous.flinkrunner.FlinkRunner
 import io.epiphanous.flinkrunner.flink.StreamJob
-import io.epiphanous.flinkrunner.model._
+import io.epiphanous.flinkrunner.model.{
+  CheckResults,
+  EmbeddedAvroRecord,
+  EmbeddedAvroRecordInfo,
+  EmbeddedRowType,
+  FlinkConfig,
+  FlinkEvent
+}
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.functions.MapFunction
 import org.apache.flink.api.common.typeinfo.TypeInformation
@@ -10,7 +18,6 @@ import org.apache.flink.table.data.RowData
 import scala.reflect.runtime.{universe => ru}
 
 trait FlinkRunnerSpec {
-
   val DEFAULT_CONFIG_STR: String =
     """
       |sources{empty-source{}}
@@ -45,12 +52,13 @@ trait FlinkRunnerSpec {
       configStr: String = DEFAULT_CONFIG_STR,
       transformer: MapFunction[IN, OUT],
       input: Seq[IN] = Seq.empty,
+      sourceName: Option[String] = None,
       checkResultsOpt: Option[CheckResults[ADT]] = None,
       args: Array[String] = Array("testJob"),
       executeJob: Boolean = true): FlinkRunner[ADT] = {
     getRunner(
       configStr,
-      new StreamJobFactory[IN, OUT, ADT](transformer, input),
+      new StreamJobFactory[IN, OUT, ADT](transformer, input, sourceName),
       checkResultsOpt,
       args,
       executeJob
@@ -62,12 +70,13 @@ trait FlinkRunnerSpec {
       ADT <: FlinkEvent: TypeInformation](
       configStr: String = DEFAULT_CONFIG_STR,
       input: Seq[OUT] = Seq.empty,
+      sourceName: Option[String] = None,
       checkResultsOpt: Option[CheckResults[ADT]] = None,
       args: Array[String] = Array("testJob"),
       executeJob: Boolean = true): FlinkRunner[ADT] =
     getRunner(
       configStr,
-      new IdentityStreamJobFactory(input),
+      new IdentityStreamJobFactory(input, sourceName),
       checkResultsOpt,
       args,
       executeJob
@@ -82,6 +91,7 @@ trait FlinkRunnerSpec {
       configStr: String = DEFAULT_CONFIG_STR,
       transformer: MapFunction[IN, OUT],
       input: Seq[IN] = Seq.empty,
+      sourceName: Option[String] = None,
       checkResultsOpt: Option[CheckResults[ADT]] = None,
       args: Array[String] = Array("testJob"),
       executeJob: Boolean = true)(implicit
@@ -90,7 +100,8 @@ trait FlinkRunnerSpec {
       configStr,
       new AvroStreamJobFactory[IN, INA, OUT, OUTA, ADT](
         transformer,
-        input
+        input,
+        sourceName
       ),
       checkResultsOpt,
       args,
@@ -103,13 +114,14 @@ trait FlinkRunnerSpec {
       ADT <: FlinkEvent: TypeInformation](
       configStr: String = DEFAULT_CONFIG_STR,
       input: Seq[OUT] = Seq.empty,
+      sourceName: Option[String] = None,
       checkResultsOpt: Option[CheckResults[ADT]] = None,
       args: Array[String] = Array("testJob"),
       executeJob: Boolean = true)(implicit
       fromKV: EmbeddedAvroRecordInfo[OUTA] => OUT): FlinkRunner[ADT] =
     getRunner(
       configStr,
-      new IdentityAvroStreamJobFactory[OUT, OUTA, ADT](input),
+      new IdentityAvroStreamJobFactory[OUT, OUTA, ADT](input, sourceName),
       checkResultsOpt,
       args,
       executeJob
@@ -122,13 +134,18 @@ trait FlinkRunnerSpec {
       configStr: String = DEFAULT_CONFIG_STR,
       transformer: MapFunction[IN, OUT],
       input: Seq[IN] = Seq.empty,
+      sourceName: Option[String] = None,
       checkResultsOpt: Option[CheckResults[ADT]] = None,
       args: Array[String] = Array("testJob"),
       executeJob: Boolean = true)(implicit
       fromRowData: RowData => IN): FlinkRunner[ADT] =
     getRunner(
       configStr,
-      new TableStreamJobFactory[IN, OUT, ADT](transformer, input),
+      new TableStreamJobFactory[IN, OUT, ADT](
+        transformer,
+        input,
+        sourceName
+      ),
       checkResultsOpt,
       args,
       executeJob
@@ -139,13 +156,14 @@ trait FlinkRunnerSpec {
       ADT <: FlinkEvent: TypeInformation](
       configStr: String = DEFAULT_CONFIG_STR,
       input: Seq[OUT] = Seq.empty,
+      sourceName: Option[String] = None,
       checkResultsOpt: Option[CheckResults[ADT]] = None,
       args: Array[String] = Array("testJob"),
       executeJob: Boolean = true)(implicit
       fromRowData: RowData => OUT): FlinkRunner[ADT] =
     getRunner(
       configStr,
-      new IdentityTableStreamJobFactory[OUT, ADT](input),
+      new IdentityTableStreamJobFactory[OUT, ADT](input, sourceName),
       checkResultsOpt,
       args,
       executeJob
