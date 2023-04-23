@@ -1,15 +1,19 @@
 package io.epiphanous.flinkrunner.model.sink
 
-import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.serde.{ConfluentAvroRegistryKafkaRecordSerializationSchema, JsonKafkaRecordSerializationSchema}
+import io.epiphanous.flinkrunner.serde.{
+  ConfluentAvroRegistryKafkaRecordSerializationSchema,
+  JsonKafkaRecordSerializationSchema
+}
 import io.epiphanous.flinkrunner.util.ConfigToProps
 import io.epiphanous.flinkrunner.util.ConfigToProps.getFromEither
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.connector.base.DeliveryGuarantee
-import org.apache.flink.connector.kafka.sink.{KafkaRecordSerializationSchema, KafkaSink}
-import org.apache.flink.streaming.api.datastream.DataStreamSink
+import org.apache.flink.connector.kafka.sink.{
+  KafkaRecordSerializationSchema,
+  KafkaSink
+}
 import org.apache.flink.streaming.api.scala.DataStream
 
 import java.time.Duration
@@ -29,8 +33,7 @@ import java.util.Properties
 case class KafkaSinkConfig[ADT <: FlinkEvent: TypeInformation](
     name: String,
     config: FlinkConfig
-) extends SinkConfig[ADT]
-    with LazyLogging {
+) extends SinkConfig[ADT] {
 
   override val connector: FlinkConnectorName = FlinkConnectorName.Kafka
 
@@ -129,21 +132,17 @@ case class KafkaSinkConfig[ADT <: FlinkEvent: TypeInformation](
       : KafkaRecordSerializationSchema[E] =
     new JsonKafkaRecordSerializationSchema[E, ADT](this)
 
-  override def getAvroSink[
+  override def addAvroSink[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](
-      dataStream: DataStream[E]): DataStreamSink[E] =
-    dataStream
-      .sinkTo(_getSink[E](getAvroSerializationSchema[E, A]))
-      .setParallelism(parallelism)
+      dataStream: DataStream[E]): Unit =
+    dataStream.sinkTo(_addSink[E](getAvroSerializationSchema[E, A]))
 
-  override def getSink[E <: ADT: TypeInformation](
-      dataStream: DataStream[E]): DataStreamSink[E] =
-    dataStream
-      .sinkTo(_getSink[E](getSerializationSchema[E]))
-      .setParallelism(parallelism)
+  override def addSink[E <: ADT: TypeInformation](
+      dataStream: DataStream[E]): Unit =
+    dataStream.sinkTo(_addSink[E](getSerializationSchema[E]))
 
-  def _getSink[E <: ADT: TypeInformation](
+  def _addSink[E <: ADT: TypeInformation](
       serializer: KafkaRecordSerializationSchema[E]): KafkaSink[E] =
     KafkaSink
       .builder()

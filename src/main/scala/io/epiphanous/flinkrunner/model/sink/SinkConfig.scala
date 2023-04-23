@@ -1,16 +1,16 @@
 package io.epiphanous.flinkrunner.model.sink
 
-import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.FlinkConnectorName._
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.util.StreamUtils._
+import io.epiphanous.flinkrunner.util.RowUtils.rowTypeOf
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.streaming.api.datastream.DataStreamSink
+import org.apache.flink.api.scala.createTypeInformation
 import org.apache.flink.streaming.api.scala.DataStream
+import org.apache.flink.table.types.logical.RowType
+import org.apache.flink.types.Row
 
-import java.util
-import java.util.Properties
+import scala.reflect.runtime.{universe => ru}
 
 /** A flinkrunner sink configuration trait. All sink configs have a few
   * common configuration options.
@@ -22,6 +22,7 @@ import java.util.Properties
   *     - [[FlinkConnectorName.Cassandra]]
   *     - [[FlinkConnectorName.Elasticsearch]]
   *     - [[FlinkConnectorName.File]]
+  *     - [[FlinkConnectorName.Firehose]]
   *     - [[FlinkConnectorName.Jdbc]]
   *     - [[FlinkConnectorName.Kafka]]
   *     - [[FlinkConnectorName.Kinesis]]
@@ -31,35 +32,32 @@ import java.util.Properties
   * @tparam ADT
   *   the flinkrunner algebraic data type
   */
-trait SinkConfig[ADT <: FlinkEvent] extends LazyLogging {
-  def name: String
-  def config: FlinkConfig
-  def connector: FlinkConnectorName
+trait SinkConfig[ADT <: FlinkEvent] extends SourceOrSinkConfig[ADT] {
 
-  def pfx(path: String = ""): String = Seq(
-    Some("sinks"),
-    Some(name),
-    if (path.isEmpty) None else Some(path)
-  ).flatten.mkString(".")
+  override val _sourceOrSink = "sink"
 
-  val properties: Properties = config.getProperties(pfx("config"))
+  def addSink[E <: ADT: TypeInformation](stream: DataStream[E]): Unit
 
-  lazy val propertiesMap: util.HashMap[String, String] =
-    properties.asJavaMap
-
-  lazy val label: String = s"${connector.entryName.toLowerCase}/$name"
-
-  lazy val parallelism: Int = config
-    .getIntOpt(pfx("parallelism"))
-    .getOrElse(config.globalParallelism)
-
-  def getSink[E <: ADT: TypeInformation](
-      dataStream: DataStream[E]): DataStreamSink[E]
-
-  def getAvroSink[
+  def addAvroSink[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
-      A <: GenericRecord: TypeInformation](
-      dataStream: DataStream[E]): DataStreamSink[E]
+      A <: GenericRecord: TypeInformation
+  ](
+      stream: DataStream[E]
+  ): Unit
+
+  def addRowSink[
+      E <: ADT with EmbeddedRowType: TypeInformation: ru.TypeTag](
+      stream: DataStream[E]): Unit =
+    _addRowSink(
+      stream
+        .map((e: E) => e.toRow)
+        .name(s"row:${stream.name}")
+        .uid(s"row:${stream.name}")
+        .setParallelism(stream.parallelism),
+      rowTypeOf[E]
+    )
+
+  def _addRowSink(rows: DataStream[Row], rowType: RowType): Unit = ???
 
 }
 
@@ -76,6 +74,7 @@ object SinkConfig {
       ) match {
       case Kafka         => KafkaSinkConfig(name, config)
       case Kinesis       => KinesisSinkConfig(name, config)
+      case Firehose      => FirehoseSinkConfig(name, config)
       case File          => FileSinkConfig(name, config)
       case Socket        => SocketSinkConfig(name, config)
       case Jdbc          => JdbcSinkConfig(name, config)
@@ -84,9 +83,11 @@ object SinkConfig {
       case Elasticsearch =>
         ElasticsearchSinkConfig(name, config)
       case RabbitMQ      => RabbitMQSinkConfig(name, config)
+      case Iceberg       => IcebergSinkConfig(name, config)
+      case Print         => PrintSinkConfig(name, config)
       case connector     =>
         throw new RuntimeException(
-          s"Don't know how to configure ${connector.entryName} sink connector $name (job ${config.jobName}"
+          s"Don't know how to configure ${connector.entryName} sink connector <$name> (in job <${config.jobName}>)"
         )
     }
   }

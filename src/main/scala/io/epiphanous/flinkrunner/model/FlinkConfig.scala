@@ -74,7 +74,8 @@ class FlinkConfig(args: Array[String], optConfig: Option[String] = None)
     if (jobParams.has(jpath)) ("a", jpath)
     else if (_config.hasPath(jpath)) ("c", jpath)
     else if (jobParams.has(path)) ("a", path)
-    else ("c", path)
+    else if (_config.hasPath(path)) ("c", path)
+    else ("n", path)
   }
 
   private def _j(path: String) = s"jobs.$jobName.$path"

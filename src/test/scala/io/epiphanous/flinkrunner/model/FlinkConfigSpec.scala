@@ -1,8 +1,7 @@
 package io.epiphanous.flinkrunner.model
 
-import io.epiphanous.flinkrunner.{FlinkRunner, PropSpec}
+import io.epiphanous.flinkrunner.PropSpec
 import org.apache.flink.api.common.RuntimeExecutionMode
-import org.apache.flink.api.scala.createTypeInformation
 import org.apache.flink.streaming.api.environment.CheckpointConfig
 
 import java.time.Duration
@@ -10,11 +9,10 @@ import scala.collection.JavaConverters.mapAsScalaMapConverter
 import scala.util.Try
 
 class FlinkConfigSpec extends PropSpec {
-  val cmdLineArgs: Array[String]       =
+  val cmdLineArgs: Array[String] =
     Array("someJob", "-a", "--arg1", "fish", "--arg2", "dog")
-  val runner: FlinkRunner[NothingADT]  = getRunner[NothingADT](cmdLineArgs)
-  val config: FlinkConfig              = runner.config
-  val runner2: FlinkRunner[NothingADT] = getRunner[NothingADT](
+  val config: FlinkConfig        = new FlinkConfig(cmdLineArgs)
+  val config2                    = new FlinkConfig(
     cmdLineArgs,
     Some("""
       |system.help = "system help"
@@ -45,7 +43,6 @@ class FlinkConfigSpec extends PropSpec {
       |environment = dev
       |""".stripMargin)
   )
-  val config2: FlinkConfig             = runner2.config
 
   property("jobName") {
     config.jobName shouldEqual cmdLineArgs.head
@@ -67,9 +64,9 @@ class FlinkConfigSpec extends PropSpec {
   }
 
   property("config precedence with file") {
-    val configx = getRunner[NothingADT](
+    val configx = new FlinkConfig(
       cmdLineArgs :+ "--config" :+ "resource://test-precedence.conf"
-    ).config
+    )
     configx.getString(
       "test.precedence"
     ) shouldEqual "test-precedence.conf"
@@ -195,44 +192,44 @@ class FlinkConfigSpec extends PropSpec {
     config.environment shouldEqual "dev"
   }
   property("isDev") {
-    getRunner[NothingADT](
+    new FlinkConfig(
       Array.empty[String],
       Some("environment = dev")
-    ).config.isDev shouldEqual true
-    getRunner[NothingADT](
+    ).isDev shouldEqual true
+    new FlinkConfig(
       Array.empty[String],
       Some("environment = development")
-    ).config.isDev shouldEqual true
+    ).isDev shouldEqual true
     config2.isDev shouldEqual true
   }
   property("isStage") {
-    getRunner[NothingADT](
+    new FlinkConfig(
       Array.empty[String],
       Some("environment = staging")
-    ).config.isStage shouldEqual true
-    getRunner[NothingADT](
+    ).isStage shouldEqual true
+    new FlinkConfig(
       Array.empty[String],
       Some("environment = stage")
-    ).config.isStage shouldEqual true
+    ).isStage shouldEqual true
     config.isStage shouldEqual false
   }
   property("isProd") {
-    getRunner[NothingADT](
+    new FlinkConfig(
       Array.empty[String],
       Some("environment = production")
-    ).config.isProd shouldEqual true
-    getRunner[NothingADT](
+    ).isProd shouldEqual true
+    new FlinkConfig(
       Array.empty[String],
       Some("environment = prod")
-    ).config.isProd shouldEqual true
+    ).isProd shouldEqual true
     config.isProd shouldEqual false
     config2.isProd shouldEqual false
   }
   property("watermarkStrategy") {
-    getRunner[NothingADT](
+    new FlinkConfig(
       Array.empty[String],
       Some("watermark.strategy = NONE")
-    ).config.watermarkStrategy shouldEqual "none"
+    ).watermarkStrategy shouldEqual "none"
     config.watermarkStrategy shouldEqual "bounded out of orderness"
   }
   property("systemHelp") {

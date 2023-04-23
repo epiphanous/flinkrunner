@@ -6,10 +6,10 @@ import io.confluent.kafka.schemaregistry.client.{
   SchemaMetadata,
   SchemaRegistryClient
 }
-import io.epiphanous.flinkrunner.PropSpec
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.model.sink.KafkaSinkConfig
 import io.epiphanous.flinkrunner.model.source.KafkaSourceConfig
+import io.epiphanous.flinkrunner.{FlinkRunner, PropSpec}
 import org.apache.avro.Schema
 import org.apache.avro.generic.{
   GenericContainer,
@@ -25,7 +25,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord
 import java.io.{ByteArrayOutputStream, DataOutputStream}
 
 trait SerdeTestFixtures extends PropSpec {
-  val optConfig: String =
+  val optConfig: String              =
     s"""
        |jobs {
        |  DeduplicationJob {
@@ -60,8 +60,11 @@ trait SerdeTestFixtures extends PropSpec {
        |  }
        |}
        |""".stripMargin
-  val runner            =
-    getRunner[MyAvroADT](Array("confluent-serde-test"), Some(optConfig))
+  val runner: FlinkRunner[MyAvroADT] =
+    getIdentityAvroStreamJobRunner[AWrapper, ARecord, MyAvroADT](
+      configStr = optConfig,
+      args = Array("confluent-serde-test")
+    )
 
   val kafkaSinkConfig: KafkaSinkConfig[MyAvroADT] =
     runner.getSinkConfig("test").asInstanceOf[KafkaSinkConfig[MyAvroADT]]
@@ -111,7 +114,8 @@ trait SerdeTestFixtures extends PropSpec {
         A,
         MyAvroADT
       ](
-        kafkaSinkConfig
+        kafkaSinkConfig,
+        Some(schemaRegistryClient)
       )
     }
     ss.open(null, null)
@@ -132,7 +136,8 @@ trait SerdeTestFixtures extends PropSpec {
       A,
       MyAvroADT
     ](
-      kafkaSourceConfig
+      kafkaSourceConfig,
+      schemaRegistryClientOpt = Some(schemaRegistryClient)
     )
     ds.open(null)
     ds

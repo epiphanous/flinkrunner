@@ -1,22 +1,17 @@
 package io.epiphanous.flinkrunner.model.source
 
-import com.google.common.hash.Hashing
-import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.FlinkConnectorName._
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.util.BoundedLatenessWatermarkStrategy
-import io.epiphanous.flinkrunner.util.StreamUtils._
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.eventtime.WatermarkStrategy
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.connector.source.{Source, SourceSplit}
 import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.flink.streaming.api.scala._
+import org.apache.flink.table.data.RowData
 
-import java.nio.charset.StandardCharsets
 import java.time.Duration
-import java.util
-import java.util.Properties
 import scala.util.Try
 
 /** A flinkrunner source configuration trait. All source configs have a few
@@ -51,40 +46,9 @@ import scala.util.Try
   * @tparam ADT
   *   flinkrunner algebraic data type
   */
-trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
-  def name: String
+trait SourceConfig[ADT <: FlinkEvent] extends SourceOrSinkConfig[ADT] {
 
-  def config: FlinkConfig
-
-  def connector: FlinkConnectorName
-
-  lazy val label: String =
-    s"${config.jobName.toLowerCase}/${connector.entryName.toLowerCase}/$name"
-
-  lazy val stdUid: String = Hashing
-    .sha256()
-    .hashString(
-      label,
-      StandardCharsets.UTF_8
-    )
-    .toString
-
-  lazy val uid: String = config.getStringOpt(pfx("uid")).getOrElse(stdUid)
-
-  lazy val parallelism: Int = config
-    .getIntOpt(pfx("parallelism"))
-    .getOrElse(config.globalParallelism)
-
-  def pfx(path: String = ""): String = Seq(
-    Some("sources"),
-    Some(name),
-    if (path.isEmpty) None else Some(path)
-  ).flatten.mkString(".")
-
-  val properties: Properties = config.getProperties(pfx("config"))
-
-  lazy val propertiesMap: util.HashMap[String, String] =
-    properties.asJavaMap
+  override val _sourceOrSink = "source"
 
   val watermarkStrategy: String =
     Try(config.getString(pfx("watermark.strategy")))
@@ -268,6 +232,25 @@ trait SourceConfig[ADT <: FlinkEvent] extends LazyLogging {
       env: StreamExecutionEnvironment)(implicit
       fromKV: EmbeddedAvroRecordInfo[A] => E): DataStream[E] =
     getAvroSourceStreamDefault[E, A](env)
+
+  def getRowSource(env: StreamExecutionEnvironment): DataStream[RowData] =
+    ???
+
+  def getRowSourceStreamDefault[
+      E <: ADT with EmbeddedRowType: TypeInformation](
+      env: StreamExecutionEnvironment)(implicit
+      fromRowData: RowData => E): DataStream[E] =
+    getRowSource(env)
+      .map(fromRowData)
+      .assignTimestampsAndWatermarks(getWatermarkStrategy[E])
+      .name(label)
+      .uid(label)
+      .setParallelism(parallelism)
+
+  def getRowSourceStream[E <: ADT with EmbeddedRowType: TypeInformation](
+      env: StreamExecutionEnvironment)(implicit
+      fromRowData: RowData => E): DataStream[E] =
+    getRowSourceStreamDefault[E](env)
 }
 
 object SourceConfig {
@@ -282,12 +265,14 @@ object SourceConfig {
         config.jobName,
         config.getStringOpt(s"sources.$name.connector")
       ) match {
+      case Empty     => EmptySourceConfig[ADT](name, config)
       case File      => FileSourceConfig[ADT](name, config)
       case Hybrid    => HybridSourceConfig[ADT](name, config)
       case Kafka     => KafkaSourceConfig[ADT](name, config)
       case Kinesis   => KinesisSourceConfig[ADT](name, config)
       case RabbitMQ  => RabbitMQSourceConfig[ADT](name, config)
       case Socket    => SocketSourceConfig[ADT](name, config)
+      case Iceberg   => IcebergSourceConfig(name, config)
       case Generator =>
         generatorFactoryOpt
           .map(factory =>

@@ -67,7 +67,7 @@ object SinkDestinationNameUtils extends Serializable {
             )
           normalized
         // TODO: get rules to normalize these names too
-        case s: KinesisSinkConfig[ADT]       => s.stream
+        case s: KinesisSinkConfig[ADT]       => s.props.stream
         case s: FileSinkConfig[ADT]          => s.path
         case s: ElasticsearchSinkConfig[ADT] => s.index
         case s                               => s.name

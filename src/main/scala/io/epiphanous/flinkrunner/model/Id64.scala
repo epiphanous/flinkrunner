@@ -66,11 +66,11 @@ object Id64 {
   def ticksOf(id: String): Long      = uuidOf(id).timestamp()
   def microsOf(id: String): Long     =
     Math
-      .floor((ticksOf(id) - GREGORIAN_OFFSET) / 10)
+      .floor((ticksOf(id) - GREGORIAN_OFFSET).toDouble / 10.0)
       .toLong
   def millisOf(id: String): Long     =
     Math
-      .floor((ticksOf(id) - GREGORIAN_OFFSET) / 10000)
+      .floor((ticksOf(id) - GREGORIAN_OFFSET).toDouble / 10000.0)
       .toLong
   def instantOf(id: String): Instant = {
     val t     = ticksOf(id) - GREGORIAN_OFFSET

@@ -10,11 +10,13 @@ import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.JobExecutionResult
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.formats.avro.utils.AvroKryoSerializerUtils.AvroSchemaSerializer
-import org.apache.flink.streaming.api.datastream.DataStreamSink
+import org.apache.flink.streaming.api.graph.StreamGraph
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.table.api.bridge.scala.StreamTableEnvironment
+import org.apache.flink.table.data.RowData
 
 import scala.collection.JavaConverters._
+import scala.reflect.runtime.{universe => ru}
 
 /** FlinkRunner base class. All users of Flinkrunner will create their own
   * subclass. The only required parameter is a FlinkConfig object. Two
@@ -36,7 +38,8 @@ import scala.collection.JavaConverters._
 abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     val config: FlinkConfig,
     val checkResultsOpt: Option[CheckResults[ADT]] = None,
-    val generatorFactoryOpt: Option[GeneratorFactory[ADT]] = None)
+    val generatorFactoryOpt: Option[GeneratorFactory[ADT]] = None,
+    val executeJob: Boolean = true)
     extends LazyLogging {
 
   val env: StreamExecutionEnvironment =
@@ -55,6 +58,20 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     *   String
     */
   def getExecutionPlan: String = env.getExecutionPlan
+
+  /** Get the stream graph for the configured job. This is primarily useful
+    * for testing the stream jobs constructed in flinkrunner. It will throw
+    * an exception if you call it before running a job against this runner.
+    * If you only are interested in the stream graph and don't need the job
+    * to be executed, you can set executeJob = false when constructing the
+    * FlinkRunner instance.
+    * @return
+    *   JobGraph
+    */
+  def getStreamGraph: StreamGraph = env.getStreamGraph(false)
+
+  def getStreamNodesInfo: Seq[StreamNodeInfo] =
+    StreamNodeInfo.from(getStreamGraph)
 
   /** Executes the job graph.
     * @return
@@ -171,6 +188,13 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
       sourceName: String = getDefaultSourceName): SourceConfig[ADT] =
     SourceConfig[ADT](sourceName, config, generatorFactoryOpt)
 
+  def _mockSource[E <: ADT: TypeInformation](
+      sourceConfig: SourceConfig[ADT],
+      mockEvents: Seq[E]): DataStream[E] = {
+    val lbl = s"mock:${sourceConfig.label}"
+    env.fromCollection(mockEvents).name(lbl).uid(lbl)
+  }
+
   /** Helper method to convert a source config into a json-encoded source
     * data stream.
     *
@@ -182,25 +206,13 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     *   DataStream[E]
     */
   def configToSource[E <: ADT: TypeInformation](
-      sourceConfig: SourceConfig[ADT]): DataStream[E] = {
+      sourceConfig: SourceConfig[ADT]): DataStream[E] =
     checkResultsOpt
       .map(c => c.getInputEvents[E](sourceConfig.name))
-      .getOrElse(List.empty[E]) match {
-      case mockEvents if mockEvents.nonEmpty =>
-        val lbl = s"mock:${sourceConfig.label}"
-        env.fromCollection(mockEvents).name(lbl).uid(lbl)
-      case _                                 =>
-        sourceConfig match {
-          case s: FileSourceConfig[ADT]      => s.getSourceStream[E](env)
-          case s: KafkaSourceConfig[ADT]     => s.getSourceStream[E](env)
-          case s: KinesisSourceConfig[ADT]   => s.getSourceStream[E](env)
-          case s: RabbitMQSourceConfig[ADT]  => s.getSourceStream[E](env)
-          case s: SocketSourceConfig[ADT]    => s.getSourceStream[E](env)
-          case s: HybridSourceConfig[ADT]    => s.getSourceStream[E](env)
-          case s: GeneratorSourceConfig[ADT] => s.getSourceStream[E](env)
-        }
-    }
-  }
+      .filter(_.nonEmpty)
+      .fold(sourceConfig.getSourceStream[E](env))(
+        _mockSource(sourceConfig, _)
+      )
 
   /** Helper method to convert a source config into an avro-encoded source
     * data stream. At the moment this is only supported for kafka sources
@@ -224,73 +236,36 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](
       sourceConfig: SourceConfig[ADT])(implicit
-      fromKV: EmbeddedAvroRecordInfo[A] => E): DataStream[E] = {
-
+      fromKV: EmbeddedAvroRecordInfo[A] => E): DataStream[E] =
     checkResultsOpt
       .map(c => c.getInputEvents[E](sourceConfig.name))
-      .getOrElse(Seq.empty[E]) match {
-      case mockEvents if mockEvents.nonEmpty =>
-        val lbl = s"mock:${sourceConfig.label}"
-        env.fromCollection(mockEvents).name(lbl).uid(lbl)
-      case _                                 =>
-        sourceConfig match {
-          case s: FileSourceConfig[ADT]      =>
-            s.getAvroSourceStream[E, A](env)
-          case s: KafkaSourceConfig[ADT]     =>
-            s.getAvroSourceStream[E, A](env)
-          case s: KinesisSourceConfig[ADT]   =>
-            s.getAvroSourceStream[E, A](env)
-          case s: RabbitMQSourceConfig[ADT]  =>
-            s.getAvroSourceStream[E, A](env)
-          case s: SocketSourceConfig[ADT]    =>
-            s.getAvroSourceStream[E, A](env)
-          case s: HybridSourceConfig[ADT]    =>
-            s.getAvroSourceStream[E, A](env)
-          case s: GeneratorSourceConfig[ADT] =>
-            s.getAvroSourceStream[E, A](env)
-        }
-    }
+      .filter(_.nonEmpty)
+      .fold(sourceConfig.getAvroSourceStream[E, A](env))(
+        _mockSource(sourceConfig, _)
+      )
+
+  /** Helper method to convert a source configuration into a DataStream[E]
+    *
+    * @param sourceConfig
+    *   the source config
+    * @param fromRowData
+    *   an implicit method to convert a Row into an event of type E
+    * @tparam E
+    *   the event data type
+    * @return
+    */
+  def configToRowSource[E <: ADT with EmbeddedRowType: TypeInformation](
+      sourceConfig: SourceConfig[ADT])(implicit
+      fromRowData: RowData => E): DataStream[E] = {
+    checkResultsOpt
+      .map(c => c.getInputEvents[E](sourceConfig.name))
+      .filter(_.nonEmpty)
+      .fold(sourceConfig.getRowSourceStream[E](env))(
+        _mockSource(sourceConfig, _)
+      )
   }
 
   //  ********************** SINKS **********************
-
-  /** Create a json-encoded stream sink from configuration.
-    *
-    * @param stream
-    *   the data stream to send to sink
-    * @param sinkName
-    *   the sink to send it to
-    * @tparam E
-    *   stream element type
-    * @return
-    *   DataStream[E]
-    */
-  def toSink[E <: ADT: TypeInformation](
-      stream: DataStream[E],
-      sinkName: String
-  ): DataStreamSink[E] =
-    configToSink[E](stream, getSinkConfig(sinkName))
-
-  /** Create an avro-encoded stream sink from configuration.
-    *
-    * @param stream
-    *   the data stream to send to the sink
-    * @param sinkName
-    *   an optional sink name (defaults to first sink)
-    * @tparam E
-    *   the event type
-    * @tparam A
-    *   the avro record type
-    * @return
-    *   the
-    */
-  def toAvroSink[
-      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
-      A <: GenericRecord: TypeInformation](
-      stream: DataStream[E],
-      sinkName: String
-  ): DataStreamSink[E] =
-    configToAvroSink[E, A](stream, getSinkConfig(sinkName))
 
   def getSinkConfig(
       sinkName: String = getDefaultSinkName): SinkConfig[ADT] =
@@ -304,33 +279,22 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     */
   def writeToSink: Boolean = checkResultsOpt.forall(_.writeToSink)
 
-  def configToSink[E <: ADT: TypeInformation](
+  def addSink[E <: ADT: TypeInformation](
       stream: DataStream[E],
-      sinkConfig: SinkConfig[ADT]): DataStreamSink[E] =
-    sinkConfig match {
-      case s: CassandraSinkConfig[ADT]     => s.getSink[E](stream)
-      case s: ElasticsearchSinkConfig[ADT] => s.getSink[E](stream)
-      case s: FileSinkConfig[ADT]          => s.getSink[E](stream)
-      case s: JdbcSinkConfig[ADT]          => s.getSink[E](stream)
-      case s: KafkaSinkConfig[ADT]         => s.getSink[E](stream)
-      case s: KinesisSinkConfig[ADT]       => s.getSink[E](stream)
-      case s: RabbitMQSinkConfig[ADT]      => s.getSink[E](stream)
-      case s: SocketSinkConfig[ADT]        => s.getSink[E](stream)
-    }
+      sinkName: String): Unit =
+    getSinkConfig(sinkName).addSink[E](stream)
 
-  def configToAvroSink[
+  def addAvroSink[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](
       stream: DataStream[E],
-      sinkConfig: SinkConfig[ADT]): DataStreamSink[E] =
-    sinkConfig match {
-      case s: CassandraSinkConfig[ADT]     => s.getAvroSink[E, A](stream)
-      case s: ElasticsearchSinkConfig[ADT] => s.getAvroSink[E, A](stream)
-      case s: FileSinkConfig[ADT]          => s.getAvroSink[E, A](stream)
-      case s: JdbcSinkConfig[ADT]          => s.getAvroSink[E, A](stream)
-      case s: KafkaSinkConfig[ADT]         => s.getAvroSink[E, A](stream)
-      case s: KinesisSinkConfig[ADT]       => s.getAvroSink[E, A](stream)
-      case s: RabbitMQSinkConfig[ADT]      => s.getAvroSink[E, A](stream)
-      case s: SocketSinkConfig[ADT]        => s.getAvroSink[E, A](stream)
-    }
+      sinkName: String): Unit =
+    getSinkConfig(sinkName).addAvroSink[E, A](stream)
+
+  def addRowSink[
+      E <: ADT with EmbeddedRowType: TypeInformation: ru.TypeTag](
+      stream: DataStream[E],
+      sinkName: String = getDefaultSinkName): Unit =
+    getSinkConfig(sinkName).addRowSink[E](stream)
+
 }

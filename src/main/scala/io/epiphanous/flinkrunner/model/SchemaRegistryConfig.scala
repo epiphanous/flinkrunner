@@ -1,6 +1,7 @@
 package io.epiphanous.flinkrunner.model
 
 import com.typesafe.config.ConfigObject
+import io.confluent.kafka.serializers.KafkaAvroDeserializerConfig
 import io.epiphanous.flinkrunner.util.ConfigToProps.RichConfigObject
 import io.epiphanous.flinkrunner.util.StreamUtils.RichProps
 
@@ -15,8 +16,10 @@ case class SchemaRegistryConfig(
     props: util.HashMap[String, String] = new util.HashMap()) {
   val isSerializing: Boolean = !isDeserializing
   props.put("schema.registry.url", url)
-  props.put("specific.avro.reader", "false") // don't make this true!
-  props.putIfAbsent("use.logical.type.converters", "true")
+  props.putIfAbsent(
+    KafkaAvroDeserializerConfig.AVRO_USE_LOGICAL_TYPE_CONVERTERS_CONFIG,
+    "true"
+  )
 }
 object SchemaRegistryConfig {
   def apply(

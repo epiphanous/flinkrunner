@@ -1,14 +1,13 @@
 package io.epiphanous.flinkrunner.model.sink
 
-import com.datastax.driver.core.{Cluster, CodecRegistry}
-import com.datastax.driver.extras.codecs.jdk8.InstantCodec
-import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, FlinkConfig, FlinkConnectorName, FlinkEvent}
+import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.util.AvroUtils.RichGenericRecord
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
 import org.apache.flink.streaming.connectors.cassandra._
+import org.apache.flink.table.types.logical.RowType
+import org.apache.flink.types.Row
 
 /** A cassandra sink config.
   *
@@ -37,33 +36,18 @@ case class CassandraSinkConfig[ADT <: FlinkEvent](
   val port: Int     = config.getIntOpt(pfx("port")).getOrElse(9042)
   val query: String = config.getString(pfx("query"))
 
-  /** Don't convert to single abstract method...flink will complain
-    */
-  val clusterBuilder: ClusterBuilder = new ClusterBuilder {
-    override def buildCluster(builder: Cluster.Builder): Cluster =
-      builder
-        .addContactPoint(host)
-        .withPort(port)
-        .withoutJMXReporting()
-        .withCodecRegistry(
-          new CodecRegistry().register(InstantCodec.instance)
-        )
-        .build()
-  }
+  val clusterBuilder = new CassandraClusterBuilder(host, port)
 
-  def getSink[E <: ADT: TypeInformation](
-      stream: DataStream[E]): DataStreamSink[E] = {
-    stream
-      .addSink(new CassandraScalaProductSink[E](query, clusterBuilder))
-      .uid(label)
-      .name(label)
-      .setParallelism(parallelism)
-  }
+  def addSink[E <: ADT: TypeInformation](stream: DataStream[E]): Unit =
+    CassandraSink
+      .addSink(stream)
+      .setClusterBuilder(clusterBuilder)
+      .setQuery(query)
+      .build()
 
-  override def getAvroSink[
+  override def addAvroSink[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
-      A <: GenericRecord: TypeInformation](
-      stream: DataStream[E]): DataStreamSink[E] =
+      A <: GenericRecord: TypeInformation](stream: DataStream[E]): Unit = {
     stream
       .addSink(
         new AbstractCassandraTupleSink[E](
@@ -78,6 +62,16 @@ case class CassandraSinkConfig[ADT <: FlinkEvent](
       )
       .uid(label)
       .name(label)
-      .setParallelism(parallelism)
+  }
 
+  override def _addRowSink(
+      stream: DataStream[Row],
+      rowType: RowType): Unit = {
+    CassandraSink
+      .addSink(stream)
+      .setClusterBuilder(clusterBuilder)
+      .setQuery(query)
+      .build()
+    ()
+  }
 }

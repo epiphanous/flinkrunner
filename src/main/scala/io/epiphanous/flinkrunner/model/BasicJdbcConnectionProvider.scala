@@ -28,12 +28,14 @@ class BasicJdbcConnectionProvider(
 
   val url: String = jdbcOptions.getDbURL
 
-  jdbcOptions.getUsername.ifPresent(user =>
+  jdbcOptions.getUsername.ifPresent { user =>
     props.setProperty("user", user)
-  )
-  jdbcOptions.getPassword.ifPresent(pwd =>
+    ()
+  }
+  jdbcOptions.getPassword.ifPresent { pwd =>
     props.setProperty("password", pwd)
-  )
+    ()
+  }
 
   @transient
   var connection: Connection = _

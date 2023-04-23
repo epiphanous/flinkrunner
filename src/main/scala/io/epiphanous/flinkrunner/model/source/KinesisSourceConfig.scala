@@ -16,6 +16,9 @@ import org.apache.flink.streaming.connectors.kinesis.FlinkKinesisConsumer
 import org.apache.flink.streaming.connectors.kinesis.config.ConsumerConfigConstants._
 import org.apache.flink.streaming.connectors.kinesis.serialization.KinesisDeserializationSchema
 
+import java.text.SimpleDateFormat
+import java.time.Instant
+import scala.collection.JavaConverters._
 import scala.util.Try
 
 /** A source config for kinesis streams. For example, the following config
@@ -35,19 +38,26 @@ import scala.util.Try
   * Configuration options:
   *   - `connector`: `kafka` (required only if it can't be inferred from
   *     the source name)
-  *   - `stream`: the name of the kinesis stream
+  *   - `stream` (`streams`): the name of the kinesis stream or streams to
+  *     consume. If you want to read from multiple streams, either use the
+  *     `stream` property and separate stream names with commas (`stream =
+  *     a,b,c`), or use the `streams` property and configure an array
+  *     (`streams = [ a, b, c ]`).
   *   - `starting.position`: the starting position of the stream; one of:
   *     - `TRIM_HORIZON`: the position of the earliest data in a shard
   *     - `LATEST`: the position after the most recent data in a shard
   *     - `AT_TIMESTAMP`: on or after the `starting.timestamp`
-  *   - `starting.timestamp`: a timestamp as fractional epoch seconds
-  *     (format: `yyyy-MM-dd'T'HH:mm:ss.SSSXXX`)
+  *   - `starting.timestamp`: a timestamp as fractional epoch seconds,
+  *     formatted according to `timestamp.format`
+  *   - `timestamp.format`: a valid DateTimeFormatter pattern (default
+  *     `yyyy-MM-dd'T'HH:mm:ss.SSSXXX`)
   *   - `use.efo`: if true, turn on enhanced fan-out to read the stream
   *     faster (defaults to true, may cost more money)
   *   - `efo.consumer`: name of the efo consumer (defaults to
   *     `jobName`.`sourceName`)
   *   - `aws.region`: AWS region of your kinesis endpoint
-  *   - `config`: optional config to pass to kinesis client
+  *   - `config`: optional config to pass to kinesis client (see
+  *     [[org.apache.flink.streaming.connectors.kinesis.config.ConsumerConfigConstants]])
   *
   * @param name
   *   name of the source
@@ -69,14 +79,35 @@ case class KinesisSourceConfig[ADT <: FlinkEvent](
     )
   properties.setProperty(AWS_REGION, awsRegion)
 
-  val stream: String = Try(config.getString(pfx("stream"))).fold(
-    t =>
+  val streams: List[String] = {
+
+    val streamOpt: Option[String] = Try(
+      config
+        .getString(pfx("stream"))
+    ).toOption.orElse(Try(config.getString(pfx("streams"))).toOption)
+
+    val streamsOpt: Option[List[String]] =
+      Try(config.getStringList(pfx("stream"))).toOption.orElse(
+        Try(config.getStringList(pfx("streams"))).toOption
+      )
+
+    if (streamOpt.isEmpty && streamsOpt.isEmpty) {
       throw new RuntimeException(
-        s"kinesis source $name is missing required 'stream' property",
-        t
-      ),
-    s => s
-  )
+        s"Kinesis source $name is missing required 'stream' or 'streams' property"
+      )
+    }
+
+    if (streamOpt.nonEmpty && streamsOpt.nonEmpty) {
+      throw new RuntimeException(
+        s"Kinesis source $name has both 'stream' and 'streams' properties. Please specify one or the other."
+      )
+    }
+
+    (streamOpt.map(
+      _.split("\\s*[,;|]\\s*").toList
+    ) ++ streamsOpt).flatten.toList
+
+  }
 
   val startPos: String = {
     val pos = getFromEither(
@@ -101,29 +132,58 @@ case class KinesisSourceConfig[ADT <: FlinkEvent](
     )
   }
 
-  val startTimestampOpt: Option[String] = getFromEither(
-    pfx(),
-    Seq(
-      "starting.timestamp",
-      "starting.ts",
-      "start.timestamp",
-      "start.ts"
-    ),
-    config.getStringOpt
-  )
-
   properties.setProperty(STREAM_INITIAL_POSITION, startPos)
-  if (
-    startPos.equalsIgnoreCase(
-      InitialPosition.AT_TIMESTAMP.name()
-    )
-  ) {
-    startTimestampOpt.fold(
-      throw new RuntimeException(
-        s"kinesis sink $name set starting.position to AT_TIMESTAMP but provided no starting.timestamp"
-      )
-    )(ts => properties.setProperty(STREAM_INITIAL_TIMESTAMP, ts))
-  }
+
+  val startTimestampOpt: Option[Instant] =
+    if (startPos.equalsIgnoreCase(InitialPosition.AT_TIMESTAMP.name())) {
+      getFromEither(
+        pfx(),
+        Seq(
+          "starting.timestamp",
+          "starting.ts",
+          "start.timestamp",
+          "start.ts"
+        ),
+        config.getStringOpt
+      ).map { ts =>
+        val tsf     = getFromEither(
+          pfx(),
+          Seq("timestamp.format", "ts.format"),
+          config.getStringOpt
+        ).getOrElse(DEFAULT_STREAM_TIMESTAMP_DATE_FORMAT)
+        val startAt = Try(ts.toDouble)
+          .map { d =>
+            Try(Instant.ofEpochMilli(Math.floor(d * 1000).toLong))
+          }
+          .getOrElse {
+            for {
+              sdf <- Try(new SimpleDateFormat(tsf))
+              instant <- Try(sdf.parse(ts).toInstant)
+            } yield instant
+          }
+        startAt.fold(
+          t =>
+            throw new RuntimeException(
+              s"Kinesis source $name has invalid starting timestamp value '$ts' or format '$tsf'",
+              t
+            ),
+          instant => {
+            val epochSeconds = instant.toEpochMilli / 1000d
+            if (epochSeconds < 0)
+              throw new RuntimeException(
+                s"Kinesis source $name has negative starting timestamp value '$epochSeconds'"
+              )
+            properties
+              .setProperty(STREAM_INITIAL_TIMESTAMP, f"$epochSeconds%.3f")
+            instant
+          }
+        )
+      }.orElse {
+        throw new RuntimeException(
+          s"Kinesis source $name set starting.position to AT_TIMESTAMP but provided no starting.timestamp"
+        )
+      }
+    } else None
 
   val useEfo: Boolean =
     getFromEither(
@@ -162,7 +222,7 @@ case class KinesisSourceConfig[ADT <: FlinkEvent](
       : Either[SourceFunction[E], Source[E, _ <: SourceSplit, _]] =
     Left(
       new FlinkKinesisConsumer[E](
-        stream,
+        streams.asJava,
         getDeserializationSchema,
         properties
       )

@@ -1,6 +1,7 @@
 package io.epiphanous.flinkrunner.model
 
 import org.apache.avro.generic.GenericRecord
+import org.apache.flink.types.Row
 
 /** Event types that wrap avro records should implement this trait. This
   * trait works with other avro related features in Flinkrunner, such as
@@ -18,7 +19,8 @@ import org.apache.avro.generic.GenericRecord
   * @tparam A
   *   An avro record type
   */
-trait EmbeddedAvroRecord[A <: GenericRecord] {
+trait EmbeddedAvroRecord[A <: GenericRecord] extends EmbeddedRowType {
+  this: FlinkEvent =>
 
   /** An optional embedded record key - if present, used as the key when
     * stored in kafka. Defaults to None.
@@ -47,4 +49,13 @@ trait EmbeddedAvroRecord[A <: GenericRecord] {
     */
   def toKV(config: FlinkConfig): EmbeddedAvroRecordInfo[A] =
     EmbeddedAvroRecordInfo($record, config, $recordKey, $recordHeaders)
+
+  override def toRow: Row = {
+    val arity = $record.getSchema.getFields.size()
+    (0 until arity)
+      .foldLeft(Row.withPositions($rowKind, arity)) { case (row, pos) =>
+        row.setField(pos, $record.get(pos))
+        row
+      }
+  }
 }

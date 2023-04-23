@@ -19,5 +19,5 @@ class JsonKinesisSerializationSchema[
     ByteBuffer.wrap(jsonSerializationSchema.serialize(element))
 
   override def getTargetStream(element: E): String =
-    kinesisSinkConfig.stream
+    kinesisSinkConfig.props.stream
 }

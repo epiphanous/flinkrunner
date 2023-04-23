@@ -64,7 +64,6 @@ class JdbcSinkJobTest extends SinkSpec {
       "resource://SampleB.csv",
       otherJobConfig = "show.plan = true"
     )
-
     val props = new Properties()
     props.put("user", pgContainer.username)
     props.put("password", pgContainer.password)

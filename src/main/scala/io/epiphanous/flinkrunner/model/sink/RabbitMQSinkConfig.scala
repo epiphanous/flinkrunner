@@ -1,20 +1,23 @@
 package io.epiphanous.flinkrunner.model.sink
 
-import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model._
-import io.epiphanous.flinkrunner.serde.{EmbeddedAvroJsonSerializationSchema, JsonSerializationSchema}
+import io.epiphanous.flinkrunner.serde.{
+  EmbeddedAvroJsonSerializationSchema,
+  JsonSerializationSchema
+}
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.serialization.SerializationSchema
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.scala.DataStream
-import org.apache.flink.streaming.connectors.rabbitmq.{RMQSink, RMQSinkPublishOptions}
+import org.apache.flink.streaming.connectors.rabbitmq.{
+  RMQSink,
+  RMQSinkPublishOptions
+}
 
 case class RabbitMQSinkConfig[ADT <: FlinkEvent: TypeInformation](
     name: String,
     config: FlinkConfig)
-    extends SinkConfig[ADT]
-    with LazyLogging {
+    extends SinkConfig[ADT] {
 
   override val connector: FlinkConnectorName = FlinkConnectorName.RabbitMQ
 
@@ -36,9 +39,9 @@ case class RabbitMQSinkConfig[ADT <: FlinkEvent: TypeInformation](
   def getPublishOptions[E <: ADT: TypeInformation]
       : Option[RMQSinkPublishOptions[E]] = None
 
-  def _getSink[E <: ADT: TypeInformation](
+  def _addSink[E <: ADT: TypeInformation](
       dataStream: DataStream[E],
-      serializationSchema: SerializationSchema[E]): DataStreamSink[E] = {
+      serializationSchema: SerializationSchema[E]): Unit = {
     val connConfig = connectionInfo.rmqConfig
 
     val sink = getPublishOptions[E] match {
@@ -59,14 +62,14 @@ case class RabbitMQSinkConfig[ADT <: FlinkEvent: TypeInformation](
       .setParallelism(parallelism)
   }
 
-  override def getSink[E <: ADT: TypeInformation](
-      dataStream: DataStream[E]): DataStreamSink[E] =
-    _getSink[E](dataStream, getSerializationSchema[E])
+  override def addSink[E <: ADT: TypeInformation](
+      dataStream: DataStream[E]): Unit =
+    _addSink[E](dataStream, getSerializationSchema[E])
 
-  override def getAvroSink[
+  override def addAvroSink[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](
-      dataStream: DataStream[E]): DataStreamSink[E] =
-    _getSink[E](dataStream, getAvroSerializationSchema[E, A])
+      dataStream: DataStream[E]): Unit =
+    _addSink[E](dataStream, getAvroSerializationSchema[E, A])
 
 }

@@ -6,7 +6,11 @@ import com.fasterxml.jackson.databind.{JsonSerializer, SerializerProvider}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.avro.Schema
 import org.apache.avro.Schema.Type._
-import org.apache.avro.generic.{GenericEnumSymbol, GenericFixed, GenericRecord}
+import org.apache.avro.generic.{
+  GenericEnumSymbol,
+  GenericFixed,
+  GenericRecord
+}
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.scala.createTypeInformation
 

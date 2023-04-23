@@ -1,6 +1,5 @@
 package io.epiphanous.flinkrunner.model.sink
 
-import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.serde._
 import io.epiphanous.flinkrunner.util.AvroUtils.instanceOf
@@ -11,10 +10,18 @@ import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.connector.file.sink.FileSink
 import org.apache.flink.core.fs.Path
 import org.apache.flink.core.io.SimpleVersionedSerializer
-import org.apache.flink.streaming.api.datastream.DataStreamSink
-import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.{BasePathBucketAssigner, DateTimeBucketAssigner}
-import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.{CheckpointRollingPolicy, OnCheckpointRollingPolicy}
-import org.apache.flink.streaming.api.functions.sink.filesystem.{BucketAssigner, OutputFileConfig}
+import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.{
+  BasePathBucketAssigner,
+  DateTimeBucketAssigner
+}
+import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.{
+  CheckpointRollingPolicy,
+  OnCheckpointRollingPolicy
+}
+import org.apache.flink.streaming.api.functions.sink.filesystem.{
+  BucketAssigner,
+  OutputFileConfig
+}
 import org.apache.flink.streaming.api.scala.DataStream
 
 import java.nio.charset.StandardCharsets
@@ -72,8 +79,7 @@ import scala.collection.JavaConverters._
 case class FileSinkConfig[ADT <: FlinkEvent](
     name: String,
     config: FlinkConfig
-) extends SinkConfig[ADT]
-    with LazyLogging {
+) extends SinkConfig[ADT] {
 
   override def connector: FlinkConnectorName = FlinkConnectorName.File
 
@@ -100,19 +106,17 @@ case class FileSinkConfig[ADT <: FlinkEvent](
     * @return
     *   DataStreamSink[E]
     */
-  override def getSink[E <: ADT: TypeInformation](
-      dataStream: DataStream[E]): DataStreamSink[E] =
-    dataStream
-      .sinkTo(
-        FileSink
-          .forRowFormat(destination, getRowEncoder[E])
-          .withBucketAssigner(getBucketAssigner)
-          .withBucketCheckInterval(getBucketCheckInterval)
-          .withRollingPolicy(getCheckpointRollingPolicy)
-          .withOutputFileConfig(getOutputFileConfig)
-          .build()
-      )
-      .setParallelism(parallelism)
+  override def addSink[E <: ADT: TypeInformation](
+      dataStream: DataStream[E]): Unit =
+    dataStream.sinkTo(
+      FileSink
+        .forRowFormat(destination, getRowEncoder[E])
+        .withBucketAssigner(getBucketAssigner)
+        .withBucketCheckInterval(getBucketCheckInterval)
+        .withRollingPolicy(getCheckpointRollingPolicy)
+        .withOutputFileConfig(getOutputFileConfig)
+        .build()
+    )
 
   /** Create an bulk avro parquet file sink and send the data stream to it.
     * @param dataStream
@@ -125,10 +129,10 @@ case class FileSinkConfig[ADT <: FlinkEvent](
     * @return
     *   DataStream[E]
     */
-  override def getAvroSink[
+  override def addAvroSink[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](
-      dataStream: DataStream[E]): DataStreamSink[E] = {
+      dataStream: DataStream[E]): Unit = {
     val sink = format match {
       case StreamFormatName.Parquet | StreamFormatName.Avro =>
         FileSink
