@@ -2,14 +2,7 @@ package io.epiphanous.flinkrunner.util.test
 
 import io.epiphanous.flinkrunner.FlinkRunner
 import io.epiphanous.flinkrunner.flink.StreamJob
-import io.epiphanous.flinkrunner.model.{
-  CheckResults,
-  EmbeddedAvroRecord,
-  EmbeddedAvroRecordInfo,
-  EmbeddedRowType,
-  FlinkConfig,
-  FlinkEvent
-}
+import io.epiphanous.flinkrunner.model._
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.functions.MapFunction
 import org.apache.flink.api.common.typeinfo.TypeInformation
