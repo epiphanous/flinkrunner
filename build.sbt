@@ -53,7 +53,7 @@ val V = new {
   val hadoop              = "3.3.2"
   val cassandraDriver     = "3.11.3"
   val uuidCreator         = "5.2.0"
-  val iceberg             = "1.2.0"
+  val iceberg             = "1.2.1"
   val jna                 = "5.12.1" // needed for testcontainers in some jvms
   val awsSdk2             = "2.20.26"
   val dropWizard          = "4.2.17"
@@ -143,7 +143,7 @@ val otherDeps = Seq(
   "mysql"                            % "mysql-connector-java"                   % V.jdbcMysql           % Provided,
   "net.java.dev.jna"                 % "jna"                                    % V.jna                 % Test,
   "org.apache.hadoop"                % "hadoop-client"                          % V.hadoop              % Provided,
-  "org.apache.iceberg"               % s"iceberg-flink-runtime-${V.flinkMinor}" % V.iceberg,
+  "org.apache.iceberg"               % s"iceberg-flink-runtime-${V.flinkMinor}" % V.iceberg             % Provided,
   "org.postgresql"                   % "postgresql"                             % V.jdbcPg              % Provided,
   "org.scalacheck"                  %% "scalacheck"                             % V.scalaCheck,
   "org.scalactic"                   %% "scalactic"                              % V.scalaTest,
