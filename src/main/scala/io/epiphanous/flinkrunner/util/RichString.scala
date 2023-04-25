@@ -1,4 +1,4 @@
-package com.mdsol.streaming.util
+package io.epiphanous.flinkrunner.util
 
 import java.util.regex.Pattern
 
