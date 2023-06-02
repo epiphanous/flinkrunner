@@ -6,7 +6,7 @@ import io.epiphanous.flinkrunner.util.RowUtils.rowTypeOf
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.scala.createTypeInformation
-import org.apache.flink.streaming.api.scala.DataStream
+import org.apache.flink.streaming.api.scala.{DataStream, OutputTag}
 import org.apache.flink.table.types.logical.RowType
 import org.apache.flink.types.Row
 
@@ -35,6 +35,12 @@ import scala.reflect.runtime.{universe => ru}
 trait SinkConfig[ADT <: FlinkEvent] extends SourceOrSinkConfig[ADT] {
 
   override val _sourceOrSink = "sink"
+
+  val isSideOutput: Boolean =
+    config.getBooleanOpt("side.output").getOrElse(false)
+
+  def getOutputTag[X <: ADT: TypeInformation]: OutputTag[X] =
+    OutputTag[X](name)
 
   def addSink[E <: ADT: TypeInformation](stream: DataStream[E]): Unit
 

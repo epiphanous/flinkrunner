@@ -42,7 +42,7 @@ abstract class StreamJob[
       seq: Seq[IN] = Seq.empty,
       name: Option[String] = None): DataStream[IN] =
     if (seq.nonEmpty) runner.env.fromCollection(seq)
-    else singleSource[IN](name.getOrElse(runner.getDefaultSourceName))
+    else singleSource[IN](name.getOrElse(runner.defaultSourceName))
 
   def seqOrSingleAvroSource[
       IN <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
@@ -52,7 +52,7 @@ abstract class StreamJob[
       fromKV: EmbeddedAvroRecordInfo[A] => IN): DataStream[IN] =
     if (seq.nonEmpty) runner.env.fromCollection[IN](seq)
     else
-      singleAvroSource[IN, A](name.getOrElse(runner.getDefaultSourceName))
+      singleAvroSource[IN, A](name.getOrElse(runner.defaultSourceName))
 
   def seqOrSingleRowSource[
       IN <: ADT with EmbeddedRowType: TypeInformation](
@@ -63,7 +63,7 @@ abstract class StreamJob[
       GenericRowData.of(Integer.valueOf(i))
     }
     runner.env.fromCollection(rd).map(g => seq(g.getInt(0)))
-  } else singleRowSource[IN](name.getOrElse(runner.getDefaultSourceName))
+  } else singleRowSource[IN](name.getOrElse(runner.defaultSourceName))
 
   /** Configure a single input source stream.
     * @param name
@@ -74,7 +74,7 @@ abstract class StreamJob[
     *   DataStream[IN]
     */
   def singleSource[IN <: ADT: TypeInformation](
-      name: String = runner.getDefaultSourceName): DataStream[IN] =
+      name: String = runner.defaultSourceName): DataStream[IN] =
     runner.configToSource[IN](runner.getSourceConfig(name))
 
   /** Configure a single avro source stream.
@@ -98,7 +98,7 @@ abstract class StreamJob[
   def singleAvroSource[
       IN <: ADT with EmbeddedAvroRecord[INA]: TypeInformation,
       INA <: GenericRecord: TypeInformation](
-      name: String = runner.getDefaultSourceName)(implicit
+      name: String = runner.defaultSourceName)(implicit
       fromKV: EmbeddedAvroRecordInfo[INA] => IN): DataStream[IN] =
     runner.configToAvroSource[IN, INA](runner.getSourceConfig(name))
 
@@ -115,7 +115,7 @@ abstract class StreamJob[
     *   DataStream[IN]
     */
   def singleRowSource[IN <: ADT with EmbeddedRowType: TypeInformation](
-      name: String = runner.getDefaultSourceName)(implicit
+      name: String = runner.defaultSourceName)(implicit
       fromRowData: RowData => IN): DataStream[IN] =
     runner.configToRowSource[IN](runner.getSourceConfig(name))
 
@@ -319,8 +319,18 @@ abstract class StreamJob[
     * @param out
     *   a transformed stream from transform()
     */
-  def sink(out: DataStream[OUT]): Unit =
-    runner.getSinkNames.foreach(name => runner.addSink[OUT](out, name))
+  def sink(out: DataStream[OUT]): Unit = {
+    runner.mainSinkConfigs.foreach(_.addSink[OUT](out))
+    if (runner.sideSinkConfigs.nonEmpty)
+      sinkSideOutputs(out)
+  }
+
+  /** Write side outputs to their configured sinks. If you configure side
+    * sinks, you must implement this to emit side outputs to those sinks.
+    * @param out
+    *   a transformed stream from transform()
+    */
+  def sinkSideOutputs(out: DataStream[OUT]): Unit = ???
 
   /** The output stream will only be passed to output sink(s) if the runner
     * determines it's required. Some testing configurations can skip

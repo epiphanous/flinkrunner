@@ -52,6 +52,33 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     classOf[AvroSchemaSerializer]
   )
 
+  val sourceNames: Seq[String] =
+    getSourceOrSinkNames("source")
+
+  val sinkNames: Seq[String] =
+    getSourceOrSinkNames("sink")
+
+  def defaultSourceName: String = sourceNames.headOption.getOrElse(
+    throw new RuntimeException("no sources are configured")
+  )
+
+  def defaultSinkName: String               = sinkNames.headOption.getOrElse(
+    throw new RuntimeException("no sinks are configured")
+  )
+  val sourceConfigs: Seq[SourceConfig[ADT]] =
+    sourceNames.map(name =>
+      SourceConfig[ADT](name, config, generatorFactoryOpt)
+    )
+
+  val sinkConfigs: Seq[SinkConfig[ADT]] =
+    sinkNames.map(name => SinkConfig[ADT](name, config))
+
+  val mainSinkConfigs: Seq[SinkConfig[ADT]] =
+    sinkConfigs.filterNot(_.isSideOutput)
+
+  val sideSinkConfigs: Seq[SinkConfig[ADT]] =
+    sinkConfigs.filter(_.isSideOutput)
+
   /** Gets (and returns as string) the execution plan for the job from the
     * StreamExecutionEnvironment.
     * @return
@@ -154,26 +181,15 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
       case sn if sn.nonEmpty => sn
       case _                 =>
         config
-          .getObject(s"${sourceOrSink}s")
-          .unwrapped()
-          .keySet()
-          .asScala
-          .toSeq
+          .getObjectOption(s"${sourceOrSink}s")
+          .map(
+            _.unwrapped()
+              .keySet()
+              .asScala
+              .toSeq
+          )
+          .getOrElse(Seq.empty)
     }).sorted
-
-  def getSourceNames: Seq[String] =
-    getSourceOrSinkNames("source")
-
-  def getSinkNames: Seq[String] =
-    getSourceOrSinkNames("sink")
-
-  def getDefaultSourceName: String = getSourceNames.headOption.getOrElse(
-    throw new RuntimeException("no sources are configured")
-  )
-
-  def getDefaultSinkName: String = getSinkNames.headOption.getOrElse(
-    throw new RuntimeException("no sinks are configured")
-  )
 
   /** Helper method to resolve the source configuration. Implementers can
     * override this method to customize source configuration behavior, in
@@ -185,8 +201,14 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     *   SourceConfig
     */
   def getSourceConfig(
-      sourceName: String = getDefaultSourceName): SourceConfig[ADT] =
-    SourceConfig[ADT](sourceName, config, generatorFactoryOpt)
+      sourceName: String = defaultSourceName): SourceConfig[ADT] =
+    sourceConfigs
+      .find(_.name.equalsIgnoreCase(sourceName))
+      .getOrElse(
+        throw new RuntimeException(
+          s"unknown source <$sourceName> in job <${config.jobName}>"
+        )
+      )
 
   def _mockSource[E <: ADT: TypeInformation](
       sourceConfig: SourceConfig[ADT],
@@ -268,8 +290,15 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
   //  ********************** SINKS **********************
 
   def getSinkConfig(
-      sinkName: String = getDefaultSinkName): SinkConfig[ADT] =
-    SinkConfig[ADT](sinkName, config)
+      sinkName: String = defaultSinkName): SinkConfig[ADT] = {
+    sinkConfigs
+      .find(_.name.equalsIgnoreCase(sinkName))
+      .getOrElse(
+        throw new RuntimeException(
+          s"unknown sink <$sinkName> in job <${config.jobName}>"
+        )
+      )
+  }
 
   /** Usually, we should write to the sink, unless we have a non-empty
     * CheckResults configuration that determines otherwise.
@@ -294,7 +323,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
   def addRowSink[
       E <: ADT with EmbeddedRowType: TypeInformation: ru.TypeTag](
       stream: DataStream[E],
-      sinkName: String = getDefaultSinkName): Unit =
+      sinkName: String = defaultSinkName): Unit =
     getSinkConfig(sinkName).addRowSink[E](stream)
 
 }
