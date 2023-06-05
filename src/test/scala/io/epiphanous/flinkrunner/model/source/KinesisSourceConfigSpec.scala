@@ -175,4 +175,29 @@ class KinesisSourceConfigSpec extends PropSpec {
     the[Exception] thrownBy noProvidedConfig should have message "Kinesis source kinesis-test is missing required 'stream' or 'streams' property"
   }
 
+  property("endpoint property") {
+    val endpointConfig =
+      """
+        |aws.endpoint = "http://localhost:4567"
+        |""".stripMargin
+    defaultConfigPlus(endpointConfig).awsEndpoint shouldBe Some(
+      "http://localhost:4567"
+    )
+  }
+
+  property("config.endpoint property") {
+    val endpointConfig =
+      """
+        |config {
+        |  aws.endpoint = "http://localhost:4567"
+        |}
+        |""".stripMargin
+    val sinkConfig     = defaultConfigPlus(endpointConfig)
+    sinkConfig.properties.getProperty(
+      "aws.endpoint"
+    ) shouldBe "http://localhost:4567"
+    sinkConfig.awsEndpoint shouldBe Some(
+      "http://localhost:4567"
+    )
+  }
 }
