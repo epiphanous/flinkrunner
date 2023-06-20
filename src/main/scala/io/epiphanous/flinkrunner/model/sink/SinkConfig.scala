@@ -34,7 +34,7 @@ import scala.reflect.runtime.{universe => ru}
   */
 trait SinkConfig[ADT <: FlinkEvent] extends SourceOrSinkConfig[ADT] {
 
-  override val _sourceOrSink = "sink"
+  override def _sourceOrSink = "sink"
 
   def addSink[E <: ADT: TypeInformation](stream: DataStream[E]): Unit
 

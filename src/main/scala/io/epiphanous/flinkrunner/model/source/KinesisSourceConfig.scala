@@ -10,7 +10,10 @@ import io.epiphanous.flinkrunner.serde.JsonKinesisDeserializationSchema
 import io.epiphanous.flinkrunner.util.ConfigToProps.getFromEither
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.connector.source.{Source, SourceSplit}
-import org.apache.flink.kinesis.shaded.org.apache.flink.connector.aws.config.AWSConfigConstants.AWS_REGION
+import org.apache.flink.kinesis.shaded.org.apache.flink.connector.aws.config.AWSConfigConstants.{
+  AWS_ENDPOINT,
+  AWS_REGION
+}
 import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.flink.streaming.connectors.kinesis.FlinkKinesisConsumer
 import org.apache.flink.streaming.connectors.kinesis.config.ConsumerConfigConstants._
@@ -56,6 +59,8 @@ import scala.util.Try
   *   - `efo.consumer`: name of the efo consumer (defaults to
   *     `jobName`.`sourceName`)
   *   - `aws.region`: AWS region of your kinesis endpoint
+  *   - `aws.endpoint`: AWS endpoint for kinesis (usually only required for
+  *     localstack)
   *   - `config`: optional config to pass to kinesis client (see
   *     [[org.apache.flink.streaming.connectors.kinesis.config.ConsumerConfigConstants]])
   *
@@ -78,6 +83,12 @@ case class KinesisSourceConfig[ADT <: FlinkEvent](
       Regions.US_EAST_1.name()
     )
   properties.setProperty(AWS_REGION, awsRegion)
+
+  val awsEndpoint: Option[String] =
+    getFromEither(pfx(), Seq(AWS_ENDPOINT), config.getStringOpt)
+  awsEndpoint.foreach(endpoint =>
+    properties.setProperty(AWS_ENDPOINT, endpoint)
+  )
 
   val streams: List[String] = {
 
