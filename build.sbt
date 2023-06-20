@@ -77,13 +77,13 @@ val flinkDeps =
     "org.apache.flink"  % "flink-connector-files"                % V.flink      % Provided, // ds text files
     "org.apache.flink"  % "flink-parquet"                        % V.flink      % Provided, // parquet bulk sink
     "org.apache.flink"  % "flink-connector-kafka"                % V.flink      % Provided,
-    "org.apache.flink"  % "flink-connector-kinesis"              % "4.1.0-1.17" % Provided,
-    "org.apache.flink"  % "flink-connector-aws-kinesis-streams"  % "4.1.0-1.17" % Provided,
-    "org.apache.flink"  % "flink-connector-aws-kinesis-firehose" % "4.1.0-1.17" % Provided,
-    "org.apache.flink" %% "flink-connector-cassandra"            % "3.1.0-1.17" % Provided,
-    "org.apache.flink"  % "flink-connector-elasticsearch7"       % "3.0.1-1.17" % Provided,
-    "org.apache.flink"  % "flink-connector-jdbc"                 % "3.1.0-1.17" % Provided,
-    "org.apache.flink"  % "flink-connector-rabbitmq"             % "3.0.1-1.17" % Provided,
+    "org.apache.flink"  % "flink-connector-kinesis"              % s"4.1.0-${V.flinkMinor}" % Provided,
+    "org.apache.flink"  % "flink-connector-aws-kinesis-streams"  % s"4.1.0-${V.flinkMinor}" % Provided,
+    "org.apache.flink"  % "flink-connector-aws-kinesis-firehose" % s"4.1.0-${V.flinkMinor}" % Provided,
+    "org.apache.flink" %% "flink-connector-cassandra"            % s"3.1.0-${V.flinkMinor}" % Provided,
+    "org.apache.flink"  % "flink-connector-elasticsearch7"       % s"3.0.1-${V.flinkMinor}" % Provided,
+    "org.apache.flink"  % "flink-connector-jdbc"                 % s"3.1.0-${V.flinkMinor}" % Provided,
+    "org.apache.flink"  % "flink-connector-rabbitmq"             % s"3.0.1-${V.flinkMinor}" % Provided,
     // avro support
     "org.apache.flink"  % "flink-avro"                           % V.flink      % Provided, // ds and table avro format
     "org.apache.flink"  % "flink-avro-confluent-registry"        % V.flink      % Provided, // ds and table avro registry format
