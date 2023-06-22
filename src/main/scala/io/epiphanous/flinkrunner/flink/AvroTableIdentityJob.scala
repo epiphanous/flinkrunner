@@ -10,8 +10,10 @@ import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.scala.DataStream
 
+import scala.reflect.runtime.{universe => ru}
+
 class AvroTableIdentityJob[
-    E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+    E <: ADT with EmbeddedAvroRecord[A]: TypeInformation: ru.TypeTag,
     A <: GenericRecord: TypeInformation,
     ADT <: FlinkEvent: TypeInformation](runner: FlinkRunner[ADT])(implicit
     fromKV: EmbeddedAvroRecordInfo[A] => E)
