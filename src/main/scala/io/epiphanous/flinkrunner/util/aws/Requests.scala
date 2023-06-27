@@ -18,10 +18,12 @@ object Requests {
     *   Request[IO] signed for the requested AWS service
     */
   def get(
+           awsEndpoint:Option[String] = None,
       uri: String,
       headers: Map[String, String] = Map.empty): Request[IO] =
     new AWSSigner(
-      GET(Uri.unsafeFromString(uri), Headers(headers.toSeq))
+      GET(Uri.unsafeFromString(uri), Headers(headers.toSeq)),awsEndpoint
+
     ).sign
 
   /** Creates an http4s POST Request[IO] that has been signed with an AWS
