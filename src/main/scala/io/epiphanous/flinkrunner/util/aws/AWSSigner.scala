@@ -48,21 +48,21 @@ class AWSSigner(
   def sign: Request[IO] = {
     signer.sign(signable, credentials)
     val req = signable.getSignedRequest
-//    logger.debug(s"AWS Signer: $req")
-//    logger.debug(
-//      s"AWS Signature: ${req.headers.get(CIString("Authorization"))}"
-//    )
+    logger.debug(s"AWS Signer: $req")
+    logger.debug(
+      s"AWS Signature: ${req.headers.get(CIString("Authorization"))}"
+    )
     req
   }
 
   private val serviceEndpointPattern: Regex =
     raw"([^.]+)(\.[^.]+)?\.amazonaws\.com".r
 
-  protected def resolveAWSService( aws: Option[String]): Option[(String, Option[Uri])] = for {
+  protected def resolveAWSService( awsEndpoint: Option[String]): Option[(String, Option[Uri])] = for {
     schema <- request.uri.scheme.map(_.value)
     host <- request.uri.host.map(_.value)
     (service, uri) <-
-      if (schema.startsWith("s3") && null == aws ) {
+      if (schema.startsWith("s3") && awsEndpoint.isEmpty) {
         Some(
           "s3",
           Some(
