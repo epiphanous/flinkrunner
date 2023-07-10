@@ -18,11 +18,11 @@ object Requests {
     *   Request[IO] signed for the requested AWS service
     */
   def get(
-           awsEndpoint:Option[String] = None,
-      uri: String,
-      headers: Map[String, String] = Map.empty): Request[IO] =
+           uri: String,
+           awsEndpoint: Option[String] = None,
+           headers: Map[String, String] = Map.empty): Request[IO] =
     new AWSSigner(
-      GET(Uri.unsafeFromString(uri), Headers(headers.toSeq)),awsEndpoint
+      GET(Uri.unsafeFromString(uri), Headers(headers.toSeq)), awsEndpoint
 
     ).sign
 
