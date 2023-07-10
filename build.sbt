@@ -29,8 +29,8 @@ resolvers += "Local Maven Repository" at "file://" + Path.userHome.absolutePath 
 resolvers += "Confluent Repository" at "https://packages.confluent.io/maven/"
 
 val V = new {
-  val flink               = "1.16.1"
-  val flinkMinor          = "1.16"
+  val flink               = "1.17.1"
+  val flinkMinor          = "1.17"
   val logback             = "1.4.6"
   val scalaLogging        = "3.9.5"
   val scalaTest           = "3.2.15"
@@ -53,7 +53,7 @@ val V = new {
   val hadoop              = "3.3.2"
   val cassandraDriver     = "3.11.3"
   val uuidCreator         = "5.2.0"
-  val iceberg             = "1.2.1"
+  val iceberg             = "1.3.0"
   val jna                 = "5.12.1" // needed for testcontainers in some jvms
   val awsSdk2             = "2.20.26"
   val dropWizard          = "4.2.17"
@@ -69,36 +69,36 @@ val flinkDeps =
     // sql parser
     "org.apache.flink"  % "flink-sql-parser"                     % V.flink,
     // queryable state
-    "org.apache.flink"  % "flink-queryable-state-runtime"        % V.flink % Provided,
+    "org.apache.flink"  % "flink-queryable-state-runtime"        % V.flink      % Provided,
     // complex event processing
-    "org.apache.flink"  % "flink-cep"                            % V.flink % Provided,
+    "org.apache.flink"  % "flink-cep"                            % V.flink      % Provided,
     // connectors
-    "org.apache.flink"  % "flink-connector-base"                 % V.flink % Provided, // ds hybrid source
-    "org.apache.flink"  % "flink-connector-files"                % V.flink % Provided, // ds text files
-    "org.apache.flink"  % "flink-parquet"                        % V.flink % Provided, // parquet bulk sink
-    "org.apache.flink"  % "flink-connector-kafka"                % V.flink % Provided,
-    "org.apache.flink"  % "flink-connector-kinesis"              % V.flink % Provided,
-    "org.apache.flink"  % "flink-connector-aws-kinesis-streams"  % V.flink % Provided,
-    "org.apache.flink"  % "flink-connector-aws-kinesis-firehose" % V.flink % Provided,
-    "org.apache.flink" %% "flink-connector-cassandra"            % V.flink % Provided,
-    "org.apache.flink"  % "flink-connector-elasticsearch7"       % V.flink % Provided,
-    "org.apache.flink"  % "flink-connector-jdbc"                 % V.flink % Provided,
-    "org.apache.flink"  % "flink-connector-rabbitmq"             % V.flink % Provided,
+    "org.apache.flink"  % "flink-connector-base"                 % V.flink      % Provided, // ds hybrid source
+    "org.apache.flink"  % "flink-connector-files"                % V.flink      % Provided, // ds text files
+    "org.apache.flink"  % "flink-parquet"                        % V.flink      % Provided, // parquet bulk sink
+    "org.apache.flink"  % "flink-connector-kafka"                % V.flink      % Provided,
+    "org.apache.flink"  % "flink-connector-kinesis"              % s"4.1.0-${V.flinkMinor}" % Provided,
+    "org.apache.flink"  % "flink-connector-aws-kinesis-streams"  % s"4.1.0-${V.flinkMinor}" % Provided,
+    "org.apache.flink"  % "flink-connector-aws-kinesis-firehose" % s"4.1.0-${V.flinkMinor}" % Provided,
+    "org.apache.flink" %% "flink-connector-cassandra"            % s"3.1.0-${V.flinkMinor}" % Provided,
+    "org.apache.flink"  % "flink-connector-elasticsearch7"       % s"3.0.1-${V.flinkMinor}" % Provided,
+    "org.apache.flink"  % "flink-connector-jdbc"                 % s"3.1.0-${V.flinkMinor}" % Provided,
+    "org.apache.flink"  % "flink-connector-rabbitmq"             % s"3.0.1-${V.flinkMinor}" % Provided,
     // avro support
-    "org.apache.flink"  % "flink-avro"                           % V.flink % Provided, // ds and table avro format
-    "org.apache.flink"  % "flink-avro-confluent-registry"        % V.flink % Provided, // ds and table avro registry format
+    "org.apache.flink"  % "flink-avro"                           % V.flink      % Provided, // ds and table avro format
+    "org.apache.flink"  % "flink-avro-confluent-registry"        % V.flink      % Provided, // ds and table avro registry format
     // table api support
     "org.apache.flink" %% "flink-table-api-scala-bridge"         % V.flink, // table api scala
-    "org.apache.flink"  % "flink-table-planner-loader"           % V.flink % Provided, // table api
-    "org.apache.flink"  % "flink-table-runtime"                  % V.flink % Provided, // table runtime
-    "org.apache.flink"  % "flink-csv"                            % V.flink % Provided, // table api csv format
-    "org.apache.flink"  % "flink-json"                           % V.flink % Provided, // table api json format
+    "org.apache.flink"  % "flink-table-planner-loader"           % V.flink      % Provided, // table api
+    "org.apache.flink"  % "flink-table-runtime"                  % V.flink      % Provided, // table runtime
+    "org.apache.flink"  % "flink-csv"                            % V.flink      % Provided, // table api csv format
+    "org.apache.flink"  % "flink-json"                           % V.flink      % Provided, // table api json format
     "org.apache.flink"  % "flink-clients"                        % V.flink,
     // dropwizard metrics support
-    "org.apache.flink"  % "flink-metrics-dropwizard"             % V.flink % Provided,
+    "org.apache.flink"  % "flink-metrics-dropwizard"             % V.flink      % Provided,
     // test support
-    "org.apache.flink"  % "flink-test-utils"                     % V.flink % Test,
-    "org.apache.flink"  % "flink-runtime-web"                    % V.flink % Test
+    "org.apache.flink"  % "flink-test-utils"                     % V.flink      % Test,
+    "org.apache.flink"  % "flink-runtime-web"                    % V.flink      % Test
   )
 
 val loggingDeps = Seq(
