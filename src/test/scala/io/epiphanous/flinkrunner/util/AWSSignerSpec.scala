@@ -38,7 +38,7 @@ class AWSSignerSpec extends PropSpec {
         )
     ).withEntity(testBody)
     val signer               = new AWSSigner(
-      request,
+      request,None,
       Some(new BasicAWSCredentials("foobar", "foobaz"))
     )
     val signedRequest        = signer.sign
