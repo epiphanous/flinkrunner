@@ -2,7 +2,7 @@ package io.epiphanous.flinkrunner.model.sink
 
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.serde.{
-  ConfluentAvroRegistryKafkaRecordSerializationSchema,
+  AvroRegistryKafkaRecordSerializationSchema,
   JsonKafkaRecordSerializationSchema
 }
 import io.epiphanous.flinkrunner.util.ConfigToProps
@@ -99,11 +99,20 @@ case class KafkaSinkConfig[ADT <: FlinkEvent: TypeInformation](
       s"${config.jobName}.$name.tx.id"
     )
 
-  val schemaRegistryConfig: SchemaRegistryConfig = SchemaRegistryConfig(
-    isDeserializing = false,
-    config
-      .getObjectOption(pfx("schema.registry"))
-  )
+  val schemaRegistryConfig: SchemaRegistryConfig = SchemaRegistryConfig
+    .create(
+      deserialize = false,
+      config
+        .getObjectOption(pfx("schema.registry"))
+    )
+    .fold(
+      t =>
+        throw new RuntimeException(
+          s"failed to parse schema registry configuration for kafka sink $name in job ${config.jobName}",
+          t
+        ),
+      identity
+    )
 
   val cacheConcurrencyLevel: Int =
     config.getIntOpt(pfx("cache.concurrency.level")).getOrElse(4)
@@ -120,12 +129,10 @@ case class KafkaSinkConfig[ADT <: FlinkEvent: TypeInformation](
 
   /** Return an confluent avro serialization schema */
   def getAvroSerializationSchema[
-      E <: ADT with EmbeddedAvroRecord[A],
-      A <: GenericRecord]: KafkaRecordSerializationSchema[E] = {
-    new ConfluentAvroRegistryKafkaRecordSerializationSchema[E, A, ADT](
-      this
-    )
-  }
+      E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+      A <: GenericRecord: TypeInformation]
+      : KafkaRecordSerializationSchema[E] =
+    AvroRegistryKafkaRecordSerializationSchema[E, A, ADT](this)
 
   /** Returns, by default, a json serialization schema */
   def getSerializationSchema[E <: ADT: TypeInformation]

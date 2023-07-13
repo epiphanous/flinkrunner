@@ -34,7 +34,7 @@ val V = new {
   val logback             = "1.4.6"
   val scalaLogging        = "3.9.5"
   val scalaTest           = "3.2.15"
-  val scalaTestPlus       = "3.2.15.0"
+  val scalaTestPlus       = "3.2.16.0"
   val scalaCheck          = "1.17.0"
   val testContainersScala = "0.40.12"
   val jackson             = "2.14.2"
@@ -45,9 +45,9 @@ val V = new {
   val guava               = "31.1-jre"
   val squants             = "1.8.3"
   val confluentAvroSerde  = "7.1.1"
-  val parquet             = "1.12.3"
-  val awsSdk              = "1.12.429"
-  val jdbcMysql           = "8.0.32"
+  val parquet             = "1.13.1"
+  val awsSdk              = "1.12.472"
+  val jdbcMysql           = "8.0.33"
   val jdbcPg              = "42.5.4"
   val jdbcMssql           = "11.2.0.jre11"
   val hadoop              = "3.3.2"
@@ -55,8 +55,9 @@ val V = new {
   val uuidCreator         = "5.2.0"
   val iceberg             = "1.3.0"
   val jna                 = "5.12.1" // needed for testcontainers in some jvms
-  val awsSdk2             = "2.20.26"
+  val awsSdk2             = "2.20.69"
   val dropWizard          = "4.2.17"
+  val glueSerde           = "1.1.15"
 }
 
 val flinkDeps =
@@ -69,14 +70,14 @@ val flinkDeps =
     // sql parser
     "org.apache.flink"  % "flink-sql-parser"                     % V.flink,
     // queryable state
-    "org.apache.flink"  % "flink-queryable-state-runtime"        % V.flink      % Provided,
+    "org.apache.flink"  % "flink-queryable-state-runtime"        % V.flink                  % Provided,
     // complex event processing
-    "org.apache.flink"  % "flink-cep"                            % V.flink      % Provided,
+    "org.apache.flink"  % "flink-cep"                            % V.flink                  % Provided,
     // connectors
-    "org.apache.flink"  % "flink-connector-base"                 % V.flink      % Provided, // ds hybrid source
-    "org.apache.flink"  % "flink-connector-files"                % V.flink      % Provided, // ds text files
-    "org.apache.flink"  % "flink-parquet"                        % V.flink      % Provided, // parquet bulk sink
-    "org.apache.flink"  % "flink-connector-kafka"                % V.flink      % Provided,
+    "org.apache.flink"  % "flink-connector-base"                 % V.flink                  % Provided, // ds hybrid source
+    "org.apache.flink"  % "flink-connector-files"                % V.flink                  % Provided, // ds text files
+    "org.apache.flink"  % "flink-parquet"                        % V.flink                  % Provided, // parquet bulk sink
+    "org.apache.flink"  % "flink-connector-kafka"                % V.flink                  % Provided,
     "org.apache.flink"  % "flink-connector-kinesis"              % s"4.1.0-${V.flinkMinor}" % Provided,
     "org.apache.flink"  % "flink-connector-aws-kinesis-streams"  % s"4.1.0-${V.flinkMinor}" % Provided,
     "org.apache.flink"  % "flink-connector-aws-kinesis-firehose" % s"4.1.0-${V.flinkMinor}" % Provided,
@@ -85,20 +86,20 @@ val flinkDeps =
     "org.apache.flink"  % "flink-connector-jdbc"                 % s"3.1.0-${V.flinkMinor}" % Provided,
     "org.apache.flink"  % "flink-connector-rabbitmq"             % s"3.0.1-${V.flinkMinor}" % Provided,
     // avro support
-    "org.apache.flink"  % "flink-avro"                           % V.flink      % Provided, // ds and table avro format
-    "org.apache.flink"  % "flink-avro-confluent-registry"        % V.flink      % Provided, // ds and table avro registry format
+    "org.apache.flink"  % "flink-avro"                           % V.flink                  % Provided, // ds and table avro format
+    "org.apache.flink"  % "flink-avro-confluent-registry"        % V.flink                  % Provided, // ds and table avro registry format
     // table api support
     "org.apache.flink" %% "flink-table-api-scala-bridge"         % V.flink, // table api scala
-    "org.apache.flink"  % "flink-table-planner-loader"           % V.flink      % Provided, // table api
-    "org.apache.flink"  % "flink-table-runtime"                  % V.flink      % Provided, // table runtime
-    "org.apache.flink"  % "flink-csv"                            % V.flink      % Provided, // table api csv format
-    "org.apache.flink"  % "flink-json"                           % V.flink      % Provided, // table api json format
+    "org.apache.flink"  % "flink-table-planner-loader"           % V.flink                  % Provided, // table api
+    "org.apache.flink"  % "flink-table-runtime"                  % V.flink                  % Provided, // table runtime
+    "org.apache.flink"  % "flink-csv"                            % V.flink                  % Provided, // table api csv format
+    "org.apache.flink"  % "flink-json"                           % V.flink                  % Provided, // table api json format
     "org.apache.flink"  % "flink-clients"                        % V.flink,
     // dropwizard metrics support
-    "org.apache.flink"  % "flink-metrics-dropwizard"             % V.flink      % Provided,
+    "org.apache.flink"  % "flink-metrics-dropwizard"             % V.flink                  % Provided,
     // test support
-    "org.apache.flink"  % "flink-test-utils"                     % V.flink      % Test,
-    "org.apache.flink"  % "flink-runtime-web"                    % V.flink      % Test
+    "org.apache.flink"  % "flink-test-utils"                     % V.flink                  % Test,
+    "org.apache.flink"  % "flink-runtime-web"                    % V.flink                  % Test
   )
 
 val loggingDeps = Seq(
@@ -122,6 +123,7 @@ val circeDeps = Seq(
 val otherDeps = Seq(
   "com.amazonaws"                    % "aws-java-sdk-core"                      % V.awsSdk              % Provided,
   "com.amazonaws"                    % "aws-java-sdk-s3"                        % V.awsSdk              % Test,
+  "software.amazon.glue"             % "schema-registry-flink-serde"            % V.glueSerde,
   "com.beachape"                    %% "enumeratum"                             % V.enumeratum,
   "com.datastax.cassandra"           % "cassandra-driver-extras"                % V.cassandraDriver     % Provided,
   "com.dimafeng"                    %% "testcontainers-scala-cassandra"         % V.testContainersScala % Test,
