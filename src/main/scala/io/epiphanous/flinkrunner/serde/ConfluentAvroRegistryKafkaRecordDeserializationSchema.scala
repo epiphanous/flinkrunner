@@ -1,26 +1,27 @@
 package io.epiphanous.flinkrunner.serde
 
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
+import io.confluent.kafka.serializers.{
+  KafkaAvroDeserializer,
+  KafkaAvroDeserializerConfig
+}
 import io.epiphanous.flinkrunner.model.source.KafkaSourceConfig
 import io.epiphanous.flinkrunner.model.{
   EmbeddedAvroRecord,
   EmbeddedAvroRecordInfo,
   FlinkEvent
 }
-import io.epiphanous.flinkrunner.util.AvroUtils.parseSchemaString
-import org.apache.avro.Schema
+import io.epiphanous.flinkrunner.util.AvroUtils.isSpecific
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
+
+import java.util
 
 /** A deserialization schema that uses a confluent schema registry to
   * deserialize a kafka key/value pair into instances of a flink runner ADT
   * that also implements the EmbeddedAvroRecord trait.
   * @param sourceConfig
   *   config for the kafka source
-  * @param schemaOpt
-  *   optional avro schema string, which is required if A is GenericRecord
-  * @param schemaRegistryClientOpt
-  *   optional schema registry client (useful for testing)
   * @tparam E
   *   event type being deserialized, with an embedded avro record
   * @tparam A
@@ -33,35 +34,40 @@ class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
     A <: GenericRecord: TypeInformation,
     ADT <: FlinkEvent
 ](
-    sourceConfig: KafkaSourceConfig[ADT]
+    sourceConfig: KafkaSourceConfig[ADT],
+    schemaRegistryClientOpt: Option[SchemaRegistryClient] = None
 )(implicit fromKV: EmbeddedAvroRecordInfo[A] => E)
     extends AvroRegistryKafkaRecordDeserializationSchema[E, A, ADT](
       sourceConfig
     ) {
-  @transient
-  lazy val schemaRegistryClient: SchemaRegistryClient =
-    sourceConfig.schemaRegistryConfig.confluentClient
 
-  @transient
-  lazy val keyDeserializer
-      : MyConfluentRegistryAvroDeserializationSchema[String] =
-    MyConfluentRegistryAvroDeserializationSchema.get[String, ADT](
-      clazz = classOf[String],
-      reader = Some(Schema.create(Schema.Type.STRING)),
-      schemaRegistryClient = schemaRegistryClient,
-      sourceConfig = sourceConfig,
-      isKey = true
+  def getDeserializer: KafkaAvroDeserializer =
+    schemaRegistryClientOpt.fold(new KafkaAvroDeserializer())(c =>
+      new KafkaAvroDeserializer(c)
     )
 
+  def getConfig(specific: Boolean): util.HashMap[String, String] = {
+    val configs = new java.util.HashMap[String, String]()
+    configs.putAll(sourceConfig.schemaRegistryConfig.props)
+    configs.put(
+      KafkaAvroDeserializerConfig.SPECIFIC_AVRO_READER_CONFIG,
+      specific.toString
+    )
+    configs
+  }
+
   @transient
-  lazy val valueDeserializer
-      : MyConfluentRegistryAvroDeserializationSchema[A] =
-    MyConfluentRegistryAvroDeserializationSchema
-      .get[A, ADT](
-        clazz = avroClass,
-        reader = sourceConfig.schemaOpt.map(parseSchemaString),
-        schemaRegistryClient = schemaRegistryClient,
-        sourceConfig = sourceConfig,
-        isKey = false
-      )
+  lazy val keyDeserializer: KafkaAvroDeserializer = {
+    val kad = getDeserializer
+    kad.configure(getConfig(false), true)
+    kad
+  }
+
+  @transient
+  lazy val valueDeserializer: KafkaAvroDeserializer = {
+    val kad = getDeserializer
+    kad.configure(getConfig(true), false)
+    kad
+  }
+
 }

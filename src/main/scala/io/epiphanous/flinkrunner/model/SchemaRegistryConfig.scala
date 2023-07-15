@@ -34,6 +34,7 @@ case class SchemaRegistryConfig(
   val url: String =
     props.getOrDefault("schema.registry.url", "na")
 
+  // useful for testing
   @transient
   lazy val confluentClient: SchemaRegistryClient =
     if (url.startsWith("mock")) new MockSchemaRegistryClient()
@@ -45,6 +46,7 @@ case class SchemaRegistryConfig(
         headers
       )
 
+  // useful for testing
   @transient
   lazy val glueClient: AWSSchemaRegistryClient =
     new AWSSchemaRegistryClient(
@@ -61,7 +63,7 @@ object SchemaRegistryConfig {
   def create(
       deserialize: Boolean,
       configOpt: Option[ConfigObject]): Try[SchemaRegistryConfig] = {
-    val config       = configOpt
+    val config                = configOpt
       .map(_.toConfig)
       .getOrElse(
         ConfigFactory
@@ -70,12 +72,19 @@ object SchemaRegistryConfig {
           )
           .getConfig("schema.registry")
       )
-    val headers      = Try(
+    val headers               = Try(
       config.getObject("headers")
     ).toOption.asProperties.asJavaMap
-    val explicitType = Try(config.getString("type")).toOption
+    val explicitType          = Try(config.getString("type")).toOption
       .flatMap(SchemaRegistryType.withNameInsensitiveOption)
-    if (explicitType.contains(Confluent) || config.hasPath("url")) {
+    val secondaryDeserializer = Try(
+      config.getString(AWSSchemaRegistryConstants.SECONDARY_DESERIALIZER)
+    ).toOption
+    if (
+      explicitType.contains(Confluent) || (config.hasPath(
+        "url"
+      ) && secondaryDeserializer.isEmpty)
+    ) {
       val url                = Try(config.getString("url"))
         .getOrElse(DEFAULT_SCHEMA_REG_URL)
       val useLogicalTypes    = Try(

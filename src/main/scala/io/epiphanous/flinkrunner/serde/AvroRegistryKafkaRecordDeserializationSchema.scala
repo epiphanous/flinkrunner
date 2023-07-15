@@ -2,15 +2,22 @@ package io.epiphanous.flinkrunner.serde
 
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.KafkaInfoHeader._
-import io.epiphanous.flinkrunner.model.SchemaRegistryType.{AwsGlue, Confluent}
+import io.epiphanous.flinkrunner.model.SchemaRegistryType.{
+  AwsGlue,
+  Confluent
+}
 import io.epiphanous.flinkrunner.model.source.KafkaSourceConfig
-import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, EmbeddedAvroRecordInfo, FlinkEvent}
+import io.epiphanous.flinkrunner.model.{
+  EmbeddedAvroRecord,
+  EmbeddedAvroRecordInfo,
+  FlinkEvent
+}
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.{TypeHint, TypeInformation}
 import org.apache.flink.connector.kafka.source.reader.deserializer.KafkaRecordDeserializationSchema
-import org.apache.flink.formats.avro.RegistryAvroDeserializationSchema
 import org.apache.flink.util.Collector
 import org.apache.kafka.clients.consumer.ConsumerRecord
+import org.apache.kafka.common.serialization.Deserializer
 
 import java.nio.charset.StandardCharsets
 import scala.collection.JavaConverters._
@@ -41,8 +48,8 @@ abstract class AvroRegistryKafkaRecordDeserializationSchema[
   val avroClass: Class[A]   = implicitly[TypeInformation[A]].getTypeClass
   val avroClassName: String = avroClass.getCanonicalName
 
-  val valueDeserializer: RegistryAvroDeserializationSchema[A]
-  val keyDeserializer: RegistryAvroDeserializationSchema[String]
+  val keyDeserializer: Deserializer[AnyRef]
+  val valueDeserializer: Deserializer[AnyRef]
 
   override def deserialize(
       record: ConsumerRecord[Array[Byte], Array[Byte]],
@@ -68,27 +75,29 @@ abstract class AvroRegistryKafkaRecordDeserializationSchema[
     )
 
     // deserialize the key
-    val keyOpt =
-      Try(
-        keyDeserializer
-          .deserialize(
-            record.key()
-          )
-      )
-        .fold(
-          error => {
-            logger.error(
-              s"failed to deserialize kafka message key (${record
-                  .key()
-                  .length} bytes) from topic ${record.topic()}",
-              error
-            )
-            None
-          },
-          k => Some(k)
-        )
+    val keyDeserialized = Try(
+      keyDeserializer.deserialize(record.topic(), record.key())
+    ).map(_.toString)
 
-    Try(valueDeserializer.deserialize(record.value()))
+    val keyOpt = keyDeserialized
+      .fold(
+        error => {
+          logger.error(
+            s"failed to deserialize kafka message key (${record
+                .key()
+                .length} bytes) from topic ${record.topic()}",
+            error
+          )
+          None
+        },
+        k => Some(k)
+      )
+
+    val valueDeserialized = Try(
+      valueDeserializer.deserialize(record.topic(), record.value())
+    )
+
+    valueDeserialized
       .fold(
         error =>
           logger.error(

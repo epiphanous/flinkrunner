@@ -11,10 +11,11 @@ class ConfluentAvroRegistryKafkaRecordSerdeSpec extends SerdeTestFixtures {
     ).runTest
   }
 
-  property("BWrapper Confluent Serde Roundtrip") {
-    SchemaRegistrySerdeTest[BWrapper, BRecord, MyAvroADT](
-      genOne[BWrapper]
-    ).runTest
+  property("BWrapper scale test") {
+    genPop[BWrapper](10000).zipWithIndex.foreach { case (b, i) =>
+      if (i % 100 == 0) println(i)
+      SchemaRegistrySerdeTest[BWrapper, BRecord, MyAvroADT](b).runTest
+    }
   }
 
 }

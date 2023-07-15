@@ -1,9 +1,16 @@
 package io.epiphanous.flinkrunner.serde
 
 import com.typesafe.scalalogging.LazyLogging
-import io.epiphanous.flinkrunner.model.SchemaRegistryType.{AwsGlue, Confluent}
+import io.epiphanous.flinkrunner.model.SchemaRegistryType.{
+  AwsGlue,
+  Confluent
+}
 import io.epiphanous.flinkrunner.model.sink.KafkaSinkConfig
-import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, FlinkEvent}
+import io.epiphanous.flinkrunner.model.{
+  AvroStringRecord,
+  EmbeddedAvroRecord,
+  FlinkEvent
+}
 import io.epiphanous.flinkrunner.util.SinkDestinationNameUtils.RichSinkDestinationName
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
@@ -38,7 +45,11 @@ abstract class AvroRegistryKafkaRecordSerializationSchema[
 ) extends KafkaRecordSerializationSchema[E]
     with LazyLogging {
 
-  val serializer: Serializer[AnyRef]
+  val avroClass: Class[A]   = implicitly[TypeInformation[A]].getTypeClass
+  val avroClassName: String = avroClass.getCanonicalName
+
+  val keySerializer: Serializer[AnyRef]
+  val valueSerializer: Serializer[AnyRef]
 
   override def serialize(
       element: E,
@@ -58,17 +69,13 @@ abstract class AvroRegistryKafkaRecordSerializationSchema[
     val topic = sinkConfig.expandTemplate(info.record)
 
     val key = info.keyOpt.map { k =>
-      serializer.configure(sinkConfig.schemaRegistryConfig.props, true)
-      serializer.serialize(topic, k)
+      keySerializer.serialize(
+        topic,
+        k
+      )
     }
 
-    logger.trace(
-      s"serializing ${info.record.getSchema.getFullName} record $element to topic <$topic> ${if (key.nonEmpty) "with key"
-        else "without key"}, headers=${info.headers}"
-    )
-
-    serializer.configure(sinkConfig.schemaRegistryConfig.props, false)
-    val value = serializer.serialize(topic, info.record)
+    val value = valueSerializer.serialize(topic, info.record)
 
     new ProducerRecord(
       topic,

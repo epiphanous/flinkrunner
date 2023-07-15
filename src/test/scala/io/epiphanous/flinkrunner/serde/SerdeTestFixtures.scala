@@ -17,6 +17,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.scalatest.Assertion
 
 import java.io.ByteArrayOutputStream
+import java.nio.charset.StandardCharsets
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 import scala.util.{Success, Try}
@@ -35,8 +36,12 @@ trait SerdeTestFixtures extends PropSpec {
   val defaultGlueSchemaRegConfigStr: String =
     s"""
        |schema.registry {
+       |  ${AWSSchemaRegistryConstants.AWS_ENDPOINT} = "http://localhost:4566"
        |  ${AWSSchemaRegistryConstants.AWS_REGION} = "us-east-1"
        |  ${AWSSchemaRegistryConstants.REGISTRY_NAME} = "datafabric"
+       |  ${AWSSchemaRegistryConstants.SCHEMA_AUTO_REGISTRATION_SETTING} = true
+       |  ${AWSSchemaRegistryConstants.DATA_FORMAT} = avro
+       |  ${AWSSchemaRegistryConstants.AVRO_RECORD_TYPE} = SPECIFIC_RECORD
        |}
        |""".stripMargin
 
@@ -47,6 +52,9 @@ trait SerdeTestFixtures extends PropSpec {
       event: E,
       schemaRegConfigStr: String = defaultConfluentSchemaRegConfigStr
   )(implicit fromKV: EmbeddedAvroRecordInfo[A] => E) {
+
+    val avroClassName: String =
+      implicitly[TypeInformation[A]].getTypeClass.getSimpleName
 
     val configStr: String                     =
       s"""|
@@ -59,7 +67,7 @@ trait SerdeTestFixtures extends PropSpec {
           |sources {
           |  test {
           |    connector = kafka
-          |    topic = test
+          |    topic = "$avroClassName"
           |    isKeyed = true
           |    bootstrap.servers = "kafka:9092"
           |    $schemaRegConfigStr
@@ -68,7 +76,7 @@ trait SerdeTestFixtures extends PropSpec {
           |sinks {
           |  test {
           |    connector = kafka
-          |    topic = test
+          |    topic = "$avroClassName"
           |    isKeyed = true
           |    bootstrap.servers = "kafka:9092"
           |    $schemaRegConfigStr
@@ -99,12 +107,13 @@ trait SerdeTestFixtures extends PropSpec {
       new Schema.Parser().parse("""{"type":"string"}""")
     val valueSchema: Schema = event.$record.getSchema
 
-    val recordKeyBytes: Array[Byte]   = binaryEncode(event.$id, keySchema)
+    val recordKeyBytes: Array[Byte]   =
+      event.$id.getBytes(StandardCharsets.UTF_8)
     val recordValueBytes: Array[Byte] =
       binaryEncode(event.$record, valueSchema)
 
-    val keySubject   = s"${kafkaSourceConfig.topic}-key"
-    val valueSubject = s"${kafkaSourceConfig.topic}-value"
+    val keySubject           = s"${kafkaSourceConfig.topic}-key"
+    val valueSubject: String = s"${kafkaSourceConfig.topic}-value"
 
     def registerSchemas: Unit = {
       if (isConfluent) {
@@ -123,12 +132,11 @@ trait SerdeTestFixtures extends PropSpec {
       } else { // if (isGlue) {
         val client = kafkaSourceConfig.schemaRegistryConfig.glueClient
         client
-          .registerSchemaVersion(keySchema.toString, keySubject, "AVRO")
-        client
-          .registerSchemaVersion(
+          .createSchema(
+            avroClassName,
+            "AVRO",
             valueSchema.toString,
-            valueSubject,
-            "AVRO"
+            Map.empty[String, String].asJava
           )
       }
     }
@@ -142,7 +150,10 @@ trait SerdeTestFixtures extends PropSpec {
         E,
         A,
         ADT
-      ](kafkaSourceConfig)
+      ](
+        kafkaSourceConfig,
+        Some(kafkaSourceConfig.schemaRegistryConfig.confluentClient)
+      )
       ds.open(null)
       ds
     }
@@ -204,19 +215,23 @@ trait SerdeTestFixtures extends PropSpec {
           Try(serializer.serialize(event, null, event.$timestamp))
         (serializedKey, serializedValue) <-
           Success((serializedResult.key(), serializedResult.value()))
-        deserializedEvent <- Try(
-                               deserializer.deserialize(
-                                 new ConsumerRecord(
-                                   kafkaSourceConfig.topic,
-                                   1,
-                                   1,
-                                   serializedKey,
-                                   serializedValue
-                                 ),
-                                 collector
-                               )
-                             ).map(_ => seq.get(0))
+        deserializedEvent <-
+          Try(
+            deserializer.deserialize(
+              new ConsumerRecord(
+                kafkaSourceConfig.topic,
+                1,
+                1,
+                serializedKey,
+                serializedValue
+              ),
+              collector
+            )
+          ).map(_ => seq.get(0))
       } yield deserializedEvent
+      if (out.isFailure) {
+        out.fold(fa => fa.printStackTrace(), identity)
+      }
       out.success.value shouldEqual event
     }
 

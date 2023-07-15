@@ -1,9 +1,15 @@
 package io.epiphanous.flinkrunner.serde
 
+import com.amazonaws.services.schemaregistry.deserializers.avro.AWSKafkaAvroDeserializer
 import io.epiphanous.flinkrunner.model.source.KafkaSourceConfig
-import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, EmbeddedAvroRecordInfo, FlinkEvent}
+import io.epiphanous.flinkrunner.model.{
+  EmbeddedAvroRecord,
+  EmbeddedAvroRecordInfo,
+  FlinkEvent
+}
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.kafka.common.serialization.Deserializer
 
 /** A flink deserialization schema that uses an aws glue avro schema
   * registry to deserialize a kafka consumer record into an embedded avro
@@ -29,19 +35,16 @@ class GlueAvroRegistryKafkaRecordDeserializationSchema[
     extends AvroRegistryKafkaRecordDeserializationSchema[E, A, ADT](
       sourceConfig
     ) {
-  override val valueDeserializer
-      : MyGlueRegistryAvroDeserializationSchema[A] =
-    MyGlueRegistryAvroDeserializationSchema
-      .forValue[A](
-        avroClass,
-        sourceConfig.schemaRegistryConfig.props,
-        sourceConfig.schemaOpt
-      )
 
-  override val keyDeserializer
-      : MyGlueRegistryAvroDeserializationSchema[String] =
-    MyGlueRegistryAvroDeserializationSchema
-      .forKey(
-        sourceConfig.schemaRegistryConfig.props
-      )
+  @transient
+  override lazy val keyDeserializer = new SimpleStringDeserializer()
+
+  @transient
+  override lazy val valueDeserializer: AWSKafkaAvroDeserializer = {
+    val kad = new AWSKafkaAvroDeserializer()
+    // configure
+    kad.configure(sourceConfig.schemaRegistryConfig.props, false)
+    kad
+  }
+
 }
