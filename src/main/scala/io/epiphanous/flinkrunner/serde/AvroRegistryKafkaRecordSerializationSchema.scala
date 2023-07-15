@@ -6,11 +6,7 @@ import io.epiphanous.flinkrunner.model.SchemaRegistryType.{
   Confluent
 }
 import io.epiphanous.flinkrunner.model.sink.KafkaSinkConfig
-import io.epiphanous.flinkrunner.model.{
-  AvroStringRecord,
-  EmbeddedAvroRecord,
-  FlinkEvent
-}
+import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, FlinkEvent}
 import io.epiphanous.flinkrunner.util.SinkDestinationNameUtils.RichSinkDestinationName
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation

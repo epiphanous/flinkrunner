@@ -1,20 +1,22 @@
 package io.epiphanous.flinkrunner.serde
 
 import io.epiphanous.flinkrunner.model._
-import org.apache.flink.api.scala.createTypeInformation
+import org.apache.flink.api.scala._
 
 class ConfluentAvroRegistryKafkaRecordSerdeSpec extends SerdeTestFixtures {
 
-  property("AWrapper Confluent Serde Roundtrip") {
-    SchemaRegistrySerdeTest[AWrapper, ARecord, MyAvroADT](
-      genOne[AWrapper]
-    ).runTest
+  property("AWrapper confluent serde round trip") {
+    val test = SchemaRegistrySerdeTest[AWrapper, ARecord, MyAvroADT]()
+    test.init()
+    test.runTest(genOne[AWrapper])
   }
 
-  property("BWrapper scale test") {
+  property("BWrapper confluent serde round trip scale") {
+    val test = SchemaRegistrySerdeTest[BWrapper, BRecord, MyAvroADT]()
+    test.init()
     genPop[BWrapper](10000).zipWithIndex.foreach { case (b, i) =>
       if (i % 100 == 0) println(i)
-      SchemaRegistrySerdeTest[BWrapper, BRecord, MyAvroADT](b).runTest
+      test.runTest(b)
     }
   }
 

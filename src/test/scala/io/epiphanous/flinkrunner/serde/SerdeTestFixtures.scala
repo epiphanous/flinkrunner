@@ -1,12 +1,14 @@
 package io.epiphanous.flinkrunner.serde
 
 import com.amazonaws.services.schemaregistry.utils.AWSSchemaRegistryConstants
+import com.dimafeng.testcontainers.GenericContainer
 import io.confluent.kafka.schemaregistry.avro.AvroSchema
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
 import io.confluent.kafka.serializers.KafkaAvroSerializerConfig
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.model.sink.KafkaSinkConfig
 import io.epiphanous.flinkrunner.model.source.KafkaSourceConfig
+import io.epiphanous.flinkrunner.util.AvroUtils.schemaOf
 import io.epiphanous.flinkrunner.{FlinkRunner, PropSpec}
 import org.apache.avro.Schema
 import org.apache.avro.generic.{GenericDatumWriter, GenericRecord}
@@ -15,6 +17,11 @@ import org.apache.flink.api.common.functions.util.ListCollector
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.scalatest.Assertion
+import software.amazon.awssdk.services.glue.model.{
+  CreateRegistryRequest,
+  CreateSchemaRequest,
+  RegistryId
+}
 
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
@@ -33,12 +40,15 @@ trait SerdeTestFixtures extends PropSpec {
        |}
        |""".stripMargin
 
+  val gluePort         = 4566
+  val glueRegistryName = "test"
+
   val defaultGlueSchemaRegConfigStr: String =
     s"""
        |schema.registry {
-       |  ${AWSSchemaRegistryConstants.AWS_ENDPOINT} = "http://localhost:4566"
+       |  ${AWSSchemaRegistryConstants.AWS_ENDPOINT} = "http://localhost:$gluePort"
        |  ${AWSSchemaRegistryConstants.AWS_REGION} = "us-east-1"
-       |  ${AWSSchemaRegistryConstants.REGISTRY_NAME} = "datafabric"
+       |  ${AWSSchemaRegistryConstants.REGISTRY_NAME} = "$glueRegistryName"
        |  ${AWSSchemaRegistryConstants.SCHEMA_AUTO_REGISTRATION_SETTING} = true
        |  ${AWSSchemaRegistryConstants.DATA_FORMAT} = avro
        |  ${AWSSchemaRegistryConstants.AVRO_RECORD_TYPE} = SPECIFIC_RECORD
@@ -49,12 +59,26 @@ trait SerdeTestFixtures extends PropSpec {
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A >: Null <: GenericRecord: TypeInformation,
       ADT <: FlinkEvent: TypeInformation](
-      event: E,
-      schemaRegConfigStr: String = defaultConfluentSchemaRegConfigStr
+      schemaRegConfigStr: String = defaultConfluentSchemaRegConfigStr,
+      localstack: Option[GenericContainer] = None
   )(implicit fromKV: EmbeddedAvroRecordInfo[A] => E) {
 
-    val avroClassName: String =
-      implicitly[TypeInformation[A]].getTypeClass.getSimpleName
+    val mappedGluePort: Int = localstack
+      .map(c => c.container.getMappedPort(gluePort).intValue())
+      .getOrElse(gluePort)
+
+    val srcs: String =
+      schemaRegConfigStr.replaceFirst(
+        "localhost:" + gluePort,
+        "localhost:" + mappedGluePort
+      )
+
+//    println("Schema Registry Configs:\n" + srcs)
+
+    val avroClass: Class[A] = implicitly[TypeInformation[A]].getTypeClass
+
+    val avroClassName: String = avroClass.getSimpleName
+    val topic: String         = avroClassName.toLowerCase
 
     val configStr: String                     =
       s"""|
@@ -67,19 +91,19 @@ trait SerdeTestFixtures extends PropSpec {
           |sources {
           |  test {
           |    connector = kafka
-          |    topic = "$avroClassName"
+          |    topic = "$topic"
           |    isKeyed = true
           |    bootstrap.servers = "kafka:9092"
-          |    $schemaRegConfigStr
+          |    $srcs
           |  }
           |}
           |sinks {
           |  test {
           |    connector = kafka
-          |    topic = "$avroClassName"
+          |    topic = "$topic"
           |    isKeyed = true
           |    bootstrap.servers = "kafka:9092"
-          |    $schemaRegConfigStr
+          |    $srcs
           |  }
           |}
           |""".stripMargin
@@ -101,45 +125,52 @@ trait SerdeTestFixtures extends PropSpec {
       .getSourceConfig("test")
       .asInstanceOf[KafkaSourceConfig[ADT]]
 
-    val avroClass: Class[A] = implicitly[TypeInformation[A]].getTypeClass
+    def init(): Assertion = {
+      val x = Try {
+        val keySchema: Schema   = Schema.create(Schema.Type.STRING)
+        val valueSchema: Schema = schemaOf[A](avroClass)
+        if (isConfluent) {
+          val keySubject           = s"$topic-key"
+          val valueSubject: String = s"$topic-value"
 
-    val keySchema: Schema   =
-      new Schema.Parser().parse("""{"type":"string"}""")
-    val valueSchema: Schema = event.$record.getSchema
+          def _reg(client: SchemaRegistryClient) = {
+            client.register(
+              keySubject,
+              new AvroSchema(keySchema)
+            )
+            client.register(
+              valueSubject,
+              new AvroSchema(valueSchema)
+            )
+          }
 
-    val recordKeyBytes: Array[Byte]   =
-      event.$id.getBytes(StandardCharsets.UTF_8)
-    val recordValueBytes: Array[Byte] =
-      binaryEncode(event.$record, valueSchema)
-
-    val keySubject           = s"${kafkaSourceConfig.topic}-key"
-    val valueSubject: String = s"${kafkaSourceConfig.topic}-value"
-
-    def registerSchemas: Unit = {
-      if (isConfluent) {
-        def _reg(client: SchemaRegistryClient) = {
-          client.register(
-            keySubject,
-            new AvroSchema(keySchema)
+          _reg(kafkaSourceConfig.schemaRegistryConfig.confluentClient)
+          _reg(kafkaSinkConfig.schemaRegistryConfig.confluentClient)
+        } else { // if (isGlue) {
+          val glue = kafkaSourceConfig.schemaRegistryConfig.glueClient
+          glue.createRegistry(
+            CreateRegistryRequest
+              .builder()
+              .registryName(glueRegistryName)
+              .build()
           )
-          client.register(
-            valueSubject,
-            new AvroSchema(valueSchema)
+          glue.createSchema(
+            CreateSchemaRequest
+              .builder()
+              .registryId(
+                RegistryId.builder().registryName(glueRegistryName).build()
+              )
+              .schemaName(avroClassName.toLowerCase)
+              .dataFormat("AVRO")
+              .schemaDefinition(valueSchema.toString)
+              .build()
           )
         }
-        _reg(kafkaSourceConfig.schemaRegistryConfig.confluentClient)
-        _reg(kafkaSinkConfig.schemaRegistryConfig.confluentClient)
-      } else { // if (isGlue) {
-        val client = kafkaSourceConfig.schemaRegistryConfig.glueClient
-        client
-          .createSchema(
-            avroClassName,
-            "AVRO",
-            valueSchema.toString,
-            Map.empty[String, String].asJava
-          )
       }
+      x.fold(t => t.printStackTrace(), identity)
+      x should be a 'Success
     }
+
     def getConfluentDeserializer
         : ConfluentAvroRegistryKafkaRecordDeserializationSchema[
           E,
@@ -192,19 +223,7 @@ trait SerdeTestFixtures extends PropSpec {
       ss
     }
 
-    def binaryEncode[T](obj: T, schema: Schema): Array[Byte] = {
-      val baos        = new ByteArrayOutputStream()
-      val encoder     = EncoderFactory.get().binaryEncoder(baos, null)
-      val datumWriter = new GenericDatumWriter[T](schema)
-      datumWriter.write(obj, encoder)
-      encoder.flush()
-      val bytes       = baos.toByteArray
-      baos.close()
-      bytes
-    }
-
-    def runTest: Assertion = {
-      registerSchemas
+    def runTest(event: E): Assertion = {
       val (serializer, deserializer) =
         if (isConfluent) (getConfluentSerializer, getConfluentDeserializer)
         else (getGlueSerializer, getGlueDeserializer)
@@ -229,9 +248,7 @@ trait SerdeTestFixtures extends PropSpec {
             )
           ).map(_ => seq.get(0))
       } yield deserializedEvent
-      if (out.isFailure) {
-        out.fold(fa => fa.printStackTrace(), identity)
-      }
+      out.fold(fa => fa.printStackTrace(), identity)
       out.success.value shouldEqual event
     }
 

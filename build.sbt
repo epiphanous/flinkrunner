@@ -2,7 +2,7 @@ import avrohugger.types.JavaTimeInstant
 
 name := "flinkrunner"
 
-lazy val scala212               = "2.12.15"
+lazy val scala212               = "2.12.18"
 lazy val supportedScalaVersions = List(scala212)
 
 inThisBuild(
@@ -31,33 +31,34 @@ resolvers += "Confluent Repository" at "https://packages.confluent.io/maven/"
 val V = new {
   val flink               = "1.17.1"
   val flinkMinor          = "1.17"
-  val logback             = "1.4.6"
-  val scalaLogging        = "3.9.5"
-  val scalaTest           = "3.2.15"
-  val scalaTestPlus       = "3.2.16.0"
-  val scalaCheck          = "1.17.0"
-  val testContainersScala = "0.40.12"
-  val jackson             = "2.14.2"
-  val circe               = "0.14.2"
-  val http4s              = "0.23.12"
-  val enumeratum          = "1.7.2"
-  val typesafeConfig      = "1.4.2"
-  val guava               = "31.1-jre"
-  val squants             = "1.8.3"
-  val confluentAvroSerde  = "7.4.0"
-  val parquet             = "1.13.1"
-  val awsSdk              = "1.12.472"
-  val jdbcMysql           = "8.0.33"
-  val jdbcPg              = "42.5.4"
-  val jdbcMssql           = "11.2.0.jre11"
-  val hadoop              = "3.3.2"
+  val awsSdk              = "1.12.506"
+  val awsSdk2             = "2.20.103"
   val cassandraDriver     = "3.11.3"
-  val uuidCreator         = "5.2.0"
-  val iceberg             = "1.3.0"
-  val jna                 = "5.12.1" // needed for testcontainers in some jvms
-  val awsSdk2             = "2.20.69"
-  val dropWizard          = "4.2.17"
+  val circe               = "0.14.5"
+  val circeGenericExtras  = "0.14.3"
+  val confluentAvroSerde  = "7.4.1"
+  val dropWizard          = "4.2.19"
+  val enumeratum          = "1.7.2"
   val glueSerde           = "1.1.15"
+  val guava               = "32.1.1-jre"
+  val hadoop              = "3.3.6"
+  val http4s              = "0.23.22"
+  val iceberg             = "1.3.0"
+  val jackson             = "2.15.2"
+  val jdbcMssql           = "11.2.0.jre11"
+  val jdbcMysql           = "8.0.33"
+  val jdbcPg              = "42.6.0"
+  val jna                 = "5.13.0" // needed for testcontainers in some jvms
+  val logback             = "1.4.8"
+  val parquet             = "1.13.1"
+  val scalaCheck          = "1.17.0"
+  val scalaLogging        = "3.9.5"
+  val scalaTest           = "3.2.16"
+  val scalaTestPlus       = "3.2.16.0"
+  val squants             = "1.8.3"
+  val testContainersScala = "0.40.17"
+  val typesafeConfig      = "1.4.2"
+  val uuidCreator         = "5.3.2"
 }
 
 val flinkDeps =
@@ -83,7 +84,7 @@ val flinkDeps =
     "org.apache.flink"  % "flink-connector-aws-kinesis-firehose" % s"4.1.0-${V.flinkMinor}" % Provided,
     "org.apache.flink" %% "flink-connector-cassandra"            % s"3.1.0-${V.flinkMinor}" % Provided,
     "org.apache.flink"  % "flink-connector-elasticsearch7"       % s"3.0.1-${V.flinkMinor}" % Provided,
-    "org.apache.flink"  % "flink-connector-jdbc"                 % s"3.1.0-${V.flinkMinor}" % Provided,
+    "org.apache.flink"  % "flink-connector-jdbc"                 % s"3.1.1-${V.flinkMinor}" % Provided,
     "org.apache.flink"  % "flink-connector-rabbitmq"             % s"3.0.1-${V.flinkMinor}" % Provided,
     // avro support
     "org.apache.flink"  % "flink-avro"                           % V.flink                  % Provided, // ds and table avro format
@@ -116,11 +117,11 @@ val http4sDeps = Seq(
 val circeDeps = Seq(
   "core",
   "generic",
-  "generic-extras",
   "parser"
 ).map(d => "io.circe" %% s"circe-$d" % V.circe)
 
 val otherDeps = Seq(
+  "io.circe"                        %% "circe-generic-extras"                   % V.circeGenericExtras,
   "com.amazonaws"                    % "aws-java-sdk-core"                      % V.awsSdk              % Provided,
   "com.amazonaws"                    % "aws-java-sdk-s3"                        % V.awsSdk              % Test,
   "software.amazon.glue"             % "schema-registry-flink-serde"            % V.glueSerde,
@@ -136,7 +137,7 @@ val otherDeps = Seq(
   "com.fasterxml.jackson.datatype"   % "jackson-datatype-jsr310"                % V.jackson,
   "com.fasterxml.jackson.module"    %% "jackson-module-scala"                   % V.jackson,
   "com.github.f4b6a3"                % "uuid-creator"                           % V.uuidCreator,
-  "com.github.pjfanning"            %% "jackson-scala-reflect-extensions"       % "2.14.0",
+  "com.github.pjfanning"            %% "jackson-scala-reflect-extensions"       % "2.15.0",
   "com.google.guava"                 % "guava"                                  % V.guava,
   "com.lihaoyi"                     %% "requests"                               % "0.8.0"               % Test,
   "com.microsoft.sqlserver"          % "mssql-jdbc"                             % V.jdbcMssql           % Provided,
@@ -153,6 +154,7 @@ val otherDeps = Seq(
   "org.scalatestplus"               %% "scalacheck-1-17"                        % V.scalaTestPlus       % Test,
   "org.typelevel"                   %% "squants"                                % V.squants,
   "software.amazon.awssdk"           % "aws-sdk-java"                           % V.awsSdk2             % Test,
+  "software.amazon.awssdk"           % "glue"                                   % V.awsSdk2             % Test,
   "software.amazon.awssdk"           % "url-connection-client"                  % V.awsSdk2             % Test,
   "io.dropwizard.metrics"            % "metrics-core"                           % V.dropWizard          % Provided
 ) ++

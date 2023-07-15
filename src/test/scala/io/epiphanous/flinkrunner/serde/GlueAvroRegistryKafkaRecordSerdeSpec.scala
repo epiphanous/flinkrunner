@@ -1,26 +1,54 @@
 package io.epiphanous.flinkrunner.serde
 
+import com.dimafeng.testcontainers.scalatest.TestContainerForAll
+import com.dimafeng.testcontainers.{ContainerDef, GenericContainer}
 import io.epiphanous.flinkrunner.model._
+import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy
 import org.apache.flink.api.scala._
+//import org.apache.flink.api.scala._
+// ^^^^ id this line is commented and there isn't an uncommented version of this import
+// add the import: optimize imports in intellij deletes it but we need it for this test
 
-class GlueAvroRegistryKafkaRecordSerdeSpec extends SerdeTestFixtures {
+class GlueAvroRegistryKafkaRecordSerdeSpec
+    extends SerdeTestFixtures
+    with TestContainerForAll {
 
-  property("AWrapper Glue Serde Roundtrip") {
-    SchemaRegistrySerdeTest[AWrapper, ARecord, MyAvroADT](
-      genOne[AWrapper],
-      defaultGlueSchemaRegConfigStr
-    ).runTest
+  override val containerDef: ContainerDef = GenericContainer.Def(
+    dockerImage = GenericContainer.stringToDockerImage(
+      "localstack/localstack-pro:latest"
+    ),
+    exposedPorts = Seq(4566),
+    env = Map(
+      "LOCALSTACK_API_KEY" -> System.getenv("LOCALSTACK_API_KEY"),
+      "DNS_ADDRESSS"       -> "0"
+    ),
+    waitStrategy = new LogMessageWaitStrategy().withRegEx(".*Ready\\.\n")
+  )
+
+  property("AWrapper glue serde round trip") {
+    withContainers { ls =>
+      val test =
+        SchemaRegistrySerdeTest[AWrapper, ARecord, MyAvroADT](
+          defaultGlueSchemaRegConfigStr,
+          Some(ls.asInstanceOf[GenericContainer])
+        )
+      test.init()
+      test.runTest(genOne[AWrapper])
+    }
   }
 
-  property("BWrapper Glue Serde Roundtrip Scale") {
-    genPop[BWrapper](10000).zipWithIndex.foreach { case (b, i) =>
-      if (i % 100 == 0) println(i)
-      SchemaRegistrySerdeTest[BWrapper, BRecord, MyAvroADT](
-        b,
-        defaultGlueSchemaRegConfigStr
-      ).runTest
+  property("BWrapper glue serde round trip scale") {
+    withContainers { ls =>
+      val test = SchemaRegistrySerdeTest[BWrapper, BRecord, MyAvroADT](
+        defaultGlueSchemaRegConfigStr,
+        Some(ls.asInstanceOf[GenericContainer])
+      )
+      test.init()
+      genPop[BWrapper](100).zipWithIndex.foreach { case (b, i) =>
+        if (i % 10 == 0) println(i)
+        test.runTest(b)
+      }
     }
-
   }
 
 }
