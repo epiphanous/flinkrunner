@@ -133,7 +133,7 @@ case class KafkaSourceConfig[ADT <: FlinkEvent](
     .fold(
       t =>
         throw new RuntimeException(
-          s"failed to parse schema registry configuration in sink $name of job ${config.jobName}"
+          s"failed to parse schema registry configuration in source $name of job ${config.jobName}"
         ),
       identity
     )
