@@ -1,17 +1,17 @@
 package io.epiphanous.flinkrunner.serde
 
-import com.dimafeng.testcontainers.scalatest.TestContainerForAll
+import com.dimafeng.testcontainers.scalatest.TestContainerForEach
 import com.dimafeng.testcontainers.{ContainerDef, GenericContainer}
 import io.epiphanous.flinkrunner.model._
 import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy
 import org.apache.flink.api.scala._
 //import org.apache.flink.api.scala._
-// ^^^^ id this line is commented and there isn't an uncommented version of this import
+// ^^^^ if this line is commented and there isn't an uncommented version of this import
 // add the import: optimize imports in intellij deletes it but we need it for this test
 
 class GlueAvroRegistryKafkaRecordSerdeSpec
     extends SerdeTestFixtures
-    with TestContainerForAll {
+    with TestContainerForEach {
 
   override val containerDef: ContainerDef = GenericContainer.Def(
     dockerImage = GenericContainer.stringToDockerImage(

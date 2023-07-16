@@ -9,7 +9,6 @@ import io.epiphanous.flinkrunner.model.{
 }
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.kafka.common.serialization.Deserializer
 
 /** A flink deserialization schema that uses an aws glue avro schema
   * registry to deserialize a kafka consumer record into an embedded avro

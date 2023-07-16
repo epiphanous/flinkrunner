@@ -1,30 +1,35 @@
 package io.epiphanous.flinkrunner.serde
 
+import com.amazonaws.services.schemaregistry.common.configs.GlueSchemaRegistryConfiguration
 import com.amazonaws.services.schemaregistry.utils.AWSSchemaRegistryConstants
 import com.dimafeng.testcontainers.GenericContainer
-import io.confluent.kafka.schemaregistry.avro.AvroSchema
-import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
+import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient
 import io.confluent.kafka.serializers.KafkaAvroSerializerConfig
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.model.sink.KafkaSinkConfig
 import io.epiphanous.flinkrunner.model.source.KafkaSourceConfig
 import io.epiphanous.flinkrunner.util.AvroUtils.schemaOf
 import io.epiphanous.flinkrunner.{FlinkRunner, PropSpec}
-import org.apache.avro.Schema
-import org.apache.avro.generic.{GenericDatumWriter, GenericRecord}
-import org.apache.avro.io.EncoderFactory
+import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.functions.util.ListCollector
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.scalatest.Assertion
+import software.amazon.awssdk.auth.credentials.{
+  AwsBasicCredentials,
+  DefaultCredentialsProvider,
+  StaticCredentialsProvider
+}
+import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient
+import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.glue.GlueClient
 import software.amazon.awssdk.services.glue.model.{
   CreateRegistryRequest,
   CreateSchemaRequest,
   RegistryId
 }
 
-import java.io.ByteArrayOutputStream
-import java.nio.charset.StandardCharsets
+import java.net.URI
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 import scala.util.{Success, Try}
@@ -127,27 +132,47 @@ trait SerdeTestFixtures extends PropSpec {
 
     def init(): Assertion = {
       val x = Try {
-        val keySchema: Schema   = Schema.create(Schema.Type.STRING)
-        val valueSchema: Schema = schemaOf[A](avroClass)
-        if (isConfluent) {
-          val keySubject           = s"$topic-key"
-          val valueSubject: String = s"$topic-value"
-
-          def _reg(client: SchemaRegistryClient) = {
-            client.register(
-              keySubject,
-              new AvroSchema(keySchema)
-            )
-            client.register(
-              valueSubject,
-              new AvroSchema(valueSchema)
-            )
+//        val keySchema: Schema   = Schema.create(Schema.Type.STRING)
+//        val valueSchema: Schema = schemaOf[A](avroClass)
+//        if (isConfluent) {
+//          val keySubject           = s"$topic-key"
+//          val valueSubject: String = s"$topic-value"
+//
+//          def _reg(client: SchemaRegistryClient) = {
+//            client.register(
+//              keySubject,
+//              new AvroSchema(keySchema)
+//            )
+//            client.register(
+//              valueSubject,
+//              new AvroSchema(valueSchema)
+//            )
+//          }
+//          _reg(kafkaSourceConfig.schemaRegistryConfig.confluentClient)
+//          _reg(kafkaSinkConfig.schemaRegistryConfig.confluentClient)
+//
+//        } else { //
+        if (isGlue) {
+          // useful for testing
+          val props            = kafkaSourceConfig.schemaRegistryConfig.props
+          val glue: GlueClient = {
+            val accessKeyId         = props.getOrDefault("accessKeyId", "")
+            val secretAccessKey     = props.getOrDefault("secretAccessKey", "")
+            val credentialsProvider =
+              if (accessKeyId.nonEmpty && secretAccessKey.nonEmpty)
+                StaticCredentialsProvider.create(
+                  AwsBasicCredentials.create(accessKeyId, secretAccessKey)
+                )
+              else DefaultCredentialsProvider.builder().build()
+            val glueConfig          = new GlueSchemaRegistryConfiguration(props)
+            GlueClient
+              .builder()
+              .credentialsProvider(credentialsProvider)
+              .httpClient(UrlConnectionHttpClient.builder.build)
+              .region(Region.of(glueConfig.getRegion))
+              .endpointOverride(new URI(glueConfig.getEndPoint))
+              .build()
           }
-
-          _reg(kafkaSourceConfig.schemaRegistryConfig.confluentClient)
-          _reg(kafkaSinkConfig.schemaRegistryConfig.confluentClient)
-        } else { // if (isGlue) {
-          val glue = kafkaSourceConfig.schemaRegistryConfig.glueClient
           glue.createRegistry(
             CreateRegistryRequest
               .builder()
@@ -158,11 +183,14 @@ trait SerdeTestFixtures extends PropSpec {
             CreateSchemaRequest
               .builder()
               .registryId(
-                RegistryId.builder().registryName(glueRegistryName).build()
+                RegistryId
+                  .builder()
+                  .registryName(glueRegistryName)
+                  .build()
               )
               .schemaName(avroClassName.toLowerCase)
               .dataFormat("AVRO")
-              .schemaDefinition(valueSchema.toString)
+              .schemaDefinition(schemaOf[A](avroClass).toString)
               .build()
           )
         }
@@ -170,6 +198,8 @@ trait SerdeTestFixtures extends PropSpec {
       x.fold(t => t.printStackTrace(), identity)
       x should be a 'Success
     }
+
+    val confluentSchemaRegistryClient = new MockSchemaRegistryClient()
 
     def getConfluentDeserializer
         : ConfluentAvroRegistryKafkaRecordDeserializationSchema[
@@ -183,7 +213,7 @@ trait SerdeTestFixtures extends PropSpec {
         ADT
       ](
         kafkaSourceConfig,
-        Some(kafkaSourceConfig.schemaRegistryConfig.confluentClient)
+        Some(confluentSchemaRegistryClient)
       )
       ds.open(null)
       ds
@@ -197,7 +227,8 @@ trait SerdeTestFixtures extends PropSpec {
         ] = {
       val ss =
         new ConfluentAvroRegistryKafkaRecordSerializationSchema[E, A, ADT](
-          kafkaSinkConfig
+          kafkaSinkConfig,
+          Some(confluentSchemaRegistryClient)
         )
       ss.open(null, null)
       ss

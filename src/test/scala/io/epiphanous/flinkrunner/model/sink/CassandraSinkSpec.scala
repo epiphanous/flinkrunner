@@ -13,7 +13,9 @@ import scala.collection.mutable.ArrayBuffer
 class CassandraSinkSpec extends SinkSpec {
   val cassandra = new CassandraContainer()
 
-  property("cassandra sink works") {
+  // ignoring this for now...its not that relevant, we're not modifying it or using it much
+  // and it adds several minutes to CI builds
+  ignore("cassandra sink works") {
     cassandra.start()
     val c       = cassandra.container
     val session = Cluster

@@ -11,7 +11,6 @@ import io.epiphanous.flinkrunner.model.{
   EmbeddedAvroRecordInfo,
   FlinkEvent
 }
-import io.epiphanous.flinkrunner.util.AvroUtils.isSpecific
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
 

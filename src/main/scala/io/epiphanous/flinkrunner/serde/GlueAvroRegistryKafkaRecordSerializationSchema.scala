@@ -1,13 +1,11 @@
 package io.epiphanous.flinkrunner.serde
 
-import com.amazonaws.services.schemaregistry.serializers.GlueSchemaRegistryKafkaSerializer
 import com.amazonaws.services.schemaregistry.serializers.avro.AWSKafkaAvroSerializer
 import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.sink.KafkaSinkConfig
 import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, FlinkEvent}
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.kafka.common.serialization.{Serializer, StringSerializer}
 
 /** A serialization schema that uses an aws glue avro schema registry
   * client to serialize an instance of a flink runner ADT into kafka. The

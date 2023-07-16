@@ -2,16 +2,11 @@ package io.epiphanous.flinkrunner.serde
 
 import com.typesafe.scalalogging.LazyLogging
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
-import io.confluent.kafka.serializers.{
-  KafkaAvroSerializer,
-  KafkaAvroSerializerConfig
-}
+import io.confluent.kafka.serializers.KafkaAvroSerializer
 import io.epiphanous.flinkrunner.model.sink.KafkaSinkConfig
 import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, FlinkEvent}
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
-
-import java.util
 
 /** A serialization schema that uses a confluent avro schema registry
   * client to serialize an instance of a flink runner ADT into kafka. The
