@@ -2,8 +2,8 @@ import avrohugger.types.JavaTimeInstant
 
 name := "flinkrunner"
 
-lazy val scala212               = "2.12.18"
-lazy val supportedScalaVersions = List(scala212)
+lazy val scala2                 = "2.12.18"
+lazy val supportedScalaVersions = List(scala2)
 
 inThisBuild(
   List(
@@ -18,7 +18,7 @@ inThisBuild(
         url("https://epiphanous.io")
       )
     ),
-    scalaVersion := scala212
+    scalaVersion := scala2
   )
 )
 

@@ -2,7 +2,7 @@ language: scala
 scala:
   - 2.12.18
 
-dist: bionic
+dist: jammy
 
 jdk:
   - openjdk11
