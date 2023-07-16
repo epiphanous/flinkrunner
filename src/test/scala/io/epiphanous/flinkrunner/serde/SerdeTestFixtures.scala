@@ -132,32 +132,11 @@ trait SerdeTestFixtures extends PropSpec {
 
     def init(): Assertion = {
       val x = Try {
-//        val keySchema: Schema   = Schema.create(Schema.Type.STRING)
-//        val valueSchema: Schema = schemaOf[A](avroClass)
-//        if (isConfluent) {
-//          val keySubject           = s"$topic-key"
-//          val valueSubject: String = s"$topic-value"
-//
-//          def _reg(client: SchemaRegistryClient) = {
-//            client.register(
-//              keySubject,
-//              new AvroSchema(keySchema)
-//            )
-//            client.register(
-//              valueSubject,
-//              new AvroSchema(valueSchema)
-//            )
-//          }
-//          _reg(kafkaSourceConfig.schemaRegistryConfig.confluentClient)
-//          _reg(kafkaSinkConfig.schemaRegistryConfig.confluentClient)
-//
-//        } else { //
         if (isGlue) {
-          // useful for testing
           val props            = kafkaSourceConfig.schemaRegistryConfig.props
           val glue: GlueClient = {
-            val accessKeyId         = props.getOrDefault("accessKeyId", "")
-            val secretAccessKey     = props.getOrDefault("secretAccessKey", "")
+            val accessKeyId         = props.getOrDefault("accessKeyId", "foobar")
+            val secretAccessKey     = props.getOrDefault("secretAccessKey", "foobar")
             val credentialsProvider =
               if (accessKeyId.nonEmpty && secretAccessKey.nonEmpty)
                 StaticCredentialsProvider.create(
