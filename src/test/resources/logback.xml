@@ -34,9 +34,9 @@
     <logger name="org.apache.zookeeper" level="ERROR"/>
     <logger name="org.apache.flink" level="ERROR"/>
     <logger name="io.confluent.kafka" level="ERROR"/>
-    <logger name="io.epiphanous" level="TRACE"/>
-    <logger name="com.dimafeng.testcontainers" level="DEBUG"/>
-    <logger name="org.testcontainers.containers" level="DEBUG"/>
+    <logger name="io.epiphanous" level="ERROR"/>
+    <logger name="com.dimafeng.testcontainers" level="ERROR"/>
+    <logger name="org.testcontainers.containers" level="ERROR"/>
     <logger name="com.datastax.driver" level="ERROR"/>
     <logger name="org.apache.iceberg" level="ERROR"/>
     <logger name="org.apache.flink.api.java.ClosureCleaner" level="ERROR"/>
