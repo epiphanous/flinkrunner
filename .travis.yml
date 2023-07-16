@@ -1,11 +1,10 @@
 language: scala
 scala:
-  - 2.12.15
+  - 2.12.18
 
 dist: bionic
 
 jdk:
-  - oraclejdk11
   - openjdk11
 
 stages:
