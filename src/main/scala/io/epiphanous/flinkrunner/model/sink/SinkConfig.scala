@@ -34,7 +34,7 @@ import scala.reflect.runtime.{universe => ru}
   */
 trait SinkConfig[ADT <: FlinkEvent] extends SourceOrSinkConfig[ADT] {
 
-  override val _sourceOrSink = "sink"
+  override def _sourceOrSink = "sink"
 
   val isSideOutput: Boolean =
     config.getBooleanOpt(pfx("side.output")).getOrElse(false)

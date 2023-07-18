@@ -48,7 +48,7 @@ import scala.util.Try
   */
 trait SourceConfig[ADT <: FlinkEvent] extends SourceOrSinkConfig[ADT] {
 
-  override val _sourceOrSink = "source"
+  override def _sourceOrSink = "source"
 
   val watermarkStrategy: String =
     Try(config.getString(pfx("watermark.strategy")))
