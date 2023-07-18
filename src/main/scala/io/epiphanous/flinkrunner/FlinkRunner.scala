@@ -52,19 +52,27 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     classOf[AvroSchemaSerializer]
   )
 
+  def getSourceOrSinkNames(sourceOrSink: String): Seq[String] =
+    (config.getStringListOpt(s"$sourceOrSink.names") match {
+      case sn if sn.nonEmpty => sn
+      case _                 =>
+        config
+          .getObjectOption(s"${sourceOrSink}s")
+          .map(
+            _.unwrapped()
+              .keySet()
+              .asScala
+              .toSeq
+          )
+          .getOrElse(Seq.empty)
+    }).sorted
+
   val sourceNames: Seq[String] =
     getSourceOrSinkNames("source")
 
   val sinkNames: Seq[String] =
     getSourceOrSinkNames("sink")
 
-  def defaultSourceName: String = sourceNames.headOption.getOrElse(
-    throw new RuntimeException("no sources are configured")
-  )
-
-  def defaultSinkName: String               = sinkNames.headOption.getOrElse(
-    throw new RuntimeException("no sinks are configured")
-  )
   val sourceConfigs: Seq[SourceConfig[ADT]] =
     sourceNames.map(name =>
       SourceConfig[ADT](name, config, generatorFactoryOpt)
@@ -78,6 +86,20 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
 
   val sideSinkConfigs: Seq[SinkConfig[ADT]] =
     sinkConfigs.filter(_.isSideOutput)
+
+  def defaultSourceName: String = sourceConfigs
+    .map(_.name)
+    .headOption
+    .getOrElse(
+      throw new RuntimeException("no sources are configured")
+    )
+
+  def defaultSinkName: String = mainSinkConfigs
+    .map(_.name)
+    .headOption
+    .getOrElse(
+      throw new RuntimeException("no sinks are configured")
+    )
 
   /** Gets (and returns as string) the execution plan for the job from the
     * StreamExecutionEnvironment.
@@ -175,21 +197,6 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     error.foreach(m => logger.error(m))
     println(usage)
   }
-
-  def getSourceOrSinkNames(sourceOrSink: String): Seq[String] =
-    (config.getStringListOpt(s"$sourceOrSink.names") match {
-      case sn if sn.nonEmpty => sn
-      case _                 =>
-        config
-          .getObjectOption(s"${sourceOrSink}s")
-          .map(
-            _.unwrapped()
-              .keySet()
-              .asScala
-              .toSeq
-          )
-          .getOrElse(Seq.empty)
-    }).sorted
 
   /** Helper method to resolve the source configuration. Implementers can
     * override this method to customize source configuration behavior, in

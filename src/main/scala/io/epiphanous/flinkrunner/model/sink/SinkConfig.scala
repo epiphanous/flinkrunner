@@ -37,7 +37,7 @@ trait SinkConfig[ADT <: FlinkEvent] extends SourceOrSinkConfig[ADT] {
   override val _sourceOrSink = "sink"
 
   val isSideOutput: Boolean =
-    config.getBooleanOpt("side.output").getOrElse(false)
+    config.getBooleanOpt(pfx("side.output")).getOrElse(false)
 
   def getOutputTag[X <: ADT: TypeInformation]: OutputTag[X] =
     OutputTag[X](name)
@@ -91,6 +91,7 @@ object SinkConfig {
       case RabbitMQ      => RabbitMQSinkConfig(name, config)
       case Iceberg       => IcebergSinkConfig(name, config)
       case Print         => PrintSinkConfig(name, config)
+      case TestList      => TestListSinkConfig(name, config)
       case connector     =>
         throw new RuntimeException(
           s"Don't know how to configure ${connector.entryName} sink connector <$name> (in job <${config.jobName}>)"
