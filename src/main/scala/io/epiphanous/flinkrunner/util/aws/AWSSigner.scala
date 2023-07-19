@@ -15,11 +15,12 @@ import scala.util.matching.Regex
 
 class AWSSigner(
     request: Request[IO],
-    awsEndpoint: Option[String] = None,
-    providedCredentials: Option[AWSCredentials] = None)
+    providedCredentials: Option[AWSCredentials] = None,
+    serviceAndEndpoint: Option[(String, Option[Uri])] = None)
     extends LazyLogging {
 
-  val Some(Tuple2(service, maybeUri)) = resolveAWSService(awsEndpoint)
+  val Some(Tuple2(service, maybeUri)) =
+    serviceAndEndpoint.orElse(resolveAWSService)
 
   val doubleUrlEncoding: Boolean = !service.equals("s3")
 
@@ -45,7 +46,7 @@ class AWSSigner(
   val credentials: AWSCredentials = providedCredentials.getOrElse(
     DefaultAWSCredentialsProviderChain.getInstance().getCredentials
   )
-  def sign: Request[IO] = {
+  def sign: Request[IO]           = {
     signer.sign(signable, credentials)
     val req = signable.getSignedRequest
     logger.debug(s"AWS Signer: $req")
@@ -58,11 +59,11 @@ class AWSSigner(
   private val serviceEndpointPattern: Regex =
     raw"([^.]+)(\.[^.]+)?\.amazonaws\.com".r
 
-  protected def resolveAWSService( awsEndpoint: Option[String]): Option[(String, Option[Uri])] = for {
+  protected def resolveAWSService: Option[(String, Option[Uri])] = for {
     schema <- request.uri.scheme.map(_.value)
     host <- request.uri.host.map(_.value)
     (service, uri) <-
-      if (schema.startsWith("s3") && awsEndpoint.isEmpty) {
+      if (schema.startsWith("s3")) {
         Some(
           "s3",
           Some(
@@ -72,17 +73,6 @@ class AWSSigner(
               .withMultiValueQueryParams(request.multiParams)
           )
         )
-      }else if(awsEndpoint.isDefined) {
-        Some(
-          "s3",
-          Some(
-            Uri
-              .unsafeFromString(awsEndpoint.get)
-              .withPath(s"$host${request.uri.path}")
-              .withMultiValueQueryParams(request.multiParams)
-          )
-        )
-
       } else {
         host match {
           case serviceEndpointPattern(servicePrefix, _) =>
