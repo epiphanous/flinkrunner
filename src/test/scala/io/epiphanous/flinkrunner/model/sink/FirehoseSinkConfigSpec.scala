@@ -27,29 +27,27 @@ class FirehoseSinkConfigSpec extends PropSpec {
     )
 
   property("unconfigured firehose") {
-    val runner = testConfig("")
-    the[RuntimeException] thrownBy runner
-      .getSinkConfig() should have message "kinesis stream name required but missing in sink <firehose-sink> of job <testJob>"
+    the[RuntimeException] thrownBy testConfig(
+      ""
+    ) should have message "kinesis stream name required but missing in sink <firehose-sink> of job <testJob>"
   }
 
   property("minimal configuration") {
-    val runner = testConfig("stream = stream")
-    noException should be thrownBy runner.getSinkConfig()
+    noException should be thrownBy testConfig("stream = stream")
   }
 
   property("stream.name") {
-    val runner = testConfig("stream.name = stream")
-    noException should be thrownBy runner.getSinkConfig()
+    noException should be thrownBy testConfig("stream.name = stream")
   }
 
   property("delivery.stream") {
-    val runner = testConfig("delivery.stream = stream")
-    noException should be thrownBy runner.getSinkConfig()
+    noException should be thrownBy testConfig("delivery.stream = stream")
   }
 
   property("delivery.stream.name") {
-    val runner = testConfig("delivery.stream.name = stream")
-    noException should be thrownBy runner.getSinkConfig()
+    noException should be thrownBy testConfig(
+      "delivery.stream.name = stream"
+    )
   }
 
   def getProps(config: String = ""): KinesisProperties =
