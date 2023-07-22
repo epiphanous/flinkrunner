@@ -96,6 +96,7 @@ case class ElasticsearchSinkConfig[ADT <: FlinkEvent](
       .uid(label)
       .name(label)
       .setParallelism(parallelism)
+    ()
   }
 
   override def addSink[E <: ADT: TypeInformation](

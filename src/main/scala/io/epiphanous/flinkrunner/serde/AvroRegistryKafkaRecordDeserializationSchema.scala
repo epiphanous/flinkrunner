@@ -107,7 +107,7 @@ abstract class AvroRegistryKafkaRecordDeserializationSchema[
             error
           ),
         {
-          case rec: A     =>
+          case rec: A @unchecked =>
             val event = fromKV(
               EmbeddedAvroRecordInfo(
                 rec,
@@ -117,7 +117,7 @@ abstract class AvroRegistryKafkaRecordDeserializationSchema[
               )
             )
             out.collect(event)
-          case unexpected =>
+          case unexpected        =>
             logger.error(
               s"Expected deserialized kafka message value of type $avroClassName, but got [$unexpected]"
             )

@@ -142,12 +142,16 @@ case class KafkaSinkConfig[ADT <: FlinkEvent: TypeInformation](
   override def addAvroSink[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](
-      dataStream: DataStream[E]): Unit =
+      dataStream: DataStream[E]): Unit = {
     dataStream.sinkTo(_addSink[E](getAvroSerializationSchema[E, A]))
+    ()
+  }
 
   override def addSink[E <: ADT: TypeInformation](
-      dataStream: DataStream[E]): Unit =
+      dataStream: DataStream[E]): Unit = {
     dataStream.sinkTo(_addSink[E](getSerializationSchema[E]))
+    ()
+  }
 
   def _addSink[E <: ADT: TypeInformation](
       serializer: KafkaRecordSerializationSchema[E]): KafkaSink[E] =

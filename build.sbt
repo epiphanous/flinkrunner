@@ -95,6 +95,7 @@ val flinkDeps =
     "org.apache.flink"  % "flink-connector-elasticsearch7"       % V.fcElastic   % Provided,
     "org.apache.flink"  % "flink-connector-jdbc"                 % V.fcJdbc      % Provided,
     "org.apache.flink"  % "flink-connector-rabbitmq"             % V.fcRabbitMq  % Provided,
+    "org.apache.flink"  % "flink-connector-datagen"              % V.flink       % Provided,
     // avro support
     "org.apache.flink"  % "flink-avro"                           % V.flink       % Provided, // ds and table avro format
     "org.apache.flink"  % "flink-avro-confluent-registry"        % V.flink       % Provided, // ds and table avro registry format

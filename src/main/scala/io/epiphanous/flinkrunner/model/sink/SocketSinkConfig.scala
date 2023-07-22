@@ -106,7 +106,7 @@ case class SocketSinkConfig[ADT <: FlinkEvent](
 
   def _addSink[E](
       dataStream: DataStream[E],
-      serializationSchema: SerializationSchema[E]): Unit =
+      serializationSchema: SerializationSchema[E]): Unit = {
     dataStream.addSink(
       new SocketClientSink[E](
         host,
@@ -116,4 +116,6 @@ case class SocketSinkConfig[ADT <: FlinkEvent](
         autoFlush
       )
     )
+    ()
+  }
 }
