@@ -26,7 +26,8 @@ sealed trait MySimpleADT
 
 case class SimpleA(id: String, a0: String, a1: Int, ts: Instant)
     extends MySimpleADT
-    with EmbeddedRowType {
+    with EmbeddedRowType
+    with Ordered[SimpleA] {
   override def $id: String = id
 
   override def $key: String = a0
@@ -41,6 +42,8 @@ case class SimpleA(id: String, a0: String, a1: Int, ts: Instant)
     record.setField("ts", ts)
     record
   }
+
+  override def compare(that: SimpleA): Int = this.id.compare(that.id)
 }
 
 object SimpleA

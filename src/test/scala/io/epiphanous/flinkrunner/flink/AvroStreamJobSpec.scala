@@ -1,7 +1,7 @@
 package io.epiphanous.flinkrunner.flink
 
-import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.PropSpec
+import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.util.test.IdentityMap
 import org.apache.flink.streaming.api.scala._
 
