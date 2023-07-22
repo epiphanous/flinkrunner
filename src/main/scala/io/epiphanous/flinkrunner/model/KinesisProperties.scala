@@ -57,7 +57,7 @@ object KinesisProperties {
 
     clientProperties.putIfAbsent(
       AWSConfigConstants.AWS_REGION,
-      DEFAULT_REGION
+      awsRegion.getOrElse(DEFAULT_REGION)
     )
 
     awsEndpoint.foreach(endpoint =>

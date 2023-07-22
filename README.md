@@ -115,15 +115,18 @@ replacing `<flink-version>` with the version of flink used in `FlinkRunner`.
 ### Avro Support
 
 FlinkRunner supports reading and writing avro messages with kafka and file systems. For
-kafka sources and sinks, FlinkRunner uses binary encoding with Confluent schema registry.
+kafka sources and sinks, FlinkRunner uses binary encoding with support for either 
+Confluent or AWS Glue schema registry.
+
 For file sources and sinks, you can select either standard or parquet avro encoding.
 
-Add the following dependencies if you need Avro and Confluent schema registry support:
+Add the following dependencies if you need Avro and schema registry support:
 
 ```
-"org.apache.flink" % "flink-avro"                     % <flink-version>,
-"org.apache.flink" % "flink-avro-confluent-registry"  % <flink-version>,
-"io.confluent"     % "kafka-avro-serializer"          % <confluent-version>
+"org.apache.flink"     % "flink-avro"                     % <flink-version>,
+"org.apache.flink"     % "flink-avro-confluent-registry"  % <flink-version>,
+"io.confluent"         % "kafka-avro-serializer"          % <confluent-version>
+"software.amazon.glue" % "schema-registry-flink-serde"    % <aws-glue-serde-version>,
 ```
 
 Note, `kafka-avro-serializer` requires you add an sbt resolver to your
@@ -133,33 +136,34 @@ project's `build.sbt` file to point at Confluent's maven repository:
 resolvers += "Confluent Repository" at "https://packages.confluent.io/maven/"
 ```
 
-Adding the `kafka-avro-serializer` library to your project will enable Confluent schema
-registry support.
-
 #### Schema Registry Support
 
 FlinkRunner provides automatic support for serializing and deserializing in and out of
-kafka using
-Confluent's [Avro schema registry](https://docs.confluent.io/platform/current/schema-registry/index.html)
-. To make use of this support, you need to do three things:
+kafka using either
+[Confluent Avro schema registry](https://docs.confluent.io/platform/current/schema-registry/index.html)
+or [AWS Glue Avro schema registry](https://docs.aws.amazon.com/glue/latest/dg/schema-registry.html).
 
-1. Include the `kafka-avro-serializer` library in your project (as described above).
+To make use of this support, you need to do three things:
+
+1. Include the appropriate serde library (`kafka-avro-serializer` for confluent or 
+   `schema-registry-flink-serde` for glue) library in your project (as described above).
 2. Configure your kafka sources and sinks with a `schema.registry` block like so:
     ```hocon
     sinks {
       kafka-sink {
         bootstrap.servers = "kafka:9092"
         topic = my-topic
-        schema-registry {
+        schema-registry { 
+        // for confluent
           url = "http://schema-registry:8082" // required
           // other settings are possible
           //cache.capacity = 500 // (1000 by default)
-          //props {
-          // --- This optional section holds any confluent configs to pass to
-          // --- KafkaAvroSerde schema registry classes
           //use.logical.type.converters = false // (true by default)
           //specific.avro.reader = false        // (true by default)
-          //}
+        // for glue (one or both of region or endpoint is required)
+          aws.region = "us-east-1"
+          //aws.endpoint = "localhost:4566"
+          //other configs in AWSSchemaRegistryConstants
         }
       }
     }
