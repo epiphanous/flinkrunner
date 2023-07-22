@@ -97,8 +97,8 @@ val flinkDeps =
     // dropwizard metrics support
     "org.apache.flink"  % "flink-metrics-dropwizard"             % V.flink      % Provided,
     // test support
-    "org.apache.flink"  % "flink-test-utils"                     % V.flink      % Test,
-    "org.apache.flink"  % "flink-runtime-web"                    % V.flink      % Test
+    "org.apache.flink"  % "flink-test-utils"                     % V.flink,
+    "org.apache.flink"  % "flink-runtime-web"                    % V.flink % Test
   )
 
 val loggingDeps = Seq(
@@ -130,6 +130,7 @@ val otherDeps = Seq(
   "com.dimafeng"                    %% "testcontainers-scala-mysql"             % V.testContainersScala % Test,
   "com.dimafeng"                    %% "testcontainers-scala-postgresql"        % V.testContainersScala % Test,
   "com.dimafeng"                    %% "testcontainers-scala-scalatest"         % V.testContainersScala % Test,
+  "com.dimafeng"                    %% "testcontainers-scala-kafka"             % V.testContainersScala % Test,
   "com.fasterxml.jackson.dataformat" % "jackson-dataformat-csv"                 % V.jackson,
   "com.fasterxml.jackson.datatype"   % "jackson-datatype-jsr310"                % V.jackson,
   "com.fasterxml.jackson.module"    %% "jackson-module-scala"                   % V.jackson,
