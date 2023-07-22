@@ -2,7 +2,7 @@ package io.epiphanous.flinkrunner.model.source
 
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.serde.{
-  ConfluentAvroRegistryKafkaRecordDeserializationSchema,
+  AvroRegistryKafkaRecordDeserializationSchema,
   JsonKafkaRecordDeserializationSchema
 }
 import io.epiphanous.flinkrunner.util.ConfigToProps
@@ -124,16 +124,23 @@ case class KafkaSourceConfig[ADT <: FlinkEvent](
     .getStringOpt(pfx("group.id"))
     .getOrElse(s"${config.jobName}.$name")
 
-  val schemaRegistryConfig: SchemaRegistryConfig = SchemaRegistryConfig(
-    isDeserializing = false,
-    config
-      .getObjectOption(pfx("schema.registry"))
-  )
+  val schemaRegistryConfig: SchemaRegistryConfig = SchemaRegistryConfig
+    .create(
+      deserialize = true,
+      config
+        .getObjectOption(pfx("schema.registry"))
+    )
+    .fold(
+      t =>
+        throw new RuntimeException(
+          s"failed to parse schema registry configuration in source $name of job ${config.jobName}"
+        ),
+      identity
+    )
 
   val schemaOpt: Option[String] = config.getStringOpt(pfx("avro.schema"))
 
-  /** Returns a confluent avro registry aware deserialization schema for
-    * kafka.
+  /** Returns a schema registry aware deserialization schema for kafka.
     *
     * @param fromKV
     *   an implicit method that creates an event from an optional key and
@@ -149,12 +156,8 @@ case class KafkaSourceConfig[ADT <: FlinkEvent](
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation](implicit
       fromKV: EmbeddedAvroRecordInfo[A] => E)
-      : KafkaRecordDeserializationSchema[E] = {
-    new ConfluentAvroRegistryKafkaRecordDeserializationSchema[E, A, ADT](
-      this,
-      schemaOpt
-    )
-  }
+      : KafkaRecordDeserializationSchema[E] =
+    AvroRegistryKafkaRecordDeserializationSchema[E, A, ADT](this)
 
   /** Return a deserialization schema for kafka. This defaults to return a
     * JSON deserialization schema.

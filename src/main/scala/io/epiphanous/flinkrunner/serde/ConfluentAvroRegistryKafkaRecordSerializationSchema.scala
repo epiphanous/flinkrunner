@@ -1,21 +1,12 @@
 package io.epiphanous.flinkrunner.serde
 
 import com.typesafe.scalalogging.LazyLogging
-import io.confluent.kafka.schemaregistry.client.{
-  CachedSchemaRegistryClient,
-  SchemaRegistryClient
-}
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
 import io.confluent.kafka.serializers.KafkaAvroSerializer
 import io.epiphanous.flinkrunner.model.sink.KafkaSinkConfig
 import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, FlinkEvent}
-import io.epiphanous.flinkrunner.util.SinkDestinationNameUtils.RichSinkDestinationName
 import org.apache.avro.generic.GenericRecord
-import org.apache.flink.connector.kafka.sink.KafkaRecordSerializationSchema
-import org.apache.kafka.clients.producer.ProducerRecord
-import org.apache.kafka.common.header.internals.RecordHeaders
-
-import java.lang
-import java.nio.charset.StandardCharsets
+import org.apache.flink.api.common.typeinfo.TypeInformation
 
 /** A serialization schema that uses a confluent avro schema registry
   * client to serialize an instance of a flink runner ADT into kafka. The
@@ -24,65 +15,33 @@ import java.nio.charset.StandardCharsets
   *   the kafka sink config
   */
 case class ConfluentAvroRegistryKafkaRecordSerializationSchema[
-    E <: ADT with EmbeddedAvroRecord[A],
-    A <: GenericRecord,
+    E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
+    A <: GenericRecord: TypeInformation,
     ADT <: FlinkEvent
 ](
     sinkConfig: KafkaSinkConfig[ADT],
-    schemaRegistryClientOpt: Option[SchemaRegistryClient] = None
-) extends KafkaRecordSerializationSchema[E]
+    schemaRegistryClientOpt: Option[SchemaRegistryClient] = None)
+    extends AvroRegistryKafkaRecordSerializationSchema[E, A, ADT](
+      sinkConfig
+    )
     with LazyLogging {
 
+  def getSerializer: KafkaAvroSerializer =
+    schemaRegistryClientOpt.fold(new KafkaAvroSerializer())(c =>
+      new KafkaAvroSerializer(c)
+    )
+
+  @transient override lazy val keySerializer: KafkaAvroSerializer = {
+    val kas = getSerializer
+    kas.configure(sinkConfig.schemaRegistryConfig.props, true)
+    kas
+  }
+
   @transient
-  lazy val schemaRegistryClient: SchemaRegistryClient =
-    schemaRegistryClientOpt.getOrElse(
-      new CachedSchemaRegistryClient(
-        sinkConfig.schemaRegistryConfig.url,
-        sinkConfig.schemaRegistryConfig.cacheCapacity,
-        sinkConfig.schemaRegistryConfig.props,
-        sinkConfig.schemaRegistryConfig.headers
-      )
-    )
-
-  @transient
-  lazy val serializer: KafkaAvroSerializer = new KafkaAvroSerializer(
-    schemaRegistryClient,
-    sinkConfig.schemaRegistryConfig.props
-  )
-
-  override def serialize(
-      element: E,
-      context: KafkaRecordSerializationSchema.KafkaSinkContext,
-      timestamp: lang.Long): ProducerRecord[Array[Byte], Array[Byte]] = {
-    val info = element.toKV(sinkConfig.config)
-
-    val headers = new RecordHeaders()
-
-    Option(info.headers).foreach { m =>
-      m.foreach { case (hk, hv) =>
-        headers.add(hk, hv.getBytes(StandardCharsets.UTF_8))
-      }
-    }
-
-    val topic = sinkConfig.expandTemplate(info.record)
-
-    val key = info.keyOpt.map(k => serializer.serialize(topic, k))
-
-    logger.trace(
-      s"serializing ${info.record.getSchema.getFullName} record ${element.$id} to topic <$topic> ${if (key.nonEmpty) "with key"
-        else "without key"}, headers=${info.headers}"
-    )
-
-    val value = serializer.serialize(topic, info.record)
-
-    new ProducerRecord(
-      topic,
-      null,
-      element.$timestamp,
-      key.orNull,
-      value,
-      headers
-    )
+  lazy val valueSerializer: KafkaAvroSerializer = {
+    val kas = getSerializer
+    kas.configure(sinkConfig.schemaRegistryConfig.props, false)
+    kas
   }
 
 }
