@@ -28,6 +28,7 @@ class AWSSignerSpec extends PropSpec {
       .get(CIString(name))
       .map(h => h.last.value)
 
+
   property("sign property") {
     val testBody             = TestBody("horatio", 32)
     val testBodyContent      = testBody.asJson.noSpaces
@@ -67,7 +68,7 @@ class AWSSignerSpec extends PropSpec {
       signedRequestLocal,
       "Host"
     ).value shouldEqual "localstack"
-    signedRequestLocal.uri shouldEqual "http://localstack:4566/msgbus-green/sandbox/schema/default/"
+    signedRequestLocal.uri.toString() shouldEqual "http://localstack:4566/msgbus-green/sandbox/schema/default/"
 
 //    signedRequest.headers.foreach(println)
 //    println(
