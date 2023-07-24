@@ -58,6 +58,17 @@ class AWSSignerSpec extends PropSpec {
       "Host"
     ).value shouldEqual "my-bucket.s3.amazonaws.com"
 
+    val signedRequestLocal = new AWSSigner(
+      request = request,
+      providedCredentials =
+        Some(new BasicAWSCredentials("foobar", "foobaz")),serviceAndEndpoint=Some(("s3",Some(Uri.unsafeFromString(s"http://localstack:4566/msgbus-green/sandbox/schema/default/") )))
+    ).sign
+    getHeader(
+      signedRequestLocal,
+      "Host"
+    ).value shouldEqual "localstack"
+    signedRequest.uri shouldEqual "http://localstack:4566/msgbus-green/sandbox/schema/default/"
+
 //    signedRequest.headers.foreach(println)
 //    println(
 //      "Body:\n" +
