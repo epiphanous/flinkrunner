@@ -56,9 +56,13 @@ abstract class AvroRegistryKafkaRecordDeserializationSchema[
       out: Collector[E]): Unit = {
 
     val headers = Option(record.headers())
-      .map(_.asScala.map { h =>
-        (h.key(), new String(h.value(), StandardCharsets.UTF_8))
-      }.toMap)
+      .map(
+        _.asScala
+          .map { h =>
+            (h.key(), new String(h.value(), StandardCharsets.UTF_8))
+          }
+          .toMap
+      )
       .getOrElse(Map.empty[String, String]) ++ Map(
       headerName(SerializedValueSize) -> record
         .value()
