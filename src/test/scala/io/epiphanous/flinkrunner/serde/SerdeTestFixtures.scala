@@ -136,7 +136,8 @@ trait SerdeTestFixtures extends PropSpec {
           val props            = kafkaSourceConfig.schemaRegistryConfig.props
           val glue: GlueClient = {
             val accessKeyId         = props.getOrDefault("accessKeyId", "foobar")
-            val secretAccessKey     = props.getOrDefault("secretAccessKey", "foobar")
+            val secretAccessKey     =
+              props.getOrDefault("secretAccessKey", "foobar")
             val credentialsProvider =
               if (accessKeyId.nonEmpty && secretAccessKey.nonEmpty)
                 StaticCredentialsProvider.create(

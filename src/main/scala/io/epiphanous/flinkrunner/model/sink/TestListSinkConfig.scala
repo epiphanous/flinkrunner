@@ -1,7 +1,12 @@
 package io.epiphanous.flinkrunner.model.sink
 
 import io.epiphanous.flinkrunner.model.FlinkConnectorName.TestList
-import io.epiphanous.flinkrunner.model.{EmbeddedAvroRecord, FlinkConfig, FlinkConnectorName, FlinkEvent}
+import io.epiphanous.flinkrunner.model.{
+  EmbeddedAvroRecord,
+  FlinkConfig,
+  FlinkConnectorName,
+  FlinkEvent
+}
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.scala.DataStream
