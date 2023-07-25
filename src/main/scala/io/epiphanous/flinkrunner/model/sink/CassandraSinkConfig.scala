@@ -38,12 +38,14 @@ case class CassandraSinkConfig[ADT <: FlinkEvent](
 
   val clusterBuilder = new CassandraClusterBuilder(host, port)
 
-  def addSink[E <: ADT: TypeInformation](stream: DataStream[E]): Unit =
+  def addSink[E <: ADT: TypeInformation](stream: DataStream[E]): Unit = {
     CassandraSink
       .addSink(stream)
       .setClusterBuilder(clusterBuilder)
       .setQuery(query)
       .build()
+    ()
+  }
 
   override def addAvroSink[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
@@ -62,6 +64,7 @@ case class CassandraSinkConfig[ADT <: FlinkEvent](
       )
       .uid(label)
       .name(label)
+    ()
   }
 
   override def _addRowSink(

@@ -146,7 +146,7 @@ case class IcebergSinkConfig[ADT <: FlinkEvent](
         )
       )
       .append()
-
+    ()
   }
 
   override def addAvroSink[

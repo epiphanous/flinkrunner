@@ -182,7 +182,7 @@ object RowUtils extends LazyLogging {
     a.tree.children.tail.foldLeft(DataTypeConfig()) {
       case (
             dtc,
-            arg @ ru.AssignOrNamedArg(ru.Ident(name), ru.Literal(lit))
+            _ @ru.AssignOrNamedArg(ru.Ident(name), ru.Literal(lit))
           ) =>
         val prop = name.toString
         (prop, lit) match {

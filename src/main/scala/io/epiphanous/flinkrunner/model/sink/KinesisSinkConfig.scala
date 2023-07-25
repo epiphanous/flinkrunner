@@ -77,6 +77,7 @@ case class KinesisSinkConfig[ADT <: FlinkEvent: TypeInformation](
       .uid(label)
       .name(label)
       .setParallelism(parallelism)
+    ()
   }
 
   override def addSink[E <: ADT: TypeInformation](

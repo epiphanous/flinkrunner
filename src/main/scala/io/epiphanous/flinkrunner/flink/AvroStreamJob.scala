@@ -23,8 +23,8 @@ abstract class AvroStreamJob[
     ADT <: FlinkEvent: TypeInformation](runner: FlinkRunner[ADT])
     extends StreamJob[OUT, ADT](runner) {
 
-  override def sink(out: DataStream[OUT]): Unit =
-    runner.getSinkNames.foreach(name =>
-      runner.addAvroSink[OUT, A](out, name)
-    )
+  override def sink(out: DataStream[OUT]): Unit = {
+    runner.mainSinkConfigs.foreach(_.addAvroSink[OUT, A](out))
+    if (runner.sideSinkConfigs.nonEmpty) sinkSideOutputs(out)
+  }
 }

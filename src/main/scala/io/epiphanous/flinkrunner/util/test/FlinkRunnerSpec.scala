@@ -13,9 +13,33 @@ import scala.reflect.runtime.{universe => ru}
 trait FlinkRunnerSpec {
   val DEFAULT_CONFIG_STR: String =
     """
+      |execution.runtime-mode=batch
       |sources{empty-source{}}
       |sinks{print-sink{}}
       |""".stripMargin
+
+  def getDefaultConfig: FlinkConfig =
+    new FlinkConfig(Array("testJob"), Some(DEFAULT_CONFIG_STR))
+
+  def getCheckResults[IN <: ADT, OUT <: ADT, ADT <: FlinkEvent](
+      checkResultsName: String,
+      tests: List[OUT] => Unit,
+      input: List[IN] = List.empty
+  ): CheckResults[ADT] = {
+    new CheckResults[ADT] {
+      override val name: String = checkResultsName
+
+      override val collectLimit: Int =
+        if (input.nonEmpty) input.size else 100
+
+      override def getInputEvents[T <: ADT](sourceName: String): List[T] =
+        if (input.isEmpty) super.getInputEvents(sourceName)
+        else input.asInstanceOf[List[T]]
+
+      override def checkOutputEvents[T <: ADT](out: List[T]): Unit =
+        tests(out.asInstanceOf[List[OUT]])
+    }
+  }
 
   def getRunner[
       IN <: ADT: TypeInformation,

@@ -20,6 +20,8 @@ abstract class TableStreamJob[
     ADT <: FlinkEvent: TypeInformation](runner: FlinkRunner[ADT])
     extends StreamJob[OUT, ADT](runner) {
 
-  override def sink(out: DataStream[OUT]): Unit =
-    runner.getSinkNames.foreach(name => runner.addRowSink[OUT](out, name))
+  override def sink(out: DataStream[OUT]): Unit = {
+    runner.mainSinkConfigs.foreach(_.addRowSink[OUT](out))
+    if (runner.sideSinkConfigs.nonEmpty) sinkSideOutputs(out)
+  }
 }
