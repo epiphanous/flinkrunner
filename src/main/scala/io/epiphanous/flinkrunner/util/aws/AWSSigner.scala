@@ -16,11 +16,11 @@ import scala.util.matching.Regex
 class AWSSigner(
     request: Request[IO],
     providedCredentials: Option[AWSCredentials] = None,
-    serviceAndEndpoint: Option[(String, Option[Uri])] = None)
+    serviceOpt: Option[String] = None)
     extends LazyLogging {
 
   val Some(Tuple2(service, maybeUri)) =
-    serviceAndEndpoint.orElse(resolveAWSService)
+    serviceOpt.map(s => (s, Some(request.uri))).orElse(resolveAWSService)
 
   val doubleUrlEncoding: Boolean = !service.equals("s3")
 

@@ -171,8 +171,8 @@ class JdbcSinkCreateTableTest extends UnitSpec {
     )
   }
 
-  /** ignoring this test as the mssqlcontainer won't start for me
-    * -- nextdude 2022/08/22
+  /** ignoring this test as the mssqlcontainer won't start for me --
+    * nextdude 2022/08/22
     */
   ignore should "maybeCreateTable in sql server" in {
     mssqlContainer.start()

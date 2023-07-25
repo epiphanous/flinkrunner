@@ -20,11 +20,10 @@ object Requests {
   def get(
       uri: String,
       headers: Map[String, String] = Map.empty,
-      serviceAndEndpoint: Option[(String, Option[Uri])] = None)
-      : Request[IO] =
+      serviceOpt: Option[String] = None): Request[IO] =
     new AWSSigner(
       request = GET(Uri.unsafeFromString(uri), Headers(headers.toSeq)),
-      serviceAndEndpoint = serviceAndEndpoint
+      serviceOpt = serviceOpt
     ).sign
 
   /** Creates an http4s POST Request[IO] that has been signed with an AWS
@@ -49,11 +48,11 @@ object Requests {
       body: A,
       uri: String,
       headers: Map[String, String] = Map.empty,
-      serviceAndEndpoint: Option[(String, Option[Uri])] = None)(implicit
+      serviceOpt: Option[String] = None)(implicit
       w: EntityEncoder[IO, A]): Request[IO] =
     new AWSSigner(
       request =
         POST(body, Uri.unsafeFromString(uri), Headers(headers.toSeq)),
-      serviceAndEndpoint = serviceAndEndpoint
+      serviceOpt = serviceOpt
     ).sign
 }

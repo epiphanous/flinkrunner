@@ -23,61 +23,71 @@ class AWSSignerSpec extends PropSpec {
     implicit val testBodyDec: EntityDecoder[IO, TestBody] = jsonOf
   }
 
+  val testBody: TestBody      = TestBody("horatio", 32)
+  val testBodyContent: String = testBody.asJson.noSpaces
+  val creds                   = new BasicAWSCredentials("foobar", "foobaz")
+
   def getHeader(req: Request[IO], name: String): Option[String] =
     req.headers
       .get(CIString(name))
       .map(h => h.last.value)
 
+  def getRequest(url: String): Request[IO] =
+    POST(Uri.unsafeFromString(url)).withEntity(testBody)
 
-  property("sign property") {
-    val testBody             = TestBody("horatio", 32)
-    val testBodyContent      = testBody.asJson.noSpaces
-    val request: Request[IO] = POST(
-      Uri
-        .unsafeFromString(
-          "s3://my-bucket/some/path/to_a_file.json"
-        )
-    ).withEntity(testBody)
-    val signer               = new AWSSigner(
-      request = request,
-      providedCredentials =
-        Some(new BasicAWSCredentials("foobar", "foobaz"))
+  property("sign works") {
+    val request: Request[IO] = getRequest(
+      "s3://my-bucket/some/path/to_a_file.json"
     )
+    val signer               =
+      new AWSSigner(request = request, providedCredentials = Some(creds))
     val signedRequest        = signer.sign
     val expectedDigest       = Hashing
       .sha256()
       .hashString(testBodyContent, StandardCharsets.UTF_8)
       .toString
-
     getHeader(
       signedRequest,
       "x-amz-content-sha256"
     ).value shouldEqual expectedDigest
-
     getHeader(
       signedRequest,
       "Host"
     ).value shouldEqual "my-bucket.s3.amazonaws.com"
+    signer.service shouldEqual "s3"
+    signer.maybeUri
+      .map(
+        _.toString()
+      )
+      .value shouldEqual "https://my-bucket.s3.amazonaws.com/some/path/to_a_file.json"
+  }
 
-    val signedRequestLocal = new AWSSigner(
+  property("local signer works") {
+    val request            =
+      getRequest("http://localstack:4566/some/path/to_a_file.json")
+    val localSigner        = new AWSSigner(
       request = request,
-      providedCredentials =
-        Some(new BasicAWSCredentials("foobar", "foobaz")),serviceAndEndpoint=Some(("s3",Some(Uri.unsafeFromString(s"http://localstack:4566/msgbus-green/sandbox/schema/default/") )))
-    ).sign
+      providedCredentials = Some(creds),
+      serviceOpt = Some("s3")
+    )
+    val signedRequestLocal = localSigner.sign
     getHeader(
       signedRequestLocal,
       "Host"
     ).value shouldEqual "localstack"
-    signedRequestLocal.uri.toString() shouldEqual "http://localstack:4566/msgbus-green/sandbox/schema/default/"
+    localSigner.maybeUri.value shouldEqual request.uri
+    localSigner.service shouldEqual "s3"
+    localSigner.credentials.getAWSAccessKeyId shouldEqual "foobar"
+    localSigner.credentials.getAWSSecretKey shouldEqual "foobaz"
 
-//    signedRequest.headers.foreach(println)
+//    signedRequestLocal.headers.foreach(println)
 //    println(
 //      "Body:\n" +
-//        signedRequest.bodyText.bufferAll.compile.last
+//        signedRequestLocal.bodyText.bufferAll.compile.last
 //          .map(_.getOrElse(""))
 //          .unsafeRunSync()
 //    )
-//    println(signedRequest.toString())
+//    println(signedRequestLocal.toString())
   }
 
 }
