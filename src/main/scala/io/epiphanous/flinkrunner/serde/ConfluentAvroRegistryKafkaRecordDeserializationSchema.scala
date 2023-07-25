@@ -64,6 +64,7 @@ class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
 
   @transient
   lazy val valueDeserializer: KafkaAvroDeserializer = {
+
     val kad = getDeserializer
     kad.configure(getConfig(true), false)
     kad
