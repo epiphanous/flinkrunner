@@ -85,7 +85,7 @@ object AvroUtils extends LazyLogging {
       config: FlinkConfig,
       keyOpt: Option[String] = None,
       headers: Map[String, String] = Map.empty)(implicit
-      fromKV: EmbeddedAvroRecordInfo[A] => E): E =
+      fromKV: EmbeddedAvroRecordInfo[A] => E): Try[E] = Try {
     if (isGeneric(typeClass) || isSpecificInstance(genericRecord))
       fromKV(
         EmbeddedAvroRecordInfo(
@@ -104,6 +104,7 @@ object AvroUtils extends LazyLogging {
           headers
         )
       )
+  }
 
   implicit class RichGenericRecord(genericRecord: GenericRecord) {
     def getDataAsSeq[A <: GenericRecord]: Seq[AnyRef] =

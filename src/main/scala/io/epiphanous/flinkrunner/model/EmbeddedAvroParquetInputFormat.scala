@@ -1,5 +1,6 @@
 package io.epiphanous.flinkrunner.model
 
+import com.typesafe.scalalogging.LazyLogging
 import io.epiphanous.flinkrunner.model.source.FileSourceConfig
 import io.epiphanous.flinkrunner.util.AvroUtils
 import org.apache.avro.Schema
@@ -9,6 +10,8 @@ import org.apache.flink.configuration.Configuration
 import org.apache.flink.connector.file.src.reader.StreamFormat
 import org.apache.flink.core.fs.FSDataInputStream
 import org.apache.flink.formats.parquet.avro.AvroParquetReaders
+
+import scala.util.Try
 
 /** A StreamFormat to read avro parquet files to produce a type E that
   * embeds an avro record.
@@ -30,7 +33,8 @@ class EmbeddedAvroParquetInputFormat[
     sourceConfig: FileSourceConfig[ADT],
     optSchema: Option[Schema] = None)(implicit
     fromKV: EmbeddedAvroRecordInfo[A] => E)
-    extends StreamFormat[E] {
+    extends StreamFormat[E]
+    with LazyLogging {
 
   val typeClass: Class[A] = implicitly[TypeInformation[A]].getTypeClass
 
@@ -91,17 +95,21 @@ class EmbeddedAvroParquetInputFormat[
   private def getReader(avroReader: StreamFormat.Reader[GenericRecord])
       : StreamFormat.Reader[E] =
     new StreamFormat.Reader[E] {
-      override def read(): E = {
-        Option(avroReader.read())
-          .map(record =>
-            AvroUtils.toEmbeddedAvroInstance[E, A, ADT](
-              record,
-              typeClass,
-              sourceConfig.config
-            )
-          )
-          .getOrElse(null.asInstanceOf[E]) // fugly for compiler
-      }
+      override def read(): E =
+        (for {
+          record <- Try(avroReader.read())
+          event <- AvroUtils.toEmbeddedAvroInstance[E, A, ADT](
+                     record,
+                     typeClass,
+                     sourceConfig.config
+                   )
+        } yield event).fold(
+          error => {
+            logger.error("failed to read record", error)
+            null.asInstanceOf[E]
+          },
+          e => e
+        )
 
       override def close(): Unit = avroReader.close()
     }
