@@ -7,7 +7,7 @@ import io.epiphanous.flinkrunner.model.{
   FlinkConfig,
   FlinkEvent
 }
-import org.apache.avro.{LogicalType, LogicalTypes, Schema}
+import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
 import org.apache.avro.specific.{SpecificData, SpecificRecordBase}
 
@@ -85,26 +85,31 @@ object AvroUtils extends LazyLogging {
       config: FlinkConfig,
       keyOpt: Option[String] = None,
       headers: Map[String, String] = Map.empty)(implicit
-      fromKV: EmbeddedAvroRecordInfo[A] => E): Try[E] = Try {
+      fromKV: EmbeddedAvroRecordInfo[A] => E): Try[E] =
     if (isGeneric(typeClass) || isSpecificInstance(genericRecord))
-      fromKV(
-        EmbeddedAvroRecordInfo(
-          genericRecord.asInstanceOf[A],
-          config,
-          keyOpt,
-          headers
+      Try(genericRecord.asInstanceOf[A]).map(record =>
+        fromKV(
+          EmbeddedAvroRecordInfo(
+            record,
+            config,
+            keyOpt,
+            headers
+          )
         )
       )
     else
-      fromKV(
-        EmbeddedAvroRecordInfo(
-          genericRecord.toSpecific(instanceOf(typeClass)),
-          config,
-          keyOpt,
-          headers
+      genericRecord
+        .toSpecific(instanceOf(typeClass))
+        .map(specificRecord =>
+          fromKV(
+            EmbeddedAvroRecordInfo(
+              specificRecord,
+              config,
+              keyOpt,
+              headers
+            )
+          )
         )
-      )
-  }
 
   implicit class RichGenericRecord(genericRecord: GenericRecord) {
     def getDataAsSeq[A <: GenericRecord]: Seq[AnyRef] =
@@ -117,10 +122,12 @@ object AvroUtils extends LazyLogging {
         .map(f => (f.name(), genericRecord.get(f.name())))
         .toMap
 
-    def toSpecific[A <: GenericRecord](instance: A): A =
-      SpecificData
-        .get()
-        .deepCopy(instance.getSchema, genericRecord)
-        .asInstanceOf[A]
+    def toSpecific[A <: GenericRecord](instance: A): Try[A] =
+      Try(
+        SpecificData
+          .get()
+          .deepCopy(instance.getSchema, genericRecord)
+          .asInstanceOf[A]
+      )
   }
 }
