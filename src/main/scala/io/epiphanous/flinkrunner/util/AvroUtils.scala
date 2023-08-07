@@ -7,9 +7,9 @@ import io.epiphanous.flinkrunner.model.{
   FlinkConfig,
   FlinkEvent
 }
-import org.apache.avro.Schema
+import org.apache.avro.{LogicalType, LogicalTypes, Schema}
 import org.apache.avro.generic.GenericRecord
-import org.apache.avro.specific.SpecificRecordBase
+import org.apache.avro.specific.{SpecificData, SpecificRecordBase}
 
 import scala.collection.JavaConverters._
 import scala.util.Try
@@ -117,50 +117,10 @@ object AvroUtils extends LazyLogging {
         .map(f => (f.name(), genericRecord.get(f.name())))
         .toMap
 
-    def toSpecific[A <: GenericRecord](instance: A): A = {
-      def convertEmbeddedRecord(rec: GenericRecord): Any = {
-        val fieldClassName = rec.getSchema.getFullName
-        Try(Class.forName(fieldClassName)).fold(
-          error =>
-            logger.error(
-              s"can't convert embedded generic record to a $fieldClassName",
-              error
-            ),
-          klass => {
-            if (isGenericInstance(rec)) {
-              val k = klass
-                .getDeclaredConstructor()
-                .newInstance()
-                .asInstanceOf[GenericRecord]
-              rec.toSpecific(k)
-            } else rec
-          }
-        )
-      }
-
-      genericRecord.getSchema.getFields.asScala
-        .foldLeft(instance) { (a, field) =>
-          val f = field.name()
-          genericRecord.get(f) match {
-            case map: java.util.Map[String, _] =>
-              val convertedMap = map.asScala.map {
-                case (key, rec: GenericRecord) =>
-                  (key, convertEmbeddedRecord(rec))
-                case kv                        => kv
-              }
-              a.put(f, convertedMap.asJava)
-            case array: java.util.List[_]      =>
-              val convertedArray = array.asScala.map {
-                case rec: GenericRecord => convertEmbeddedRecord(rec)
-                case v                  => v
-              }
-              a.put(f, convertedArray.asJava)
-            case rec: GenericRecord            =>
-              a.put(f, convertEmbeddedRecord(rec))
-            case v                             => a.put(f, v)
-          }
-          a
-        }
-    }
+    def toSpecific[A <: GenericRecord](instance: A): A =
+      SpecificData
+        .get()
+        .deepCopy(instance.getSchema, genericRecord)
+        .asInstanceOf[A]
   }
 }
