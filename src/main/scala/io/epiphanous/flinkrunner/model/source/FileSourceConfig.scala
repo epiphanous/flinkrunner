@@ -311,11 +311,18 @@ case class FileSourceConfig[ADT <: FlinkEvent](
             .uid(s"avro:$label")
             .name(s"avro:$label")
             .setParallelism(parallelism)
-            .map(g =>
+            .flatMap[E]((g: GenericRecord, out: Collector[E]) =>
               toEmbeddedAvroInstance[E, A, ADT](
                 g,
                 implicitly[TypeInformation[A]].getTypeClass,
                 config
+              ).fold(
+                error =>
+                  logger.error(
+                    s"failed to read record from bulk $format stream in source $name",
+                    error
+                  ),
+                out.collect
               )
             ),
           label

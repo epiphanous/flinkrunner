@@ -1,6 +1,7 @@
 package io.epiphanous.flinkrunner.serde
 
 import com.amazonaws.services.schemaregistry.deserializers.avro.AWSKafkaAvroDeserializer
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
 import io.epiphanous.flinkrunner.model.source.KafkaSourceConfig
 import io.epiphanous.flinkrunner.model.{
   EmbeddedAvroRecord,
@@ -12,7 +13,8 @@ import org.apache.flink.api.common.typeinfo.TypeInformation
 
 /** A flink deserialization schema that uses an aws glue avro schema
   * registry to deserialize a kafka consumer record into an embedded avro
-  * event instance
+  * event instance. It uses a [[StringDeserializerWithConfluentFallback]]
+  * key deserializer.
   * @param sourceConfig
   *   config for the kafka source
   * @param fromKV
@@ -29,14 +31,20 @@ class GlueAvroRegistryKafkaRecordDeserializationSchema[
     E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
     A <: GenericRecord: TypeInformation,
     ADT <: FlinkEvent](
-    sourceConfig: KafkaSourceConfig[ADT]
+    sourceConfig: KafkaSourceConfig[ADT],
+    schemaRegistryClientOpt: Option[SchemaRegistryClient] = None
 )(implicit fromKV: EmbeddedAvroRecordInfo[A] => E)
     extends AvroRegistryKafkaRecordDeserializationSchema[E, A, ADT](
       sourceConfig
     ) {
 
   @transient
-  override lazy val keyDeserializer = new SimpleStringDeserializer()
+  override lazy val keyDeserializer =
+    new StringDeserializerWithConfluentFallback(
+      schemaRegistryClientOpt
+        .map(c => Left(c))
+        .getOrElse(Right(sourceConfig.schemaRegistryConfig.confluentProps))
+    )
 
   @transient
   override lazy val valueDeserializer: AWSKafkaAvroDeserializer = {
