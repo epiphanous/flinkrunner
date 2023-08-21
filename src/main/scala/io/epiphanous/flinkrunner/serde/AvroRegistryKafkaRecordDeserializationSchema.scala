@@ -70,8 +70,7 @@ abstract class AvroRegistryKafkaRecordDeserializationSchema[
       return
     }
 
-    val recordValueLength =
-      Option(record.value()).map(_.length).getOrElse(-1)
+    val recordValueLength = record.value().length
     val recordKeyLength   = Option(record.key()).map(_.length).getOrElse(-1)
 
     val headers = Option(record.headers())
