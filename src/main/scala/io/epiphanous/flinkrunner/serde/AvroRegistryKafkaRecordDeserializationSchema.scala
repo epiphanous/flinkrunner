@@ -127,7 +127,7 @@ abstract class AvroRegistryKafkaRecordDeserializationSchema[
     } yield ok).fold(
       error =>
         logger.error(
-          s"Logging failure to deserialize kafka message ($recordInfo), continuing processing stream",
+          s"Logging failure to deserialize kafka message ($recordInfo), will continue processing stream",
           error
         ),
       _ => ()
