@@ -39,18 +39,23 @@ class AvroRegistryKafkaRecordDeserializationSchemaSpec
       schemaRegistryClient: MockSchemaRegistryClient =
         new MockSchemaRegistryClient())(implicit
       fromKV: EmbeddedAvroRecordInfo[A] => E)
-      : AvroRegistryKafkaRecordDeserializationSchema[E, A, ADT] =
+      : AvroRegistryKafkaRecordDeserializationSchema[E, A, ADT] = {
     new AvroRegistryKafkaRecordDeserializationSchema[E, A, ADT](
       kafkaSourceConfig
     ) {
       override val keyDeserializer: Deserializer[AnyRef]   =
         new StringDeserializerWithConfluentFallback(
-          Left(schemaRegistryClient)
+          Some(
+            new KafkaAvroDeserializer(
+              schemaRegistryClient
+            )
+          )
         )
       override val valueDeserializer: Deserializer[AnyRef] =
         new KafkaAvroDeserializer(schemaRegistryClient)
       override protected lazy val logger: Logger           = Logger(mockLogger)
     }
+  }
 
   val emptyDeserializer: AvroRegistryKafkaRecordDeserializationSchema[
     BWrapper,

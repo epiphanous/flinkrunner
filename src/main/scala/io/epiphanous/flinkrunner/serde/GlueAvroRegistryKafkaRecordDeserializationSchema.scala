@@ -2,6 +2,7 @@ package io.epiphanous.flinkrunner.serde
 
 import com.amazonaws.services.schemaregistry.deserializers.avro.AWSKafkaAvroDeserializer
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
+import io.confluent.kafka.serializers.KafkaAvroDeserializer
 import io.epiphanous.flinkrunner.model.source.KafkaSourceConfig
 import io.epiphanous.flinkrunner.model.{
   EmbeddedAvroRecord,
@@ -39,12 +40,14 @@ class GlueAvroRegistryKafkaRecordDeserializationSchema[
     ) {
 
   @transient
-  override lazy val keyDeserializer =
-    new StringDeserializerWithConfluentFallback(
-      schemaRegistryClientOpt
-        .map(c => Left(c))
-        .getOrElse(Right(sourceConfig.schemaRegistryConfig.confluentProps))
-    )
+  override lazy val keyDeserializer
+      : StringDeserializerWithConfluentFallback = {
+    val kad = schemaRegistryClientOpt
+      .map(c => new KafkaAvroDeserializer(c))
+      .getOrElse(new KafkaAvroDeserializer())
+    kad.configure(sourceConfig.schemaRegistryConfig.confluentProps, true)
+    new StringDeserializerWithConfluentFallback(Some(kad))
+  }
 
   @transient
   override lazy val valueDeserializer: AWSKafkaAvroDeserializer = {
