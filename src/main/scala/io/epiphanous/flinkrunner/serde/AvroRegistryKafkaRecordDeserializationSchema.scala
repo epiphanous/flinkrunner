@@ -61,8 +61,16 @@ abstract class AvroRegistryKafkaRecordDeserializationSchema[
       record: ConsumerRecord[Array[Byte], Array[Byte]],
       out: Collector[E]): Unit = {
 
-    val recordValueLength =
-      Option(record.value()).map(_.length).getOrElse(-1)
+    val recordInfo = s"topic=${record.topic()}, partition=${record
+        .partition()}, offset=${record.offset()}"
+
+    // shortcut process if record value is tombstone
+    if (Option(record.value()).isEmpty) {
+      logger.info(s"ignoring null value kafka record ($recordInfo)")
+      return
+    }
+
+    val recordValueLength = record.value().length
     val recordKeyLength   = Option(record.key()).map(_.length).getOrElse(-1)
 
     val headers = Option(record.headers())
@@ -119,8 +127,7 @@ abstract class AvroRegistryKafkaRecordDeserializationSchema[
     } yield ok).fold(
       error =>
         logger.error(
-          s"failed to deserialize kafka message (topic=${record.topic()}, partition=${record
-              .partition()}, offset=${record.offset()})",
+          s"Failed to deserialize kafka message ($recordInfo), but will continue processing stream",
           error
         ),
       _ => ()

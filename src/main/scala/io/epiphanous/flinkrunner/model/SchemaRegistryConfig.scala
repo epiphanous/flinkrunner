@@ -7,7 +7,6 @@ import com.typesafe.config.{
   ConfigValueFactory
 }
 import io.confluent.kafka.serializers.{
-  AbstractKafkaAvroSerDeConfig,
   AbstractKafkaSchemaSerDeConfig,
   KafkaAvroDeserializerConfig
 }

@@ -4,7 +4,10 @@ import com.amazonaws.services.schemaregistry.common.configs.GlueSchemaRegistryCo
 import com.amazonaws.services.schemaregistry.utils.AWSSchemaRegistryConstants
 import com.dimafeng.testcontainers.GenericContainer
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient
-import io.confluent.kafka.serializers.KafkaAvroSerializerConfig
+import io.confluent.kafka.serializers.{
+  AbstractKafkaSchemaSerDeConfig,
+  KafkaAvroSerializerConfig
+}
 import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.model.sink.KafkaSinkConfig
 import io.epiphanous.flinkrunner.model.source.KafkaSourceConfig
@@ -57,6 +60,8 @@ trait SerdeTestFixtures extends PropSpec {
        |  ${AWSSchemaRegistryConstants.SCHEMA_AUTO_REGISTRATION_SETTING} = true
        |  ${AWSSchemaRegistryConstants.DATA_FORMAT} = avro
        |  ${AWSSchemaRegistryConstants.AVRO_RECORD_TYPE} = SPECIFIC_RECORD
+       |  ${AWSSchemaRegistryConstants.SECONDARY_DESERIALIZER} = "io.confluent.kafka.serializers.KafkaAvroDeserializer"
+       |  ${AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG} = "mock://registry"
        |}
        |""".stripMargin
 
