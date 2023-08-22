@@ -23,7 +23,7 @@ class AvroRegistryKafkaRecordDeserializationSchemaSpec
     with MockitoSugar {
 
   val mockLogger: UnderlyingLogger = mock[UnderlyingLogger]
-  when(mockLogger.isInfoEnabled).thenReturn(true)
+  when(mockLogger.isTraceEnabled).thenReturn(true)
   when(mockLogger.isErrorEnabled).thenReturn(true)
 
   val topic      = "topic"
@@ -74,7 +74,7 @@ class AvroRegistryKafkaRecordDeserializationSchemaSpec
       emptyDeserializer.deserialize(getConsumerRecord(), out)
     ) should be a 'success
     collected should have length 0
-    verify(mockLogger).info(
+    verify(mockLogger).trace(
       s"ignoring null value kafka record ({})",
       recordInfo
     )
