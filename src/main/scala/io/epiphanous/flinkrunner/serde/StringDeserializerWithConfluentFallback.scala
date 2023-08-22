@@ -1,10 +1,15 @@
 package io.epiphanous.flinkrunner.serde
 
 import com.typesafe.scalalogging.LazyLogging
-import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
+import io.confluent.kafka.schemaregistry.client.{
+  MockSchemaRegistryClient,
+  SchemaRegistryClient
+}
 import io.confluent.kafka.serializers.{
+  AbstractKafkaSchemaSerDeConfig,
   KafkaAvroDeserializer,
-  KafkaAvroDeserializerConfig
+  KafkaAvroDeserializerConfig,
+  KafkaAvroSerializerConfig
 }
 import io.epiphanous.flinkrunner.serde.StringDeserializerWithConfluentFallback.CONFLUENT_MAGIC_BYTE
 import org.apache.kafka.common.serialization.{
@@ -13,6 +18,7 @@ import org.apache.kafka.common.serialization.{
 }
 
 import java.util
+import scala.collection.JavaConverters._
 
 /** A string key deserializer that falls back to confluent schema registry,
   * if configured.
@@ -49,12 +55,23 @@ class StringDeserializerWithConfluentFallback(
     confluentFallback match {
       case Right(props) if !props.isEmpty =>
         Some(forceGeneric(new KafkaAvroDeserializer(), props))
-      case Left(c)                        => Some(forceGeneric(new KafkaAvroDeserializer(c)))
+      case Left(c)                        =>
+        val props: Map[String, String] =
+          if (c.isInstanceOf[MockSchemaRegistryClient])
+            Map(
+              AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG -> "mock://test"
+            )
+          else Map.empty[String, String]
+        Some(forceGeneric(new KafkaAvroDeserializer(c), props.asJava))
       case _                              => None
     }
 
   override def deserialize(topic: String, data: Array[Byte]): AnyRef = {
-    if (data.headOption.contains(CONFLUENT_MAGIC_BYTE)) {
+    if (
+      Option(data).nonEmpty && data.headOption.contains(
+        CONFLUENT_MAGIC_BYTE
+      )
+    ) {
       if (confluentDeserializer.isEmpty) logger.warn("deserializ")
       confluentDeserializer.map(_.deserialize(topic, data)).orNull
     } else

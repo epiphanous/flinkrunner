@@ -62,7 +62,7 @@ abstract class AvroRegistryKafkaRecordDeserializationSchema[
       out: Collector[E]): Unit = {
 
     val recordInfo = s"topic=${record.topic()}, partition=${record
-        .partition()}, offset = ${record.offset()}"
+        .partition()}, offset=${record.offset()}"
 
     // shortcut process if record value is tombstone
     if (Option(record.value()).isEmpty) {
@@ -127,7 +127,7 @@ abstract class AvroRegistryKafkaRecordDeserializationSchema[
     } yield ok).fold(
       error =>
         logger.error(
-          s"Logging failure to deserialize kafka message ($recordInfo), will continue processing stream",
+          s"Failed to deserialize kafka message ($recordInfo), but will continue processing stream",
           error
         ),
       _ => ()
