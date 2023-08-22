@@ -66,7 +66,7 @@ abstract class AvroRegistryKafkaRecordDeserializationSchema[
 
     // shortcut process if record value is tombstone
     if (Option(record.value()).isEmpty) {
-      logger.info(s"ignoring null value kafka record ($recordInfo)")
+      logger.trace(s"ignoring null value kafka record ($recordInfo)")
       return
     }
 
