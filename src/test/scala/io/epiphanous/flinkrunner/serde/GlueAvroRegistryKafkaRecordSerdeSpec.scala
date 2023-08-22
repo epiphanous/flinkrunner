@@ -4,6 +4,7 @@ import com.dimafeng.testcontainers.scalatest.TestContainerForEach
 import com.dimafeng.testcontainers.{ContainerDef, GenericContainer}
 import io.epiphanous.flinkrunner.model._
 import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy
+import org.apache.flink.api.scala._
 //import org.apache.flink.api.scala._
 // ^^^^ if this line is commented and there isn't an uncommented version of this import
 // add the import: optimize imports in intellij deletes it but we need it for this test

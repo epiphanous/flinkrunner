@@ -1,6 +1,7 @@
 package io.epiphanous.flinkrunner.serde
 
 import io.epiphanous.flinkrunner.model._
+import org.apache.flink.api.scala._
 //import org.apache.flink.api.scala._ //<--- optimize imports might remove this
 
 class ConfluentAvroRegistryKafkaRecordSerdeSpec extends SerdeTestFixtures {
