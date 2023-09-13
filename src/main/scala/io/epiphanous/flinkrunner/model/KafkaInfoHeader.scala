@@ -1,10 +1,14 @@
 package io.epiphanous.flinkrunner.model
 
+import enumeratum.EnumEntry.Snakecase
 import enumeratum._
+import io.epiphanous.flinkrunner.util.RichString.RichString
 
+import java.time.Instant
 import scala.collection.immutable
+import scala.util.Try
 
-sealed trait KafkaInfoHeader extends EnumEntry
+sealed trait KafkaInfoHeader extends EnumEntry with Snakecase
 
 object KafkaInfoHeader extends Enum[KafkaInfoHeader] {
 
@@ -18,5 +22,20 @@ object KafkaInfoHeader extends Enum[KafkaInfoHeader] {
 
   def headerName(h: KafkaInfoHeader) = s"Kafka.${h.entryName}"
 
+  def headerFieldName(h: KafkaInfoHeader) =
+    s"kafka_${h.entryName.snakeCase}"
+
+  def headerValueMapper(h: KafkaInfoHeader): String => Option[Any] = {
+    headerValue: String =>
+      Try(h match {
+        case SerializedValueSize | SerializedKeySize | Partition =>
+          headerValue.toInt
+        case Offset                                              => headerValue.toLong
+        case Timestamp                                           => Instant.ofEpochMilli(headerValue.toLong)
+        case _                                                   => headerValue
+      }).toOption
+  }
+
   override def values: immutable.IndexedSeq[KafkaInfoHeader] = findValues
+
 }
