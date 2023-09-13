@@ -1,11 +1,6 @@
 package io.epiphanous.flinkrunner.model.sink
 
-import io.epiphanous.flinkrunner.model.{
-  EmbeddedAvroRecord,
-  FlinkConfig,
-  FlinkConnectorName,
-  FlinkEvent
-}
+import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.util.AvroUtils.RichGenericRecord
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
@@ -17,10 +12,8 @@ import org.apache.flink.connector.elasticsearch.sink.{
   FlushBackoffType
 }
 import org.apache.flink.streaming.api.scala.DataStream
-import org.apache.http.HttpHost
 import org.elasticsearch.client.Requests
 
-import java.net.URL
 import scala.collection.JavaConverters._
 
 /** Elasticsearch sink config
@@ -46,35 +39,11 @@ import scala.collection.JavaConverters._
 case class ElasticsearchSinkConfig[ADT <: FlinkEvent](
     name: String,
     config: FlinkConfig
-) extends SinkConfig[ADT] {
+) extends SinkConfig[ADT]
+    with ElasticLikeConfigProps {
 
   override val connector: FlinkConnectorName =
     FlinkConnectorName.Elasticsearch
-
-  val index: String              = config.getString(pfx("index"))
-  val transports: List[HttpHost] =
-    config.getStringList(pfx("transports")).map { s =>
-      val url      = new URL(if (s.startsWith("http")) s else s"http://$s")
-      val hostname = url.getHost
-      val port     = if (url.getPort < 0) 9200 else url.getPort
-      new HttpHost(hostname, port, url.getProtocol)
-    }
-
-  val bulkFlushBackoffType: FlushBackoffType = FlushBackoffType
-    .valueOf(properties.getProperty("bulk.flush.backoff.type", "NONE"))
-
-  val bulkFlushBackoffRetries: Int =
-    properties.getProperty("bulk.flush.backoff.retries", "5").toInt
-
-  val bulkFlushBackoffDelay: Long =
-    properties.getProperty("bulk.flush.backoff.delay", "1000").toLong
-
-  val bulkFlushMaxActions: Option[Int]  =
-    Option(properties.getProperty("bulk.flush.max.actions")).map(_.toInt)
-  val bulkFlushMaxSizeMb: Option[Int]   =
-    Option(properties.getProperty("bulk.flush.max.size.mb")).map(_.toInt)
-  val bulkFlushIntervalMs: Option[Long] =
-    Option(properties.getProperty("bulk.flush.interval.ms")).map(_.toLong)
 
   def _addSink[E <: ADT: TypeInformation](
       dataStream: DataStream[E],
@@ -84,7 +53,7 @@ case class ElasticsearchSinkConfig[ADT <: FlinkEvent](
         .setHosts(transports: _*)
         .setEmitter[E](emitter)
         .setBulkFlushBackoffStrategy(
-          bulkFlushBackoffType,
+          FlushBackoffType.valueOf(bulkFlushBackoffType),
           bulkFlushBackoffRetries,
           bulkFlushBackoffDelay
         )

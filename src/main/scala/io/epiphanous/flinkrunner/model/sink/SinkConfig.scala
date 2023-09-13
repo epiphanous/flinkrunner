@@ -6,11 +6,13 @@ import io.epiphanous.flinkrunner.util.RowUtils.rowTypeOf
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.scala.createTypeInformation
+import org.apache.flink.connector.base.DeliveryGuarantee
 import org.apache.flink.streaming.api.scala.{DataStream, OutputTag}
 import org.apache.flink.table.types.logical.RowType
 import org.apache.flink.types.Row
 
 import scala.reflect.runtime.{universe => ru}
+import scala.util.Try
 
 /** A flinkrunner sink configuration trait. All sink configs have a few
   * common configuration options.
@@ -20,12 +22,15 @@ import scala.reflect.runtime.{universe => ru}
   *   - `name`: the sink name
   *   - `connector`: one of
   *     - [[FlinkConnectorName.Cassandra]]
+  *     - [[FlinkConnectorName.DynamoDb]]
   *     - [[FlinkConnectorName.Elasticsearch]]
   *     - [[FlinkConnectorName.File]]
   *     - [[FlinkConnectorName.Firehose]]
   *     - [[FlinkConnectorName.Jdbc]]
   *     - [[FlinkConnectorName.Kafka]]
   *     - [[FlinkConnectorName.Kinesis]]
+  *     - [[FlinkConnectorName.MongoDb]]
+  *     - [[FlinkConnectorName.OpenSearch]]
   *     - [[FlinkConnectorName.RabbitMQ]]
   *     - [[FlinkConnectorName.Socket]]
   *
@@ -41,6 +46,15 @@ trait SinkConfig[ADT <: FlinkEvent] extends SourceOrSinkConfig[ADT] {
 
   def getOutputTag[X <: ADT: TypeInformation]: OutputTag[X] =
     OutputTag[X](name)
+
+  val deliveryGuarantee: Option[DeliveryGuarantee] = config
+    .getStringOpt(pfx("delivery.guarantee"))
+    .map(_.split("[^a-zA-z]+").map(_.toLowerCase).mkString("-"))
+    .flatMap(dg =>
+      Try(
+        DeliveryGuarantee.valueOf(dg)
+      ).toOption
+    )
 
   def addSink[E <: ADT: TypeInformation](stream: DataStream[E]): Unit
 
@@ -92,6 +106,9 @@ object SinkConfig {
       case Iceberg       => IcebergSinkConfig(name, config)
       case Print         => PrintSinkConfig(name, config)
       case TestList      => TestListSinkConfig(name, config)
+      case MongoDb       => MongoDbSinkConfig(name, config)
+      case OpenSearch    => OpenSearchSinkConfig(name, config)
+      case DynamoDb      => DynamoDbSinkConfig(name, config)
       case connector     =>
         throw new RuntimeException(
           s"Don't know how to configure ${connector.entryName} sink connector <$name> (in job <${config.jobName}>)"

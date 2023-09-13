@@ -39,13 +39,21 @@ object FlinkConnectorName extends Enum[FlinkConnectorName] {
 
   case object TestList extends FlinkConnectorName
 
+  case object MongoDb extends FlinkConnectorName
+
+  case object OpenSearch extends FlinkConnectorName
+
+  case object DynamoDb extends FlinkConnectorName
+
   val sources: immutable.Seq[FlinkConnectorName] =
     values diff IndexedSeq(
       Cassandra,
       Elasticsearch,
       Firehose,
       Print,
-      TestList
+      TestList,
+      OpenSearch,
+      DynamoDb
     )
   val sinks: immutable.Seq[FlinkConnectorName]   =
     values diff IndexedSeq(Hybrid, Generator)
