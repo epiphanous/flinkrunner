@@ -3,12 +3,21 @@ package io.epiphanous.flinkrunner.model
 import org.apache.avro.generic.GenericRecord
 
 trait AssignKafkaHeaders[A <: GenericRecord] {
-  this: FlinkEvent with EmbeddedAvroRecord[A] =>
+  this: {
+    val $record: A
+    val $recordHeaders: Map[String, String]
+  } =>
 
-  def assignHeaders: Seq[KafkaHeaderMapper] =
+  val defaultAssignableHeaders: Seq[KafkaHeaderMapper] =
     KafkaInfoHeader.values.map(KafkaHeaderMapper.apply)
 
+  def customAssignableHeaders: Seq[KafkaHeaderMapper] = Seq.empty
+
   def assignKafkaHeaders(): Unit =
-    assignHeaders.foreach(_.assign($record, $recordHeaders))
+    (defaultAssignableHeaders ++ customAssignableHeaders).foreach(
+      _.assign($record, $recordHeaders)
+    )
+
+  assignKafkaHeaders()
 
 }

@@ -1,6 +1,5 @@
 package io.epiphanous.flinkrunner.model
 
-import enumeratum.EnumEntry.Snakecase
 import enumeratum._
 import io.epiphanous.flinkrunner.util.RichString.RichString
 
@@ -8,7 +7,7 @@ import java.time.Instant
 import scala.collection.immutable
 import scala.util.Try
 
-sealed trait KafkaInfoHeader extends EnumEntry with Snakecase
+sealed trait KafkaInfoHeader extends EnumEntry
 
 object KafkaInfoHeader extends Enum[KafkaInfoHeader] {
 

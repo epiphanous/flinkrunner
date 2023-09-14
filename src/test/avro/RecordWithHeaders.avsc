@@ -1,0 +1,45 @@
+{
+  "name": "RecordWithHeaders",
+  "namespace": "io.epiphanous.flinkrunner.model",
+  "type": "record",
+  "fields": [
+    {
+      "name": "a",
+      "type": "string"
+    },
+    {
+      "name": "b",
+      "type": "int"
+    },
+    {
+      "name": "kafka_offset",
+      "type": ["null","long"],
+      "default": null
+    },
+    {
+      "name": "kafka_partition",
+      "type": ["null","int"],
+      "default": null
+    },
+    {
+      "name": "kafka_topic",
+      "type": ["null","string"],
+      "default": null
+    },
+    {
+      "name": "myIntHeader",
+      "type": ["null","int"],
+      "default": null
+    },
+    {
+      "name": "myStringHeader",
+      "type": ["null","string"],
+      "default": null
+    },
+    {
+      "name": "myBooleanHeader",
+      "type": ["null","boolean"],
+      "default": null
+    }
+  ]
+}
