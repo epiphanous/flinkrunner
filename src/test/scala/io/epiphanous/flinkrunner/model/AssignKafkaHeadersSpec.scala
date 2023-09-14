@@ -3,6 +3,8 @@ package io.epiphanous.flinkrunner.model
 import io.epiphanous.flinkrunner.PropSpec
 import org.apache.avro.generic.GenericRecord
 
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 class AssignKafkaHeadersSpec extends PropSpec {
@@ -47,21 +49,31 @@ class AssignKafkaHeadersSpec extends PropSpec {
 
   property("works with custom headers") {
     val rec: RecordWithHeaders = RecordWithHeaders("some string", 17)
+    val ts                     = Instant.now()
     val event                  = MyEventWithHeaderFields[RecordWithHeaders](
       rec,
       Map(
-        "someIntHeader" -> "36"
+        "someIntHeader"       -> "36",
+        "someTimestampHeader" -> ts.toEpochMilli.toString
       ),
       Seq(
         KafkaHeaderMapper(
           "someIntHeader",
           "myIntHeader",
-          (s: String) => Option(s).map(_.toInt)
+          KafkaHeaderMapper.intMapper
+        ),
+        KafkaHeaderMapper(
+          "someTimestampHeader",
+          "myTimestampHeader",
+          KafkaHeaderMapper.longMapper
         )
       )
     )
 //    println(s"$rec")
     rec.myIntHeader shouldEqual Some(36)
+    rec.myTimestampHeader shouldEqual Some(
+      ts.truncatedTo(ChronoUnit.MILLIS)
+    )
   }
 
 }
