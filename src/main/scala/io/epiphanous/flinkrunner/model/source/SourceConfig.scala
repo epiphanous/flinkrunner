@@ -29,6 +29,7 @@ import scala.util.Try
   *       into a single stream
   *     - [[FlinkConnectorName.Kafka]] - for kafka-based stream sources
   *     - [[FlinkConnectorName.Kinesis]] - for kinesis-based stream sources
+  *     - [[FlinkConnectorName.MongoDb]] - for mongodb stream sources
   *     - [[FlinkConnectorName.RabbitMQ]] - for rabbitmq-based stream
   *       sources
   *     - [[FlinkConnectorName.Socket]] - for reading text data from a
@@ -273,6 +274,7 @@ object SourceConfig {
       case RabbitMQ  => RabbitMQSourceConfig[ADT](name, config)
       case Socket    => SocketSourceConfig[ADT](name, config)
       case Iceberg   => IcebergSourceConfig(name, config)
+      case MongoDb   => MongoDbSourceConfig(name, config)
       case Generator =>
         generatorFactoryOpt
           .map(factory =>

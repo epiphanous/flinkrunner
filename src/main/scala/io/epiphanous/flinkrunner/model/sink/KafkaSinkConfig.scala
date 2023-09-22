@@ -53,16 +53,6 @@ case class KafkaSinkConfig[ADT <: FlinkEvent: TypeInformation](
     config.getBooleanOpt
   ).getOrElse(false)
 
-  def deliveryGuarantee: DeliveryGuarantee = config
-    .getStringOpt(pfx("delivery.guarantee"))
-    .map(s => s.toLowerCase.replaceAll("[^a-z]+", "-")) match {
-    case Some("exactly-once") =>
-      DeliveryGuarantee.EXACTLY_ONCE
-    case Some("none")         =>
-      DeliveryGuarantee.NONE
-    case _                    => DeliveryGuarantee.AT_LEAST_ONCE
-  }
-
   /** ensure transaction.timeout.ms is set */
   val transactionTimeoutMs: Long = {
     val tms = getFromEither(
@@ -154,13 +144,15 @@ case class KafkaSinkConfig[ADT <: FlinkEvent: TypeInformation](
   }
 
   def _addSink[E <: ADT: TypeInformation](
-      serializer: KafkaRecordSerializationSchema[E]): KafkaSink[E] =
-    KafkaSink
+      serializer: KafkaRecordSerializationSchema[E]): KafkaSink[E] = {
+    val builder = KafkaSink
       .builder()
       .setBootstrapServers(bootstrapServers)
-      .setDeliveryGuarantee(deliveryGuarantee)
       .setTransactionalIdPrefix(transactionalIdPrefix)
       .setKafkaProducerConfig(properties)
       .setRecordSerializer(serializer)
-      .build()
+
+    deliveryGuarantee.foreach(dg => builder.setDeliveryGuarantee(dg))
+    builder.build()
+  }
 }
