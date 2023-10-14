@@ -41,7 +41,7 @@ class AvroUtilsTest extends PropSpec {
     forAll { b: BRecord =>
       val g = fromSpec(b)
       val s = g.toSpecific(new BRecord())
-      s shouldEqual b
+      s.success.value shouldEqual b
     }
   }
 
@@ -50,7 +50,7 @@ class AvroUtilsTest extends PropSpec {
       val v = fromSpecCRecord(c)
       val s = v.toSpecific(new CRecord())
       print(s)
-      s shouldEqual c
+      s.success.value shouldEqual c
     }
   }
 
@@ -76,13 +76,15 @@ class AvroUtilsTest extends PropSpec {
     val bw     = genOne[BWrapper]
     val g      = fromSpec(bw.$record)
     val config = new FlinkConfig(Array("test"))
-    val ea     =
-      AvroUtils.toEmbeddedAvroInstance[BWrapper, BRecord, MyAvroADT](
+    AvroUtils
+      .toEmbeddedAvroInstance[BWrapper, BRecord, MyAvroADT](
         g,
         classOf[BRecord],
         config
       )
-    ea shouldEqual bw
+      .success
+      .value shouldEqual bw
+
   }
 
   property("isGenericInstance property") {

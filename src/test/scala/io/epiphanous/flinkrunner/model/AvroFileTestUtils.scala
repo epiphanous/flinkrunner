@@ -83,11 +83,11 @@ trait AvroFileTestUtils {
       val b = inputFormat.nextRecord(reuse)
       done = b == null
       if (!done)
-        pop += toEmbeddedAvroInstance[BWrapper, BRecord, MyAvroADT](
+        toEmbeddedAvroInstance[BWrapper, BRecord, MyAvroADT](
           b,
           classOf[BRecord],
           srcConfig.config
-        )
+        ).foreach(bw => pop += bw)
     }
     inputFormat.close()
     pop.toList

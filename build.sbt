@@ -68,6 +68,7 @@ val V = new {
   val testContainersScala    = "0.40.17"
   val typesafeConfig         = "1.4.2"
   val uuidCreator            = "5.3.2"
+  val mockito                = "1.17.14"
 }
 
 val flinkDeps =
@@ -167,7 +168,8 @@ val otherDeps = Seq(
   "software.amazon.awssdk"           % "aws-sdk-java"                           % V.awsSdk2             % Test,
   "software.amazon.awssdk"           % "glue"                                   % V.awsSdk2             % Test,
   "software.amazon.awssdk"           % "url-connection-client"                  % V.awsSdk2             % Test,
-  "io.dropwizard.metrics"            % "metrics-core"                           % V.dropWizard          % Provided
+  "io.dropwizard.metrics"            % "metrics-core"                           % V.dropWizard          % Provided,
+  "org.mockito"                     %% "mockito-scala"                          % V.mockito             % Test
 ) ++
   Seq("org.apache.parquet" % "parquet-avro" % V.parquet % Provided).map(
     m =>

@@ -1,6 +1,7 @@
 package io.epiphanous.flinkrunner.serde
 
 import com.typesafe.scalalogging.LazyLogging
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
 import io.epiphanous.flinkrunner.model.KafkaInfoHeader._
 import io.epiphanous.flinkrunner.model.SchemaRegistryType.{
   AwsGlue,
@@ -12,6 +13,10 @@ import io.epiphanous.flinkrunner.model.{
   EmbeddedAvroRecordInfo,
   FlinkEvent
 }
+import io.epiphanous.flinkrunner.util.AvroUtils.{
+  isSpecific,
+  toEmbeddedAvroInstance
+}
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.typeinfo.{TypeHint, TypeInformation}
 import org.apache.flink.connector.kafka.source.reader.deserializer.KafkaRecordDeserializationSchema
@@ -21,7 +26,7 @@ import org.apache.kafka.common.serialization.Deserializer
 
 import java.nio.charset.StandardCharsets
 import scala.collection.JavaConverters._
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 /** A deserialization schema that uses a confluent schema registry to
   * deserialize a kafka key/value pair into instances of a flink runner ADT
@@ -45,8 +50,9 @@ abstract class AvroRegistryKafkaRecordDeserializationSchema[
     extends KafkaRecordDeserializationSchema[E]
     with LazyLogging {
 
-  val avroClass: Class[A]   = implicitly[TypeInformation[A]].getTypeClass
-  val avroClassName: String = avroClass.getCanonicalName
+  val avroClass: Class[A]          = implicitly[TypeInformation[A]].getTypeClass
+  val avroClassName: String        = avroClass.getCanonicalName
+  val avroClassIsSpecific: Boolean = isSpecific(avroClass)
 
   val keyDeserializer: Deserializer[AnyRef]
   val valueDeserializer: Deserializer[AnyRef]
@@ -55,78 +61,78 @@ abstract class AvroRegistryKafkaRecordDeserializationSchema[
       record: ConsumerRecord[Array[Byte], Array[Byte]],
       out: Collector[E]): Unit = {
 
+    val recordInfo = s"topic=${record.topic()}, partition=${record
+        .partition()}, offset=${record.offset()}"
+
+    // shortcut process if record value is tombstone
+    if (Option(record.value()).isEmpty) {
+      logger.trace(s"ignoring null value kafka record ($recordInfo)")
+      return
+    }
+
+    val recordValueLength = record.value().length
+    val recordKeyLength   = Option(record.key()).map(_.length).getOrElse(-1)
+
     val headers = Option(record.headers())
       .map(
         _.asScala
+          .filterNot(_.value() == null)
           .map { h =>
             (h.key(), new String(h.value(), StandardCharsets.UTF_8))
           }
           .toMap
       )
       .getOrElse(Map.empty[String, String]) ++ Map(
-      headerName(SerializedValueSize) -> record
-        .value()
-        .length
-        .toString,
-      headerName(SerializedKeySize)   -> record.key().length.toString,
+      headerName(SerializedValueSize) -> recordValueLength.toString,
+      headerName(SerializedKeySize)   -> recordKeyLength.toString,
       headerName(Offset)              -> record.offset().toString,
       headerName(Partition)           -> record.partition().toString,
-      headerName(Timestamp)           -> record.timestamp().toString,
+      headerName(Timestamp)           -> Option(record.timestamp())
+        .map(_.toString)
+        .orNull,
       headerName(TimestampType)       -> record
         .timestampType()
         .name(),
       headerName(Topic)               -> record.topic()
     )
 
-    // deserialize the key
-    val keyDeserialized = Try(
-      keyDeserializer.deserialize(record.topic(), record.key())
-    ).map(_.toString)
-
-    val keyOpt = keyDeserialized
-      .fold(
-        error => {
-          logger.error(
-            s"failed to deserialize kafka message key (${record
-                .key()
-                .length} bytes) from topic ${record.topic()}",
-            error
-          )
-          None
-        },
-        k => Some(k)
-      )
-
-    val valueDeserialized = Try(
-      valueDeserializer.deserialize(record.topic(), record.value())
+    (for {
+      keyDeserialized <-
+        Try(
+          keyDeserializer.deserialize(record.topic(), record.key())
+        )
+      keyOpt <-
+        Success(Option(keyDeserialized).map(_.toString))
+      valueDeserialized <-
+        Try(
+          valueDeserializer.deserialize(record.topic(), record.value())
+        )
+      record <- valueDeserialized match {
+                  case rec: GenericRecord => Success(rec)
+                  case other              =>
+                    Failure(
+                      new RuntimeException(
+                        s"Expected deserialized kafka message value of type $avroClassName, but got [$other]"
+                      )
+                    )
+                }
+      event <- toEmbeddedAvroInstance[E, A, ADT](
+                 record,
+                 avroClass,
+                 sourceConfig.config,
+                 keyOpt,
+                 headers
+               )
+      ok <- Try(out.collect(event))
+    } yield ok).fold(
+      error =>
+        logger.error(
+          s"Failed to deserialize kafka message ($recordInfo), but will continue processing stream",
+          error
+        ),
+      _ => ()
     )
 
-    valueDeserialized
-      .fold(
-        error =>
-          logger.error(
-            s"failed to deserialize kafka message value (${record
-                .value()
-                .length} bytes) to $avroClassName",
-            error
-          ),
-        {
-          case rec: A @unchecked =>
-            val event = fromKV(
-              EmbeddedAvroRecordInfo(
-                rec,
-                sourceConfig.config,
-                keyOpt,
-                headers
-              )
-            )
-            out.collect(event)
-          case unexpected        =>
-            logger.error(
-              s"Expected deserialized kafka message value of type $avroClassName, but got [$unexpected]"
-            )
-        }
-      )
   }
 
   override def getProducedType: TypeInformation[E] =
@@ -138,8 +144,10 @@ object AvroRegistryKafkaRecordDeserializationSchema {
   def apply[
       E <: ADT with EmbeddedAvroRecord[A]: TypeInformation,
       A <: GenericRecord: TypeInformation,
-      ADT <: FlinkEvent](sourceConfig: KafkaSourceConfig[ADT])(implicit
-      fromKV: EmbeddedAvroRecordInfo[A] => E)
+      ADT <: FlinkEvent](
+      sourceConfig: KafkaSourceConfig[ADT],
+      schemaRegistryClientOpt: Option[SchemaRegistryClient] = None)(
+      implicit fromKV: EmbeddedAvroRecordInfo[A] => E)
       : AvroRegistryKafkaRecordDeserializationSchema[E, A, ADT] = {
 
     sourceConfig.schemaRegistryConfig.schemaRegistryType match {
@@ -148,10 +156,11 @@ object AvroRegistryKafkaRecordDeserializationSchema {
           E,
           A,
           ADT
-        ](sourceConfig)
+        ](sourceConfig, schemaRegistryClientOpt)
       case AwsGlue   =>
         new GlueAvroRegistryKafkaRecordDeserializationSchema[E, A, ADT](
-          sourceConfig
+          sourceConfig,
+          schemaRegistryClientOpt
         )
     }
   }

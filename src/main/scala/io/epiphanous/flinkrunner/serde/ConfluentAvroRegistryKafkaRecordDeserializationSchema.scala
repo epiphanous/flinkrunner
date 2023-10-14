@@ -40,33 +40,45 @@ class ConfluentAvroRegistryKafkaRecordDeserializationSchema[
       sourceConfig
     ) {
 
-  def getDeserializer: KafkaAvroDeserializer =
+  private def getDeserializer: KafkaAvroDeserializer =
     schemaRegistryClientOpt.fold(new KafkaAvroDeserializer())(c =>
       new KafkaAvroDeserializer(c)
     )
 
-  def getConfig(specific: Boolean): util.HashMap[String, String] = {
+  def getConfig(isKey: Boolean): util.HashMap[String, String] = {
     val configs = new java.util.HashMap[String, String]()
     configs.putAll(sourceConfig.schemaRegistryConfig.props)
-    configs.put(
-      KafkaAvroDeserializerConfig.SPECIFIC_AVRO_READER_CONFIG,
-      specific.toString
-    )
+    if (isKey) {
+      // force keys to be decoded generically
+      configs.put(
+        KafkaAvroDeserializerConfig.SPECIFIC_AVRO_READER_CONFIG,
+        "false"
+      )
+    } else {
+
+      /** If "specific.avro.reader" config is not set, then default it to
+        * true if our embedded avro record class is a specific record.
+        * Otherwise, rely on the setting provided in the config.
+        */
+      configs.putIfAbsent(
+        KafkaAvroDeserializerConfig.SPECIFIC_AVRO_READER_CONFIG,
+        avroClassIsSpecific.toString
+      )
+    }
     configs
   }
 
   @transient
   lazy val keyDeserializer: KafkaAvroDeserializer = {
     val kad = getDeserializer
-    kad.configure(getConfig(false), true)
+    kad.configure(getConfig(true), true)
     kad
   }
 
   @transient
   lazy val valueDeserializer: KafkaAvroDeserializer = {
-
     val kad = getDeserializer
-    kad.configure(getConfig(true), false)
+    kad.configure(getConfig(false), false)
     kad
   }
 

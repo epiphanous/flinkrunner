@@ -6,7 +6,11 @@ import com.typesafe.config.{
   ConfigObject,
   ConfigValueFactory
 }
-import io.confluent.kafka.serializers.KafkaAvroDeserializerConfig
+import io.confluent.kafka.serializers.{
+  AbstractKafkaSchemaSerDeConfig,
+  KafkaAvroDeserializerConfig
+}
+import io.epiphanous.flinkrunner.model.SchemaRegistryConfig.extractConfluentProps
 import io.epiphanous.flinkrunner.model.SchemaRegistryType.{
   AwsGlue,
   Confluent
@@ -23,14 +27,27 @@ case class SchemaRegistryConfig(
     cacheCapacity: Int = 1000,
     props: util.Map[String, String] = new util.HashMap(),
     headers: util.Map[String, String] = new util.HashMap()) {
-  val url: String =
-    props.getOrDefault("schema.registry.url", "na")
+  val url: String                              =
+    props.getOrDefault(
+      AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG,
+      "na"
+    )
+  val confluentProps: util.Map[String, String] =
+    if (schemaRegistryType == SchemaRegistryType.Confluent) props
+    else {
+      if (
+        props.containsKey(
+          AWSSchemaRegistryConstants.SECONDARY_DESERIALIZER
+        )
+      ) extractConfluentProps(props)
+      else new util.HashMap[String, String]()
+    }
 }
 
 object SchemaRegistryConfig {
 
-  val DEFAULT_SCHEMA_REG_URL = "http://localhost:8082"
-  val DEFAULT_CACHE_CAPACITY = 1000
+  val DEFAULT_SCHEMA_REG_URL: String = "http://localhost:8082"
+  val DEFAULT_CACHE_CAPACITY: Int    = 1000
 
   def create(
       deserialize: Boolean,
@@ -40,7 +57,7 @@ object SchemaRegistryConfig {
       .getOrElse(
         ConfigFactory
           .parseString(
-            s"""schema.registry.url = "$DEFAULT_SCHEMA_REG_URL""""
+            s"""${AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG} = "$DEFAULT_SCHEMA_REG_URL""""
           )
           .getConfig("schema.registry")
       )
@@ -71,7 +88,7 @@ object SchemaRegistryConfig {
         .withoutPath("cache.capacity")
         .withoutPath("headers")
         .withValue(
-          "schema.registry.url",
+          AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG,
           ConfigValueFactory.fromAnyRef(url)
         )
         .withValue(
@@ -105,4 +122,8 @@ object SchemaRegistryConfig {
       Failure(new RuntimeException("invalid schema registry config"))
     }
   }
+
+  def extractConfluentProps(
+      props: util.Map[String, String]): util.Map[String, String] =
+    props
 }
