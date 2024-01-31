@@ -9,9 +9,11 @@ import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
 import org.apache.flink.api.common.JobExecutionResult
 import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.api.java.ExecutionEnvironment
 import org.apache.flink.formats.avro.utils.AvroKryoSerializerUtils.AvroSchemaSerializer
 import org.apache.flink.streaming.api.graph.StreamGraph
 import org.apache.flink.streaming.api.scala._
+import org.apache.flink.table.api.TableEnvironment
 import org.apache.flink.table.api.bridge.scala.StreamTableEnvironment
 import org.apache.flink.table.data.RowData
 
@@ -42,8 +44,7 @@ abstract class FlinkRunner[ADT <: FlinkEvent: TypeInformation](
     val executeJob: Boolean = true)
     extends LazyLogging {
 
-  val env: StreamExecutionEnvironment =
-    config.getStreamExecutionEnvironment
+  val env: StreamExecutionEnvironment = StreamExecutionEnvironment.getExecutionEnvironment
 
   val tableEnv: StreamTableEnvironment = StreamTableEnvironment.create(env)
 
