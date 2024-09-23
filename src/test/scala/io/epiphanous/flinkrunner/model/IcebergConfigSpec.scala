@@ -12,7 +12,7 @@ import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.scala.createTypeInformation
 import org.apache.flink.table.data.RowData
 import org.apache.hadoop.conf.Configuration
-import org.apache.iceberg.aws.AwsProperties
+import org.apache.iceberg.aws.s3.S3FileIOProperties
 import org.apache.iceberg.catalog.{Namespace, TableIdentifier}
 import org.apache.iceberg.data.parquet.GenericParquetWriter
 import org.apache.iceberg.data.{IcebergGenerics, Record}
@@ -102,37 +102,37 @@ class IcebergConfigSpec extends PropSpec with TestContainersForAll {
   }
 
   def s3Endpoint(
-      ls: LocalStackV2Container,
-      outside: Boolean = true): String = {
+                  ls: LocalStackV2Container,
+                  outside: Boolean = true): String = {
     if (outside) ls.endpointOverride(Service.S3).toString
     else
       s"http://$localstackHost:4566"
   }
 
   def icebergEndpoint(
-      ib: GenericContainer,
-      outside: Boolean = true): String = {
+                       ib: GenericContainer,
+                       outside: Boolean = true): String = {
     val mappedPort = ib.container.getMappedPort(icebergRESTPort)
     if (outside) s"http://localhost:$mappedPort"
     else s"http://$icebergHost:$mappedPort"
   }
 
   def icebergRest(
-      ib: GenericContainer,
-      path: String,
-      params: Iterable[(String, String)] = Nil): Response = {
+                   ib: GenericContainer,
+                   path: String,
+                   params: Iterable[(String, String)] = Nil): Response = {
     val endpoint =
       s"${icebergEndpoint(ib)}${if (path.startsWith("/")) ""
-        else "/"}$path"
+      else "/"}$path"
     requests.get(endpoint, params = params)
   }
 
   def getIcebergConfig[E](
-      ls: LocalStackV2Container,
-      ib: GenericContainer,
-      tableName: String,
-      isSink: Boolean,
-      otherConfig: String = ""): String = {
+                           ls: LocalStackV2Container,
+                           ib: GenericContainer,
+                           tableName: String,
+                           isSink: Boolean,
+                           otherConfig: String = ""): String = {
     val sourceOrSink: String = if (isSink) "sink" else "source"
     val creds                = awsCreds(ls)
     s"""|${sourceOrSink}s {
@@ -155,28 +155,28 @@ class IcebergConfigSpec extends PropSpec with TestContainersForAll {
   }
 
   def writeRowsAsJob[E <: MySimpleADT: TypeInformation: ru.TypeTag](
-      data: Seq[E],
-      tableName: String,
-      ls: LocalStackV2Container,
-      ib: GenericContainer)(implicit fromRowData: RowData => E): Unit = {
+                                                                     data: Seq[E],
+                                                                     tableName: String,
+                                                                     ls: LocalStackV2Container,
+                                                                     ib: GenericContainer)(implicit fromRowData: RowData => E): Unit = {
     val configStr =
       s"""
          |jobs { testJob {} }
          |${getIcebergConfig(
-          ls,
-          ib,
-          tableName,
-          isSink = true
-        )}
+        ls,
+        ib,
+        tableName,
+        isSink = true
+      )}
          |""".stripMargin
     getIdentityTableStreamJobRunner[E, MySimpleADT](configStr, data)
       .process()
   }
 
   def writeRowsDirectly[E <: MySimpleADT](
-      seq: Seq[E],
-      table: Table,
-      schema: Schema): Try[Unit] =
+                                           seq: Seq[E],
+                                           table: Table,
+                                           schema: Schema): Try[Unit] =
     Try {
       val filepath   = table.location() + "/" + UUID.randomUUID().toString
       val file       = table.io().newOutputFile(filepath)
@@ -194,19 +194,19 @@ class IcebergConfigSpec extends PropSpec with TestContainersForAll {
     }
 
   def getCatalog(
-      ls: LocalStackV2Container,
-      ib: GenericContainer): RESTCatalog = {
+                  ls: LocalStackV2Container,
+                  ib: GenericContainer): RESTCatalog = {
     val creds   = awsCreds(ls)
     val props   = Map(
-      AwsProperties.S3FILEIO_ACCESS_KEY_ID     -> creds.accessKeyId(),
-      AwsProperties.S3FILEIO_SECRET_ACCESS_KEY -> creds.secretAccessKey(),
-      AwsProperties.S3FILEIO_PATH_STYLE_ACCESS -> "true",
+      S3FileIOProperties.ACCESS_KEY_ID     -> creds.accessKeyId(),
+      S3FileIOProperties.SECRET_ACCESS_KEY -> creds.secretAccessKey(),
+      S3FileIOProperties.PATH_STYLE_ACCESS -> "true",
       "client.region"                          -> ls.region.toString,
       CatalogProperties.CATALOG_IMPL           -> "org.apache.iceberg.rest.RESTCatalog",
       CatalogProperties.URI                    -> icebergEndpoint(ib),
       CatalogProperties.WAREHOUSE_LOCATION     -> s"s3://$bucketName",
       CatalogProperties.FILE_IO_IMPL           -> "org.apache.iceberg.aws.s3.S3FileIO",
-      AwsProperties.S3FILEIO_ENDPOINT          -> s3Endpoint(ls)
+      S3FileIOProperties.ENDPOINT          -> s3Endpoint(ls)
     ).asJava
     val catalog = new RESTCatalog()
     catalog.setConf(new Configuration())
@@ -215,9 +215,9 @@ class IcebergConfigSpec extends PropSpec with TestContainersForAll {
   }
 
   def createTable(
-      catalog: RESTCatalog,
-      schema: Schema,
-      name: String): Table = {
+                   catalog: RESTCatalog,
+                   schema: Schema,
+                   name: String): Table = {
     val tblId = TableIdentifier.of(Namespace.of("testing", "tables"), name)
     catalog.createTable(tblId, schema, PartitionSpec.unpartitioned())
   }
@@ -228,13 +228,13 @@ class IcebergConfigSpec extends PropSpec with TestContainersForAll {
   }
 
   def writeAvroRowsAsJob[
-      E <: MyAvroADT with EmbeddedAvroRecord[A]: TypeInformation,
-      A <: GenericRecord: TypeInformation](
-      rows: Seq[E],
-      tableName: String,
-      ls: LocalStackV2Container,
-      ib: GenericContainer)(implicit
-      fromKV: EmbeddedAvroRecordInfo[A] => E): Unit = {
+    E <: MyAvroADT with EmbeddedAvroRecord[A]: TypeInformation,
+    A <: GenericRecord: TypeInformation](
+                                          rows: Seq[E],
+                                          tableName: String,
+                                          ls: LocalStackV2Container,
+                                          ib: GenericContainer)(implicit
+                                                                fromKV: EmbeddedAvroRecordInfo[A] => E): Unit = {
     val configStr =
       s"""
          |jobs { testJob {} }
@@ -245,21 +245,21 @@ class IcebergConfigSpec extends PropSpec with TestContainersForAll {
   }
 
   def readRowsAsJob[E <: MySimpleADT: TypeInformation: ru.TypeTag](
-      tableName: String,
-      checkResults: CheckResults[MySimpleADT],
-      ls: LocalStackV2Container,
-      ib: GenericContainer)(implicit fromRowData: RowData => E): Unit = {
+                                                                    tableName: String,
+                                                                    checkResults: CheckResults[MySimpleADT],
+                                                                    ls: LocalStackV2Container,
+                                                                    ib: GenericContainer)(implicit fromRowData: RowData => E): Unit = {
     val configStr =
       s"""
          |runtime.mode = batch
          |jobs { testJob {} }
          |${getIcebergConfig(
-          ls,
-          ib,
-          tableName,
-          isSink = false,
-          "batch = true"
-        )}
+        ls,
+        ib,
+        tableName,
+        isSink = false,
+        "batch = true"
+      )}
          |sinks { print-sink {} }
          |""".stripMargin
     println(s"CONFIG: $configStr")
@@ -271,10 +271,10 @@ class IcebergConfigSpec extends PropSpec with TestContainersForAll {
   }
 
   def readRowsDirectly[E <: FlinkEvent](
-      tableName: String,
-      ls: LocalStackV2Container,
-      ib: GenericContainer)(implicit
-      fromIcebergRecord: Record => E): Try[Iterable[E]] = Try {
+                                         tableName: String,
+                                         ls: LocalStackV2Container,
+                                         ib: GenericContainer)(implicit
+                                                               fromIcebergRecord: Record => E): Try[Iterable[E]] = Try {
     val catalog = getCatalog(ls, ib)
     val table   = loadTable(catalog, tableName)
     IcebergGenerics.read(table).build().asScala.map(fromIcebergRecord)

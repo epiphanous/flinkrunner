@@ -29,15 +29,14 @@ resolvers += "Local Maven Repository" at "file://" + Path.userHome.absolutePath 
 resolvers += "Confluent Repository" at "https://packages.confluent.io/maven/"
 
 val V = new {
-  val flink                  = "1.18.1"
+  val flink                  = "1.19.1"
   val flinkMinor             = s"${flink.replaceFirst("\\.[0-9]+$", "")}"
-  val prevMinor              = "1.17"
-  val fcKinesis              = s"4.2.0-$flinkMinor"
-  val fcKafka                = s"3.0.2-$flinkMinor"
-  val fcCassandra            = s"3.1.0-$prevMinor" // 1.18 not available
-  val fcJdbc                 = s"3.1.1-$prevMinor" // 1.18 not available
-  val fcRabbitMq             = s"3.0.1-$prevMinor" // 1.18 not available
-  val fcElastic              = s"3.0.1-$prevMinor"
+  val fcKinesis              = s"4.3.0-$flinkMinor"
+  val fcKafka                = s"3.2.0-$flinkMinor"
+  val fcCassandra            = s"3.2.0-$flinkMinor"
+  val fcJdbc                 = s"3.1.0-1.17"
+  val fcRabbitMq             = s"3.0.1-1.17"
+  val fcElastic              = s"3.0.1-1.17"
   // -------------------------------------------------
   val awsSdk                 = "1.12.506"
   val awsSdk2                = "2.20.103"
@@ -51,13 +50,13 @@ val V = new {
   val guava                  = "32.1.1-jre"
   val hadoop                 = "3.3.6"
   val http4s                 = "0.23.22"
-  val iceberg                = "1.3.0"
+  val iceberg                = "1.6.1"
   val jackson                = "2.15.2"
   val jacksonScalaReflectExt = "2.15.0"
   val jdbcMssql              = "11.2.0.jre11"
   val jdbcMysql              = "8.0.33"
   val jdbcPg                 = "42.6.0"
-  val jna                    = "5.13.0"            // needed for testcontainers in some JVM
+  val jna                    = "5.13.0" // needed for testcontainers in some JVM
   val logback                = "1.4.8"
   val parquet                = "1.13.1"
   val requests               = "0.8.0"
@@ -133,44 +132,44 @@ val circeDeps = Seq(
 ).map(d => "io.circe" %% s"circe-$d" % V.circe)
 
 val otherDeps = Seq(
-  "io.circe"                        %% "circe-generic-extras"               % V.circeGenericExtras,
-  "com.amazonaws"                    % "aws-java-sdk-core"                  % V.awsSdk              % Provided,
-  "com.amazonaws"                    % "aws-java-sdk-s3"                    % V.awsSdk              % Test,
-  "software.amazon.glue"             % "schema-registry-flink-serde"        % V.glueSerde,
-  "com.beachape"                    %% "enumeratum"                         % V.enumeratum,
-  "com.datastax.cassandra"           % "cassandra-driver-extras"            % V.cassandraDriver     % Provided,
-  "com.dimafeng"                    %% "testcontainers-scala-cassandra"     % V.testContainersScala % Test,
-  "com.dimafeng"                    %% "testcontainers-scala-localstack-v2" % V.testContainersScala % Test,
-  "com.dimafeng"                    %% "testcontainers-scala-mssqlserver"   % V.testContainersScala % Test,
-  "com.dimafeng"                    %% "testcontainers-scala-mysql"         % V.testContainersScala % Test,
-  "com.dimafeng"                    %% "testcontainers-scala-postgresql"    % V.testContainersScala % Test,
-  "com.dimafeng"                    %% "testcontainers-scala-scalatest"     % V.testContainersScala % Test,
-  "com.dimafeng"                    %% "testcontainers-scala-kafka"         % V.testContainersScala % Test,
-  "com.fasterxml.jackson.dataformat" % "jackson-dataformat-csv"             % V.jackson,
-  "com.fasterxml.jackson.datatype"   % "jackson-datatype-jsr310"            % V.jackson,
-  "com.fasterxml.jackson.module"    %% "jackson-module-scala"               % V.jackson,
-  "com.github.f4b6a3"                % "uuid-creator"                       % V.uuidCreator,
-  "com.github.pjfanning"            %% "jackson-scala-reflect-extensions"   % V.jacksonScalaReflectExt,
-  "com.google.guava"                 % "guava"                              % V.guava,
-  "com.lihaoyi"                     %% "requests"                           % V.requests            % Test,
-  "com.microsoft.sqlserver"          % "mssql-jdbc"                         % V.jdbcMssql           % Provided,
-  "com.typesafe"                     % "config"                             % V.typesafeConfig,
-  "io.confluent"                     % "kafka-avro-serializer"              % V.confluentAvroSerde  % Provided,
-  "mysql"                            % "mysql-connector-java"               % V.jdbcMysql           % Provided,
-  "net.java.dev.jna"                 % "jna"                                % V.jna                 % Test,
-  "org.apache.hadoop"                % "hadoop-client"                      % V.hadoop              % Provided,
-  "org.apache.iceberg"               % s"iceberg-flink-runtime-${V.prevMinor}"     % V.iceberg             % Provided,
-  "org.postgresql"                   % "postgresql"                         % V.jdbcPg              % Provided,
-  "org.scalacheck"                  %% "scalacheck"                         % V.scalaCheck,
-  "org.scalactic"                   %% "scalactic"                          % V.scalaTest,
-  "org.scalatest"                   %% "scalatest"                          % V.scalaTest           % Test,
-  "org.scalatestplus"               %% "scalacheck-1-17"                    % V.scalaTestPlus       % Test,
-  "org.typelevel"                   %% "squants"                            % V.squants,
-  "software.amazon.awssdk"           % "aws-sdk-java"                       % V.awsSdk2             % Test,
-  "software.amazon.awssdk"           % "glue"                               % V.awsSdk2             % Test,
-  "software.amazon.awssdk"           % "url-connection-client"              % V.awsSdk2             % Test,
-  "io.dropwizard.metrics"            % "metrics-core"                       % V.dropWizard          % Provided,
-  "org.mockito"                     %% "mockito-scala"                      % V.mockito             % Test
+  "io.circe"                        %% "circe-generic-extras"                   % V.circeGenericExtras,
+  "com.amazonaws"                    % "aws-java-sdk-core"                      % V.awsSdk              % Provided,
+  "com.amazonaws"                    % "aws-java-sdk-s3"                        % V.awsSdk              % Test,
+  "software.amazon.glue"             % "schema-registry-flink-serde"            % V.glueSerde,
+  "com.beachape"                    %% "enumeratum"                             % V.enumeratum,
+  "com.datastax.cassandra"           % "cassandra-driver-extras"                % V.cassandraDriver     % Provided,
+  "com.dimafeng"                    %% "testcontainers-scala-cassandra"         % V.testContainersScala % Test,
+  "com.dimafeng"                    %% "testcontainers-scala-localstack-v2"     % V.testContainersScala % Test,
+  "com.dimafeng"                    %% "testcontainers-scala-mssqlserver"       % V.testContainersScala % Test,
+  "com.dimafeng"                    %% "testcontainers-scala-mysql"             % V.testContainersScala % Test,
+  "com.dimafeng"                    %% "testcontainers-scala-postgresql"        % V.testContainersScala % Test,
+  "com.dimafeng"                    %% "testcontainers-scala-scalatest"         % V.testContainersScala % Test,
+  "com.dimafeng"                    %% "testcontainers-scala-kafka"             % V.testContainersScala % Test,
+  "com.fasterxml.jackson.dataformat" % "jackson-dataformat-csv"                 % V.jackson,
+  "com.fasterxml.jackson.datatype"   % "jackson-datatype-jsr310"                % V.jackson,
+  "com.fasterxml.jackson.module"    %% "jackson-module-scala"                   % V.jackson,
+  "com.github.f4b6a3"                % "uuid-creator"                           % V.uuidCreator,
+  "com.github.pjfanning"            %% "jackson-scala-reflect-extensions"       % V.jacksonScalaReflectExt,
+  "com.google.guava"                 % "guava"                                  % V.guava,
+  "com.lihaoyi"                     %% "requests"                               % V.requests            % Test,
+  "com.microsoft.sqlserver"          % "mssql-jdbc"                             % V.jdbcMssql           % Provided,
+  "com.typesafe"                     % "config"                                 % V.typesafeConfig,
+  "io.confluent"                     % "kafka-avro-serializer"                  % V.confluentAvroSerde  % Provided,
+  "mysql"                            % "mysql-connector-java"                   % V.jdbcMysql           % Provided,
+  "net.java.dev.jna"                 % "jna"                                    % V.jna                 % Test,
+  "org.apache.hadoop"                % "hadoop-client"                          % V.hadoop              % Provided,
+  "org.apache.iceberg"               % s"iceberg-flink-runtime-${V.flinkMinor}" % V.iceberg             % Provided,
+  "org.postgresql"                   % "postgresql"                             % V.jdbcPg              % Provided,
+  "org.scalacheck"                  %% "scalacheck"                             % V.scalaCheck,
+  "org.scalactic"                   %% "scalactic"                              % V.scalaTest,
+  "org.scalatest"                   %% "scalatest"                              % V.scalaTest           % Test,
+  "org.scalatestplus"               %% "scalacheck-1-17"                        % V.scalaTestPlus       % Test,
+  "org.typelevel"                   %% "squants"                                % V.squants,
+  "software.amazon.awssdk"           % "aws-sdk-java"                           % V.awsSdk2             % Test,
+  "software.amazon.awssdk"           % "glue"                                   % V.awsSdk2             % Test,
+  "software.amazon.awssdk"           % "url-connection-client"                  % V.awsSdk2             % Test,
+  "io.dropwizard.metrics"            % "metrics-core"                           % V.dropWizard          % Provided,
+  "org.mockito"                     %% "mockito-scala"                          % V.mockito             % Test
 ) ++
   Seq("org.apache.parquet" % "parquet-avro" % V.parquet % Provided).map(
     m =>
@@ -187,11 +186,11 @@ val otherDeps = Seq(
   )
 
 /** Exclude any transitive deps using log4j
-  * @param m
-  *   the module
-  * @return
-  *   module with deps excluded
-  */
+ * @param m
+ *   the module
+ * @return
+ *   module with deps excluded
+ */
 def excludeLog4j(m: ModuleID) = m.excludeAll(
   ExclusionRule(
     organization = "org.apache.logging.log4j",
