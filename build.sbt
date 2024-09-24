@@ -93,7 +93,7 @@ val flinkDeps =
     "org.apache.flink"  % "flink-connector-aws-kinesis-streams"  % V.fcKinesis   % Provided,
     "org.apache.flink"  % "flink-connector-aws-kinesis-firehose" % V.fcKinesis   % Provided,
     "org.apache.flink" %% "flink-connector-cassandra"            % V.fcCassandra % Provided,
-    "org.apache.flink"  % "flink-connector-elasticsearch7"       % V.fcElastic   % Provided,
+    "org.apache.flink"  % "flink-connector-elasticsearch7"       % V.fcElastic             ,
     "org.apache.flink"  % "flink-connector-jdbc"                 % V.fcJdbc      % Provided,
     "org.apache.flink"  % "flink-connector-rabbitmq"             % V.fcRabbitMq  % Provided,
     "org.apache.flink"  % "flink-connector-datagen"              % V.flink       % Provided,
