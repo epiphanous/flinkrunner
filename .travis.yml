@@ -1,6 +1,6 @@
 language: scala
 scala:
-  - 2.12.18
+  - 2.12.19
 
 dist: jammy
 
