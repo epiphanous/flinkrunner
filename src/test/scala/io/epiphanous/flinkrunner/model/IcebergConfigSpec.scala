@@ -13,6 +13,7 @@ import org.apache.flink.api.scala.createTypeInformation
 import org.apache.flink.table.data.RowData
 import org.apache.hadoop.conf.Configuration
 import org.apache.iceberg.aws.AwsProperties
+import org.apache.iceberg.aws.s3.S3FileIOProperties
 import org.apache.iceberg.catalog.{Namespace, TableIdentifier}
 import org.apache.iceberg.data.parquet.GenericParquetWriter
 import org.apache.iceberg.data.{IcebergGenerics, Record}
@@ -198,15 +199,15 @@ class IcebergConfigSpec extends PropSpec with TestContainersForAll {
       ib: GenericContainer): RESTCatalog = {
     val creds   = awsCreds(ls)
     val props   = Map(
-      AwsProperties.S3FILEIO_ACCESS_KEY_ID     -> creds.accessKeyId(),
-      AwsProperties.S3FILEIO_SECRET_ACCESS_KEY -> creds.secretAccessKey(),
-      AwsProperties.S3FILEIO_PATH_STYLE_ACCESS -> "true",
-      "client.region"                          -> ls.region.toString,
-      CatalogProperties.CATALOG_IMPL           -> "org.apache.iceberg.rest.RESTCatalog",
-      CatalogProperties.URI                    -> icebergEndpoint(ib),
-      CatalogProperties.WAREHOUSE_LOCATION     -> s"s3://$bucketName",
-      CatalogProperties.FILE_IO_IMPL           -> "org.apache.iceberg.aws.s3.S3FileIO",
-      AwsProperties.S3FILEIO_ENDPOINT          -> s3Endpoint(ls)
+      S3FileIOProperties.ACCESS_KEY_ID     -> creds.accessKeyId(),
+      S3FileIOProperties.SECRET_ACCESS_KEY -> creds.secretAccessKey(),
+      S3FileIOProperties.PATH_STYLE_ACCESS -> "true",
+      "client.region"                      -> ls.region.toString,
+      CatalogProperties.CATALOG_IMPL       -> "org.apache.iceberg.rest.RESTCatalog",
+      CatalogProperties.URI                -> icebergEndpoint(ib),
+      CatalogProperties.WAREHOUSE_LOCATION -> s"s3://$bucketName",
+      CatalogProperties.FILE_IO_IMPL       -> "org.apache.iceberg.aws.s3.S3FileIO",
+      S3FileIOProperties.ENDPOINT          -> s3Endpoint(ls)
     ).asJava
     val catalog = new RESTCatalog()
     catalog.setConf(new Configuration())

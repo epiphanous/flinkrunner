@@ -1,27 +1,26 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="FlinkConfigSpec.config env variable" type="ScalaTestRunConfiguration" factoryName="ScalaTest" nameIsGenerated="true" show_console_on_std_err="false" show_console_on_std_out="false">
     <module name="flinkrunner" />
-    <extension name="net.ashald.envfile">
-      <option name="IS_ENABLED" value="false" />
-      <option name="IS_SUBST" value="false" />
-      <option name="IS_PATH_MACRO_SUPPORTED" value="false" />
-      <option name="IS_IGNORE_MISSING_FILES" value="false" />
-      <option name="IS_ENABLE_EXPERIMENTAL_INTEGRATIONS" value="false" />
-      <ENTRIES>
-        <ENTRY IS_ENABLED="true" PARSER="runconfig" IS_EXECUTABLE="false" />
-      </ENTRIES>
-    </extension>
-    <extension name="software.aws.toolkits.jetbrains.core.execution.JavaAwsConnectionExtension">
-      <option name="credential" />
-      <option name="region" />
-      <option name="useCurrentConnection" value="false" />
-    </extension>
+    <option name="VMParameters" value="" />
     <option name="allowRunningInParallel" value="false" />
+    <option name="alternativeJrePath" />
+    <option name="alternativeJrePathEnabled" value="false" />
+    <option name="classpathModifications">
+      <list />
+    </option>
+    <option name="envs">
+      <map>
+        <entry key="TEST_ENV_EXISTS" value="exists" />
+      </map>
+    </option>
+    <option name="passParentEnvs" value="true" />
+    <option name="programParameters" value="" />
     <option name="projectPathOnTarget" />
     <option name="selectedOptions">
       <list />
     </option>
     <option name="testKind" value="Test name" />
+    <option name="workingDirectory" value="$PROJECT_DIR$" />
     <option name="envs">
       <map>
         <entry key="TEST_ENV_EXISTS" value="exists" />

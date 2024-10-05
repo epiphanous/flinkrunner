@@ -2,7 +2,7 @@ import avrohugger.types.JavaTimeInstant
 
 name := "flinkrunner"
 
-lazy val scala2                 = "2.12.18"
+lazy val scala2                 = "2.12.19"
 lazy val supportedScalaVersions = List(scala2)
 
 inThisBuild(
@@ -29,46 +29,46 @@ resolvers += "Local Maven Repository" at "file://" + Path.userHome.absolutePath 
 resolvers += "Confluent Repository" at "https://packages.confluent.io/maven/"
 
 val V = new {
-  val flink                  = "1.17.1"
+  val flink                  = "1.19.1"
   val flinkMinor             = s"${flink.replaceFirst("\\.[0-9]+$", "")}"
-  val fcKinesis              = s"4.1.0-$flinkMinor"
-  val fcKafka                = s"3.0.0-$flinkMinor"
-  val fcCassandra            = s"3.1.0-$flinkMinor"
-  val fcJdbc                 = s"3.1.0-$flinkMinor"
-  val fcRabbitMq             = s"3.0.1-$flinkMinor"
-  val fcElastic              = s"3.0.1-$flinkMinor"
+  val fcKinesis              = s"4.3.0-$flinkMinor"
+  val fcKafka                = s"3.2.0-$flinkMinor"
+  val fcCassandra            = s"3.2.0-$flinkMinor"
+  val fcJdbc                 = s"3.2.0-$flinkMinor"
+  val fcRabbitMq             = s"3.0.1-1.17"
+  val fcElastic              = s"3.0.1-1.17"
   // -------------------------------------------------
-  val awsSdk                 = "1.12.506"
-  val awsSdk2                = "2.20.103"
-  val cassandraDriver        = "3.11.3"
+  val awsSdk                 = "1.12.765"
+  val awsSdk2                = "2.28.3"
+  val cassandraDriver        = "3.11.5"
   val circe                  = "0.14.5"
-  val circeGenericExtras     = "0.14.3"
+  val circeGenericExtras     = "0.14.4"
   val confluentAvroSerde     = "7.4.1"
-  val dropWizard             = "4.2.19"
-  val enumeratum             = "1.7.2"
-  val glueSerde              = "1.1.15"
+  val dropWizard             = "4.2.27"
+  val enumeratum             = "1.7.4"
+  val glueSerde              = "1.1.20"
   val guava                  = "32.1.1-jre"
-  val hadoop                 = "3.3.6"
-  val http4s                 = "0.23.22"
-  val iceberg                = "1.3.0"
-  val jackson                = "2.15.2"
-  val jacksonScalaReflectExt = "2.15.0"
-  val jdbcMssql              = "11.2.0.jre11"
+  val hadoop                 = "3.4.0"
+  val http4s                 = "0.23.28"
+  val iceberg                = "1.6.1"
+  val jackson                = "2.17.2"
+  val jacksonScalaReflectExt = "2.16.0"
+  val jdbcMssql              = "12.8.1.jre11"
   val jdbcMysql              = "8.0.33"
-  val jdbcPg                 = "42.6.0"
+  val jdbcPg                 = "42.7.3"
   val jna                    = "5.13.0" // needed for testcontainers in some JVM
-  val logback                = "1.4.8"
-  val parquet                = "1.13.1"
-  val requests               = "0.8.0"
-  val scalaCheck             = "1.17.0"
+  val logback                = "1.5.8"
+  val parquet                = "1.14.2"
+  val requests               = "0.9.0"
+  val scalaCheck             = "1.18.0"
   val scalaLogging           = "3.9.5"
-  val scalaTest              = "3.2.16"
-  val scalaTestPlus          = "3.2.16.0"
+  val scalaTest              = "3.2.19"
+  val scalaTestPlus          = "3.2.19.0"
   val squants                = "1.8.3"
-  val testContainersScala    = "0.40.17"
-  val typesafeConfig         = "1.4.2"
-  val uuidCreator            = "5.3.2"
-  val mockito                = "1.17.14"
+  val testContainersScala    = "0.41.4"
+  val typesafeConfig         = "1.4.3"
+  val uuidCreator            = "6.0.0"
+  val mockito                = "1.17.37"
 }
 
 val flinkDeps =
@@ -163,7 +163,7 @@ val otherDeps = Seq(
   "org.scalacheck"                  %% "scalacheck"                             % V.scalaCheck,
   "org.scalactic"                   %% "scalactic"                              % V.scalaTest,
   "org.scalatest"                   %% "scalatest"                              % V.scalaTest           % Test,
-  "org.scalatestplus"               %% "scalacheck-1-17"                        % V.scalaTestPlus       % Test,
+  "org.scalatestplus"               %% "scalacheck-1-18"                        % V.scalaTestPlus       % Test,
   "org.typelevel"                   %% "squants"                                % V.squants,
   "software.amazon.awssdk"           % "aws-sdk-java"                           % V.awsSdk2             % Test,
   "software.amazon.awssdk"           % "glue"                                   % V.awsSdk2             % Test,

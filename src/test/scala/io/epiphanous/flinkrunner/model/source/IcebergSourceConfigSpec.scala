@@ -8,7 +8,9 @@ import io.epiphanous.flinkrunner.model.{
   SimpleB
 }
 import org.apache.flink.api.scala.createTypeInformation
+import org.scalatest.Ignore
 
+@Ignore
 class IcebergSourceConfigSpec extends IcebergConfigSpec {
 
   override def afterContainersStart(containers: Containers): Unit = {

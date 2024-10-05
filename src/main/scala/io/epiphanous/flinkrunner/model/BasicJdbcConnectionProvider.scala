@@ -2,7 +2,7 @@ package io.epiphanous.flinkrunner.model
 
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.flink.connector.jdbc.JdbcConnectionOptions
-import org.apache.flink.connector.jdbc.internal.connection.JdbcConnectionProvider
+import org.apache.flink.connector.jdbc.datasource.connections.JdbcConnectionProvider
 
 import java.sql.{Connection, DriverManager}
 import java.util.Properties

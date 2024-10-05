@@ -21,6 +21,7 @@ import org.apache.flink.connector.jdbc.internal.{
 import org.apache.flink.connector.jdbc.{
   JdbcConnectionOptions,
   JdbcExecutionOptions,
+  JdbcSink,
   JdbcStatementBuilder
 }
 import org.apache.flink.streaming.api.scala.DataStream
@@ -571,6 +572,7 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
   def _addSink[E <: ADT: TypeInformation](
       dataStream: DataStream[E],
       statementBuilder: JdbcStatementBuilder[E]): Unit = {
+
     val jdbcOutputFormat =
       new JdbcOutputFormat[E, E, JdbcBatchStatementExecutor[E]](
         new BasicJdbcConnectionProvider(
@@ -581,8 +583,7 @@ case class JdbcSinkConfig[ADT <: FlinkEvent](
         new JdbcSinkStatementExecutorFactory[E, ADT](
           queryDml,
           statementBuilder
-        ),
-        JdbcOutputFormat.RecordExtractor.identity[E]
+        )
       )
     maybeCreateTable()
     dataStream

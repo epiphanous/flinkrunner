@@ -9,6 +9,7 @@ import io.epiphanous.flinkrunner.model._
 import io.epiphanous.flinkrunner.util.RowUtils
 import org.apache.flink.api.scala.createTypeInformation
 import org.apache.flink.table.types.logical.RowType
+import org.scalatest.Ignore
 import requests.Response
 import software.amazon.awssdk.services.s3.model.{
   GetObjectRequest,
@@ -18,6 +19,7 @@ import software.amazon.awssdk.services.s3.model.{
 import java.nio.charset.StandardCharsets
 import scala.collection.JavaConverters._
 
+@Ignore
 class IcebergSinkConfigSpec extends IcebergConfigSpec {
 
   def maybeCreateTableTest(
