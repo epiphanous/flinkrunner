@@ -182,7 +182,7 @@ To enable file sinks to write in parquet format, add the following dependency to
 build:
 
 ```
-"org.apache.parquet" % "parquet-avro" % 1.12.3
+"org.apache.parquet" % "parquet-avro" % 1.14.2
 ```
 
 Add use the `format = parquet` directive in your file sink configuration (more details
